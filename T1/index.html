@@ -1,0 +1,698 @@
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, Copy, Trash2, Check } from 'lucide-react';
+
+// ==========================================
+// 💡 物件特色資料表 (請在此處維護您的選項資料)
+// ==========================================
+// 資料結構：
+// { 
+//   "產品類別名稱": {
+//      "五大分類1": ["選項1", "選項2", ... 到選項15],
+//      "五大分類2": ["選項1", "選項2", ... 到選項15],
+//      ...
+//   }
+// }
+
+const PROPERTY_DATA = {
+  "商辦廠辦": {
+    "建築規劃": [
+"SRC結構耐震佳",
+"知名建築師規劃設計",
+"●●品牌建商口碑佳",
+"現代化智慧辦公",
+"玻璃帷幕現代外觀",
+"大器外觀雋永典藏",
+"挑高格局氣派門廳",
+"室內有水線方便利用",
+"獨立空調加班方便",
+"●客梯●貨梯出入便利",
+"公設機能強方便使用",
+"附●●停車位",
+"有卸貨碼頭物流方便",
+"嶄新落成屋況佳",
+"備迎賓車道",
+    ],
+    "格局景觀": [
+"格局方正好利用",
+"邊間雙面臨路採光佳",
+"高樓層視野佳遠眺美景",
+"室內無柱空間好利用",
+"公設比低使用空間大",
+"挑高樓板空間寬敞",
+"棟距遠視野景觀開闊",
+"一層●戶使用單純",
+"另附露臺方便使用",
+"坐●朝●方位佳",
+"景觀陽台遍覽美景",
+"林蔭大道綠意盎然",
+"面河景棟距寬敞",
+"合法夾層空間大",
+"坐北朝南帝王座向",
+
+    ],
+    "地段商圈": [
+"台北華爾街金融商圈",
+"●●商圈核心位置",
+"銀行林立商業機能強",
+"未來●●開發案",
+"●●重劃區未來可期",
+"正●●路黃金門牌",
+"餐飲連鎖業群聚好便利",
+"●●園區發展力強",
+"上市櫃知名企業雲集",
+"●●靜巷鬧中取靜",
+"●●大道第一排",
+"未來●●園區",
+"產業廊帶樞紐地帶",
+"●●辦公商圈",
+"A級辦公雲集",
+
+    ],
+    "交通動線": [
+"捷運●●站出口旁",
+"●●雙捷運通勤方便",
+"近台鐵●●站",
+"近高鐵●●站",
+"近國道●號●●交流道",
+"近●●快速道路",
+"步行●●分鐘可達●●",
+"門口有●●公車站牌",
+"三鐵共構交通樞紐",
+"未來●●捷運出入口",
+"近●●機場出國便利",
+"交通樞紐四通八達",
+"接駁車方便通勤",
+"主幹道公車路線多",
+"捷運●●線上班方便",
+
+    ],
+    "使用效益": [
+"適合企業總部營運",
+"投資自用皆宜",
+"現成裝潢好利用",
+"單一所有權管理單純",
+"具穩定租金收益",
+"廠辦合一使用便利",
+"適●●業種",
+"適教會、基金會",
+"有獨立出入口進出",
+"●樓店辦有廣告效益",
+"大面寬有廣告效益",
+"未來具改建效益",
+"適合文武百業",
+"全棟大樓完整產權",
+"未來大樓冠名權",
+
+    ]
+  },
+  "工業廠房": {
+    "建築規劃": [
+"挑高鋼構廠房",
+"RC鋼筋混凝土廠",
+"樓地板載重●●",
+"●●部貨梯方便運輸",
+"●●座卸貨碼頭好方便",
+"大型貨梯物流方便",
+"廠房設備狀況佳",
+"備有天車裝吊貨方便",
+"帷幕外觀氣派科技廠",
+"新建廠房嶄新落成",
+"廠況佳可立即進駐",
+"具工業用三相大電",
+"具備污水處理設備",
+"具備冷凍冷藏設備",
+"具無塵室適●●業",
+
+    ],
+    "格局景觀": [
+"廠區平坦完整好規劃",
+"室內挑高空間開闊",
+"臨路面寬約●●米",
+"廠區深度約●●米",
+"廠房挑高約●●米",
+"格局方正好規劃運用",
+"土地臨路大面寬佳",
+"前後臨路出入方便",
+"地形方整利於生產配置",
+"長條型產線好規劃",
+"廠前腹地大好停車",
+"獨棟廠房好排設產線",
+"廠區開闊方便停車卸貨",
+"臨路寬大車進出便利",
+"腹地寬敞好規劃",
+
+    ],
+    "地段商圈": [
+"正●●工業區黃金地段",
+"上市櫃企業總部雲集",
+"●●產業園區大本營",
+"●●工業區乙工廠房",
+"●●軟體園區廠房",
+"●●工業區旁廠房",
+"●●專區",
+"近●●市區招工方便",
+"●●產業上下游群聚",
+"近火車站招工方便",
+"近●●園區",
+"●●工業區開車●●分鐘",
+"上下游產業鏈完整",
+"●●產業群聚",
+"近●●機能強",
+
+    ],
+    "交通動線": [
+"近國道●號●●交流道",
+"國道●號開車●●分鐘",
+"近●●快速道路",
+"四通八達物流效率高",
+"近台北港",
+"近桃園機場國門",
+"近台鐵●●站",
+"近高鐵●●站",
+"省道旁南來北往方便",
+"大眾運輸網絡完善",
+"台●●線主要幹道旁",
+"未來●●交流道",
+"近台一線四通八達",
+"交通便捷物流方便",
+"●●路交通便利",
+
+    ],
+    "使用效益": [
+"丁種建築用地",
+"乙種工業區用地",
+"產業專用區土地",
+"科技工業區土地",
+"可分割出售彈性規劃",
+"適物流運輸倉儲業種",
+"適●●業種",
+"投資自用皆宜",
+"合法廠登可排汙水",
+"合法土地可廠登",
+"可廠可辦企業總部",
+"長期穩定收租",
+"土地大開發效益高",
+"大地坪買地附廠房",
+"廠房稀有釋出",
+
+    ]
+  },
+  "土地": {
+    "建築規劃": [
+"●●住宅區土地",
+"●●商業區土地",
+"●●工業區土地",
+"●●產專區土地",
+"●●科專區土地",
+"法定容積率●●%",
+"法定建蔽率●●%",
+"非都市土地",
+"交通用地",
+"丁種建築用地",
+"保護區土地",
+"山坡地保育區農牧用地",
+"可爭取容積獎勵",
+"TOD適用範圍",
+"甲種建築用地",
+
+    ],
+    "格局景觀": [
+"土地方正雙面臨路",
+"土地大面寬好規劃用",
+"地形方整利於規劃",
+"四面臨路完整大街廓",
+"前後臨路規劃便利",
+"土地方正坪效佳",
+"基地平坦面寬開闊",
+"面公園視野無遮蔽",
+"面河景視野開闊",
+"臨路退縮空間好利用",
+"坐北朝南帝王座向",
+"坐●朝●方位佳",
+"林蔭大道綠意盎然",
+"棟距遠視野景觀開闊",
+"醒目地標位置",
+
+    ],
+    "地段商圈": [
+"商業區核心精華地段",
+"●●●●精華保值地段",
+"●●特區旁機能佳",
+"●●工業區產業群聚效應",
+"●●大道第一排",
+"豪宅聚落名人巷道旁",
+"●●靜巷鬧中取靜",
+"正●●路黃金門牌",
+"●●重劃區未來可期",
+"未來●●開發案",
+"未來●●園區",
+"上市櫃企業總部雲集",
+"●●學區",
+"●●精華商圈",
+"產業廊帶樞紐地帶",
+
+    ],
+    "交通動線": [
+"捷運●●站出口旁",
+"未來●●捷運出入口",
+"交通樞紐四通八達",
+"步行●●分鐘可達●●",
+"近●●快速道路",
+"捷運●●線",
+"●●雙捷運通勤方便",
+"近台鐵●●站",
+"近高鐵●●站",
+"大眾運輸網絡完善",
+"近桃園機場國門",
+"近●●機場出國便利",
+"●●雙捷運通勤方便",
+"門口有●●公車站牌",
+"主幹道公車路線多",
+
+    ],
+    "使用效益": [
+"帶建照出售",
+"危老都更改建潛力大",
+"可分割出售彈性大",
+"投資自用置產皆適宜",
+"適資產傳承配置規劃",
+"周邊土地可整合擴大",
+"都市更新未來可期",
+"稀有大面積土地釋出",
+"節稅理財好標的",
+"適●●產業",
+"適●●客群",
+"適合興建企業總部",
+"適宗教團體基金會",
+"產權單純整合改建",
+"適合開發為●●",
+
+    ]
+  },
+  "店面零售": {
+    "建築規劃": [
+"一樓挑高約●米",
+"一加二樓使用空間大",
+"透天型店面",
+"地下商場空間大",
+"純一樓金店面",
+"兩間店面打通面寬大",
+"多樓層店面",
+"室內獨立梯上下方便",
+"一樓加地下室店面",
+"可設立直招",
+"獨立店招廣告效益佳",
+"雙開大門進出方便",
+"前面停車好方便",
+"另附●●車位",
+"另有車位可加購",
+
+    ],
+    "格局景觀": [ 
+"大面寬店效高",
+"面寬約●●米",
+"三角窗店面店效好",
+"雙面臨路出入方便",
+"前後臨路出入方便",
+"騎樓便利人潮眾多",
+"招牌醒目廣告效益佳",
+"中間無柱好規劃",
+"坐●朝●方位佳",
+"●●樓店面CP值高",
+"獨立出入口店效好",
+"面臨約●●米寬道路",
+"正●●路三角窗店",
+"醒目地標店面",
+"角間醒目店面",
+
+    ],
+    "地段商圈": [
+"●●精華商圈",
+"●●商圈稀有釋出",
+"●●商圈核心地段",
+"●●門口前透天店",
+"●●市場人潮錢潮多",
+"●●夜市中心金店面",
+"●●商圈人潮眾多",
+"●●捷運商圈",
+"●●學區商圈",
+"傳統市場消費力道強",
+"知名連鎖店聚集地段",
+"辦公商圈人潮眾多",
+"品牌林立一級零售商圈",
+"知名景點遊客眾多",
+"知名大樓一樓店面",
+
+    ],
+    "交通動線": [
+"捷運●●站出口旁",
+"●●雙捷運通勤方便",
+"近台鐵●●站",
+"近高鐵●●站",
+"未來●●捷運出入口",
+"步行●●分鐘可達●●",
+"三鐵共構交通樞紐",
+"交通樞紐四通八達",
+"主幹道公車路線多",
+"●●公車站牌",
+"捷運●●站人潮多",
+"●●圓環車水馬龍",
+"正●●大馬路上",
+"近●●轉運站",
+"近未來●●●●",
+
+    ],
+    "使用效益": [
+"知名企業穩定承租中",
+"知名●●業穩定收租",
+"適合醫美補教健身房",
+"自營收租置產皆適宜",
+"現隔●●店面穩定收租",
+"租金投報率佳收益穩",
+"可店可辦好規劃",
+"適合文武百業",
+"未來具改建效益",
+"適合●●●●業",
+"透天店面具重建價值",
+"適資產傳承配置規劃",
+"低總價好入手金店面",
+"傳家金店保值好選擇",
+"原有裝潢好利用",
+
+    ]
+  },
+  "住宅": {
+    "建築規劃": [
+"SC鋼骨結構耐震",
+"●●建築師作品",
+"知名建商有口碑",
+"新古典風格建築外觀",
+"巴洛克風格建築外觀",
+"綠建築黃金級規劃",
+"歐式建築電梯別墅",
+"傳世精工石材外觀",
+"獨棟透天大地坪",
+"日系精工營建品質",
+"隔音抗噪寧靜家園",
+"有電動車充電位",
+"豪宅標配頂級建材",
+"現代美學簡約典雅",
+"智慧科技整合建築",
+
+    ],
+    "格局景觀": [
+"採光通風明亮舒暢",
+"邊間雙面採光",
+"寬敞客廳氣派大方",
+"獨棟雙併純住隱密",
+"第一排棟距遠",
+"三面採光通風佳",
+"格局方正好規劃",
+"高樓層景觀視野佳",
+"坐北朝南帝王座向",
+"坐●朝●方位佳",
+"眺望●●●●",
+"前後棟距開闊",
+"城市天際盡收眼底",
+"山景環繞自然景致",
+"面公園景觀視野佳",
+
+    ],
+    "地段商圈": [
+"精華區域地段優勢",
+"明星學區指名度高",
+"百貨商圈機能佳",
+"●●大道身份象徵",
+"豪宅聚落名人巷道旁",
+"蛋黃區核心地段",
+"近●●機能方便",
+"●●重劃區未來可期",
+"未來●●開發案",
+"●●學區",
+"●●精華商圈",
+"●●靜巷鬧中取靜",
+"未來●●開發案",
+"未來●●園區",
+"公園為鄰健康生活",
+
+    ],
+    "交通動線": [
+"捷運●●站出口旁",
+"未來●●捷運出入口",
+"交通樞紐四通八達",
+"步行●●分鐘可達●●",
+"近●●快速道路",
+"捷運●●線",
+"●●雙捷運通勤方便",
+"近台鐵●●站",
+"近高鐵●●站",
+"大眾運輸網絡完善",
+"近桃園機場國門",
+"近●●機場出國便利",
+"●●雙捷運通勤方便",
+"門口有●●公車站牌",
+"主幹道公車路線多",
+
+    ],
+    "使用效益": [
+"稀有地段投資首選",
+"長期增值潛力可期",
+"投資自用兩相宜",
+"飯店管理尊榮服務",
+"長期置產穩健收益",
+"小資首選輕鬆成家",
+"適家族置產購屋",
+"可分戶出售彈性大",
+"都市更新未來可期",
+"危老都更改建潛力大",
+"財富傳承傳家寶",
+"保值抗通膨首選",
+"附贈頂級裝潢",
+"屋況良好立即可用",
+"換屋族首選",
+
+    ]
+  }
+};
+
+const CATEGORIES = ["建築規劃", "格局景觀", "地段商圈", "交通動線", "使用效益"];
+const PRODUCT_TYPES = Object.keys(PROPERTY_DATA);
+const MAX_SELECTIONS = 8;
+
+export default function App() {
+  const [activeProduct, setActiveProduct] = useState(PRODUCT_TYPES[0]);
+  const [selectedFeatures, setSelectedFeatures] = useState([]);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // 切換產品時清空已選項目
+  useEffect(() => {
+    setSelectedFeatures([]);
+  }, [activeProduct]);
+
+  const toggleFeature = (feature) => {
+    if (selectedFeatures.includes(feature)) {
+      setSelectedFeatures(selectedFeatures.filter(f => f !== feature));
+    } else {
+      if (selectedFeatures.length < MAX_SELECTIONS) {
+        setSelectedFeatures([...selectedFeatures, feature]);
+      }
+    }
+  };
+
+  const clearAll = () => {
+    setSelectedFeatures([]);
+  };
+
+  const handleCopy = () => {
+    if (selectedFeatures.length === 0) return;
+    
+    // 組合文字格式
+    const textToCopy = `【${activeProduct} 物件特色】\n` + 
+                       selectedFeatures.map((f, idx) => `${idx + 1}. ${f}`).join('\n');
+
+    const textArea = document.createElement("textarea");
+    textArea.value = textToCopy;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('複製失敗', err);
+    }
+    document.body.removeChild(textArea);
+  };
+
+  const currentData = PROPERTY_DATA[activeProduct];
+
+  return (
+    <div className="min-h-screen bg-gray-100 font-sans text-gray-800 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-600">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
+            物件特色提詞機 
+            <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200 uppercase tracking-wide">
+              Beta
+            </span>
+          </h1>
+          <p className="text-gray-500 mt-2">請依序選取產品與特色，快速產生您的物件特色，最多選取8個，並可按下方一鍵複製文字。</p>
+          <p className="text-gray-500 mt-2">提詞內容僅供參考，若特色文字中有●●，請自行替換成符合委託物件之文字內容</p>
+          <p className="text-gray-500 mt-2">若有標註尺寸幾米或邊間、臨路面寬等有包含數字之內容，請確實查核資料</p>
+        </div>
+
+        {/* 步驟一：選擇產品類別 */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <span className="bg-blue-100 text-blue-700 w-6 h-6 rounded-full inline-flex items-center justify-center text-sm mr-2">1</span>
+            請先選取產品類別
+          </h2>
+          {/* 因為增加到5個類別，把 md:grid-cols-4 改成 md:grid-cols-5 讓寬度平均分配 */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {PRODUCT_TYPES.map(type => (
+              <button
+                key={type}
+                onClick={() => setActiveProduct(type)}
+                className={`py-3 px-4 rounded-lg font-medium transition-all duration-200 border-2 
+                  ${activeProduct === type 
+                    ? 'border-blue-600 bg-blue-600 text-white shadow-md' 
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50'
+                  }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 上下排版：上方選項 + 下方結果 */}
+        <div className="flex flex-col gap-6">
+          
+          {/* 步驟二：選取物件特色 */}
+          <div className="bg-white rounded-xl shadow-sm p-6 w-full">
+            <div className="mb-6 border-b pb-6">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center mb-4">
+                <span className="bg-blue-100 text-blue-700 w-6 h-6 rounded-full inline-flex items-center justify-center text-sm mr-2">2</span>
+                請從下面的介紹選取8個物件特色
+              </h2>
+              
+              {/* 獨立置中且放大的選取進度提示 */}
+              <div className="flex justify-center">
+                <span className={`px-8 py-3 rounded-full text-xl md:text-2xl font-bold shadow-sm tracking-wide transition-colors border-2 ${
+                  selectedFeatures.length === MAX_SELECTIONS 
+                    ? 'bg-green-100 text-green-700 border-green-400' 
+                    : 'bg-blue-50 text-blue-700 border-blue-300'
+                }`}>
+                  你已經選取 {selectedFeatures.length}/{MAX_SELECTIONS} 項目
+                </span>
+              </div>
+            </div>
+
+            {/* 五大分類 Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {CATEGORIES.map(category => (
+                <div key={category} className="flex flex-col">
+                  <div className="bg-gray-800 text-white text-center py-2 rounded-t-lg font-bold text-sm tracking-wider">
+                    {category}
+                  </div>
+                  <div className="bg-gray-50 p-2 rounded-b-lg border border-t-0 border-gray-200 flex-grow">
+                    <div className="flex flex-col gap-2">
+                      {currentData[category]?.map((item, index) => {
+                        const isSelected = selectedFeatures.includes(item);
+                        const isDisabled = !isSelected && selectedFeatures.length >= MAX_SELECTIONS;
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => toggleFeature(item)}
+                            disabled={isDisabled}
+                            className={`
+                              text-left px-3 py-2 rounded text-sm transition-all duration-150 flex items-start gap-2
+                              ${isSelected 
+                                ? 'bg-blue-600 text-white shadow-md' 
+                                : isDisabled 
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                  : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200'}
+                            `}
+                          >
+                            <div className="mt-0.5 shrink-0">
+                              {isSelected ? <CheckCircle2 size={16} /> : <div className="w-4 h-4 rounded-full border border-gray-300"></div>}
+                            </div>
+                            <span className="leading-snug">{item}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 下方：已選項目清單區 */}
+          <div className="bg-white rounded-xl shadow-sm p-6 w-full flex flex-col">
+             <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <CheckCircle2 className="text-blue-600" />
+                  已選特色區
+                </h3>
+                {selectedFeatures.length > 0 && (
+                  <button onClick={clearAll} className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1">
+                    <Trash2 size={14} /> 清空
+                  </button>
+                )}
+             </div>
+
+             {/* 網格排列：已選項目 */}
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+               {[...Array(MAX_SELECTIONS)].map((_, i) => (
+                 <div 
+                  key={i} 
+                  className={`
+                    flex items-center p-3 rounded-lg border-2 border-dashed
+                    ${selectedFeatures[i] 
+                      ? 'border-blue-300 bg-blue-50 text-blue-800 font-medium' 
+                      : 'border-gray-200 bg-gray-50 text-gray-400'}
+                  `}
+                 >
+                   <span className="w-6 font-bold opacity-50 text-sm mr-2">#{i + 1}</span>
+                   <span className="truncate">{selectedFeatures[i] || '尚未選取'}</span>
+                 </div>
+               ))}
+             </div>
+
+             <div className="flex flex-col items-center">
+                 <button
+                   onClick={handleCopy}
+                   disabled={selectedFeatures.length === 0}
+                   className={`
+                     w-full md:w-1/2 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 transition-all
+                     ${selectedFeatures.length > 0 
+                        ? copySuccess 
+                            ? 'bg-green-500 text-white hover:bg-green-600' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+                   `}
+                 >
+                   {copySuccess ? (
+                     <>
+                      <Check size={20} /> 已複製文字！
+                     </>
+                   ) : (
+                     <>
+                      <Copy size={20} /> 一鍵複製特色文字
+                     </>
+                   )}
+                 </button>
+                 {selectedFeatures.length === 0 && (
+                   <p className="text-center text-sm text-gray-400 mt-3">請先選取至少一項特色</p>
+                 )}
+             </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}

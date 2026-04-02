@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>辦公空間需求計算器 (專業仲介版)</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+        }
+
+        /* CAD Styling */
+        .cad-wall { fill: none; stroke: #0f172a; stroke-width: 2.5; stroke-linecap: square; }
+        .cad-furniture { fill: #f1f5f9; stroke: #475569; stroke-width: 1.2; }
+        .cad-chair { fill: #e2e8f0; stroke: #334155; stroke-width: 1.2; }
+        .cad-dim-line { stroke: #64748b; stroke-width: 0.8; }
+        .cad-dim-text { font-family: monospace; font-size: 9px; fill: #475569; font-weight: bold; }
+        .cad-door-swing { fill: none; stroke: #64748b; stroke-width: 1; stroke-dasharray: 3,3; }
+
+        /* Loader */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid #ffffff;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Input styling */
+        input[type=number] {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button {  
+           -webkit-appearance: none;
+           margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* Print Container Handling */
+        #print-staging-area {
+            position: fixed;
+            left: -9999px;
+            top: 0;
+            z-index: -100;
+        }
+
+        /* A4 specific width for the staging pages */
+        .a4-page {
+            width: 794px; /* A4 width at 96 DPI */
+            min-height: 1123px; /* A4 height */
+            padding: 40px;
+            background: white;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .area-rect { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const DATA = {
+            desk: {
+                small: { label: "高密度 3.5m²", area: 3.5, desc: "適合高密度排排坐或流動辦公位 (約 3.5 m²/人)" },
+                medium: { label: "標準 5.0m²", area: 5.0, desc: "標準 L 型屏風座位，兼顧隱私與效率 (約 5.0 m²/人)" },
+                large: { label: "寬敞 7.5m²", area: 7.5, desc: "獨立大桌或主管位，空間寬敞舒適 (約 7.5 m²/人)" }
+            },
+            room: {
+                standardManager: { label: "標準主管室", area: 12 },
+                seniorExec: { label: "高級主管室", area: 24 },
+                phoneBooth: { label: "電話亭/專注", area: 2 },
+                meetSmall: { label: "小洽談室", area: 10 },
+                meetMedium: { label: "中會議室", area: 20 },
+                meetLarge: { label: "大會議室", area: 45 },
+                boardOffice: { label: "董事會議室", area: 60 },
+            }
+        };
+
+        // --- Component: Smart Control Input ---
+        const SmartControl = ({ value, onChange, min = 0, step = 1, unit = "", large = false }) => {
+            const handleDecrement = () => {
+                const current = value === '' ? 0 : parseFloat(value);
+                const next = Math.max(min, current - step);
+                onChange(parseFloat(next.toFixed(2)));
+            };
+            const handleIncrement = () => {
+                const current = value === '' ? 0 : parseFloat(value);
+                const next = current + step;
+                onChange(parseFloat(next.toFixed(2)));
+            };
+            const handleInputChange = (e) => {
+                const val = e.target.value;
+                if (val === '') { onChange(''); return; }
+                // Allow decimal point and digits
+                if (!isNaN(val)) { onChange(val); }
+            };
+            const handleBlur = () => {
+                if (value === '' || value === '.') { onChange(min); } 
+                else { onChange(parseFloat(value)); }
+            };
+
+            return (
+                <div className={`flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-sm ${large ? 'h-12 max-w-[160px]' : 'h-10 max-w-[120px]'} w-full`}>
+                    <button onClick={handleDecrement} className={`${large ? 'w-12' : 'w-10'} h-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 border-r border-slate-200 active:bg-slate-300 transition-colors touch-manipulation`} type="button"><i className="fas fa-minus text-xs"></i></button>
+                    <div className="flex-grow relative h-full min-w-[30px]">
+                        <input type="number" inputMode="decimal" value={value} onChange={handleInputChange} onBlur={handleBlur} className={`w-full h-full text-center font-bold text-slate-800 outline-none bg-white px-0 ${large ? 'text-lg' : 'text-sm'}`} placeholder="0"/>
+                        {unit && <span className="absolute right-0 top-1/2 transform -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none bg-white pr-2">{unit}</span>}
+                    </div>
+                    <button onClick={handleIncrement} className={`${large ? 'w-12' : 'w-10'} h-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 border-l border-slate-200 active:bg-slate-300 transition-colors touch-manipulation`} type="button"><i className="fas fa-plus text-xs"></i></button>
+                </div>
+            );
+        };
+
+        // --- Extracted Components (Crucial Fix: Moved outside App to maintain focus) ---
+        
+        const StaffCard = ({ group, index, onChange, onRemove }) => (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3 relative hover:border-blue-300 transition-colors">
+                <div className="flex justify-between items-center mb-3">
+                    <span className="font-bold text-slate-700 text-sm flex items-center">
+                        <span className="w-1.5 h-4 bg-blue-500 rounded-full mr-2"></span>{group.name}
+                    </span>
+                    {onRemove && (
+                        <button onClick={onRemove} className="text-slate-400 hover:text-red-500 transition-colors px-2"><i className="fas fa-trash-alt"></i></button>
+                    )}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">現有人數</label>
+                        <SmartControl value={group.headcount} onChange={(val)=>onChange(index, 'headcount', val)} min={0} />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">成長 %</label>
+                        <SmartControl value={group.growth} onChange={(val)=>onChange(index, 'growth', val)} min={0} unit="%" />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">座位配置風格</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {['small', 'medium', 'large'].map(t => (
+                            <div 
+                                key={t} 
+                                onClick={()=>onChange(index, 'deskType', t)}
+                                className={`cursor-pointer border rounded-lg overflow-hidden transition-all ${group.deskType === t ? 'border-blue-500 ring-1 ring-blue-200 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
+                            >
+                                <div className="h-10 sm:h-14 bg-white p-1 relative">
+                                        <div className="absolute inset-0 flex items-center justify-center"><SvgDesk type={t} /></div>
+                                </div>
+                                <div className={`text-[10px] sm:text-xs py-1.5 text-center font-bold truncate px-1 ${group.deskType === t ? 'bg-blue-500 text-white' : 'bg-slate-50 text-slate-500'}`}>
+                                    {DATA.desk[t].label}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+
+        const SectionHeader = ({ icon, title, color = "text-slate-800" }) => (
+            <div className={`flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 ${color}`}><div className="w-8 h-8 rounded-full bg-white border border-slate-300 shadow-sm flex items-center justify-center flex-shrink-0"><i className={`fas ${icon} text-sm`}></i></div><h3 className="font-bold text-lg">{title}</h3></div>
+        );
+
+        const RoomCard = ({ type, label, area, value, onChange }) => (
+            <div className="flex items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition-colors min-h-[5rem]">
+                <div className="w-20 sm:w-24 h-16 bg-slate-50 border border-slate-100 rounded-lg flex-shrink-0 overflow-hidden mr-3 relative"><div className="absolute inset-0 transform scale-150 origin-center flex items-center justify-center"><SvgRoom type={type} /></div></div>
+                <div className="flex-grow flex flex-col justify-center min-w-0 pr-2">
+                    <div className="font-bold text-slate-700 text-sm truncate leading-tight mb-1">{label}</div>
+                    <div className="text-[11px] text-slate-400 font-medium">{area} m²</div>
+                </div>
+                <div className="flex-shrink-0"><SmartControl value={value} onChange={onChange} min={0} /></div>
+            </div>
+        );
+
+        const SupportInput = ({ label, icon, value, onChange, unit="m²" }) => (
+            <div className="bg-white p-2 rounded-lg border border-slate-300 flex items-center justify-between h-12">
+                <div className="flex items-center gap-2 overflow-hidden mr-2"><i className={`fas ${icon} text-slate-400 w-4 text-center flex-shrink-0`}></i><span className="text-sm font-bold text-slate-600 truncate">{label}</span></div>
+                <div className="flex-shrink-0"><SmartControl value={value} onChange={onChange} min={0} unit={unit} /></div>
+            </div>
+        );
+
+        // --- Component: Stacked Bar Chart ---
+        const SpaceUsageBar = ({ data, total }) => {
+            if (!total || total === 0) return null;
+            return (
+                <div className="w-full mb-6">
+                    <div className="flex h-8 w-full rounded-lg overflow-hidden border border-slate-300 shadow-sm mb-4 bg-white">
+                        {data.map((item, idx) => (
+                            <div key={idx} className="h-full transition-all duration-500 relative group border-r border-white/20 last:border-0" style={{ width: `${(item.value / total) * 100}%`, backgroundColor: item.color }}></div>
+                        ))}
+                    </div>
+                    <div className="flex flex-col gap-y-2">
+                        {data.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm border-b border-dashed border-slate-200 pb-1">
+                                <div className="flex items-center">
+                                    <div className="w-3 h-3 rounded-full mr-3 shadow-sm flex-shrink-0" style={{ backgroundColor: item.color }}></div>
+                                    <span className="text-slate-700 font-bold">{item.label}</span>
+                                </div>
+                                <div className="text-slate-900 font-bold font-mono">
+                                    {item.value?.toFixed(0)} <span className="text-xs font-normal text-slate-500">m²</span>
+                                    <span className="ml-2 text-xs text-slate-600 font-bold w-12 inline-block text-right">{((item.value/total)*100).toFixed(0)}%</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Component: Hierarchy Area Treemap (Updated for Custom Styling) ---
+        const AreaTreemap = ({ results, containerClass, svgClass }) => {
+            if (!results.rentableArea) return null;
+            const w = 400; const h = 220; 
+            const loadRatio = (results.rentableArea - results.usableArea) / results.rentableArea;
+            const loadW = w * loadRatio; const usableW = w - loadW;
+            const circRatio = (results.usableArea - results.netArea) / results.usableArea;
+            const circH = h * circRatio; const netH = h - circH;
+            const netArea = results.netArea;
+            const deskRatio = results.areaDesk / netArea; const roomRatio = results.areaRooms / netArea; const supportRatio = results.areaSupport / netArea;
+            const deskW = usableW * deskRatio; const roomW = usableW * roomRatio; const supportW = usableW * supportRatio;
+            
+            const cLoad = "#64748b"; const cCirc = "#8b5cf6"; const cDesk = "#3b82f6"; const cRoom = "#10b981"; const cSupp = "#f59e0b"; 
+            const getPct = (val) => `${((val / results.rentableArea) * 100).toFixed(0)}%`;
+
+            // Default classes if not provided
+            const finalContainerClass = containerClass || "w-full select-none mt-6 pt-4 border-t border-slate-200";
+            const finalSvgClass = svgClass || "w-full h-auto rounded-lg shadow border border-slate-300 bg-white";
+
+            return (
+                <div className={finalContainerClass}>
+                    <h4 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">面積結構分佈 (Structure)</h4>
+                    <svg viewBox={`0 0 ${w} ${h}`} className={finalSvgClass}>
+                        <rect x={usableW} y={0} width={loadW} height={h} fill={cLoad} className="area-rect stroke-white stroke-[2px]" />
+                        <text x={usableW + loadW/2} y={h/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" transform={`rotate(90, ${usableW + loadW/2}, ${h/2})`} style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>公設 {(results.rentableArea - results.usableArea).toFixed(0)}m²</text>
+
+                        <rect x={0} y={netH} width={usableW} height={circH} fill={cCirc} className="area-rect stroke-white stroke-[2px]" />
+                        <text x={usableW/2} y={netH + circH/2 + 4} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>走道{(results.usableArea - results.netArea).toFixed(0)}m²</text>
+
+                        <rect x={0} y={0} width={deskW} height={netH} fill={cDesk} className="area-rect stroke-white stroke-[2px]" />
+                        {deskW > 45 && (<text x={deskW/2} y={netH/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW/2} dy="-0.6em">座位</tspan><tspan x={deskW/2} dy="1.2em" fontSize="10">{results.areaDesk.toFixed(0)}m²</tspan></text>)}
+                        
+                        <rect x={deskW} y={0} width={roomW} height={netH} fill={cRoom} className="area-rect stroke-white stroke-[2px]" />
+                        {roomW > 45 && (<text x={deskW + roomW/2} y={netH/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW + roomW/2} dy="-0.6em">房間</tspan><tspan x={deskW + roomW/2} dy="1.2em" fontSize="10">{results.areaRooms.toFixed(0)}m²</tspan></text>)}
+                        
+                        <rect x={deskW + roomW} y={0} width={usableW - deskW - roomW} height={netH} fill={cSupp} className="area-rect stroke-white stroke-[2px]" />
+                        {(usableW - deskW - roomW) > 45 && (<text x={deskW + roomW + (usableW - deskW - roomW)/2} y={netH/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW + roomW + (usableW - deskW - roomW)/2} dy="-0.6em">支援</tspan><tspan x={deskW + roomW + (usableW - deskW - roomW)/2} dy="1.2em" fontSize="10">{results.areaSupport.toFixed(0)}m²</tspan></text>)}
+                    </svg>
+                </div>
+            );
+        };
+
+        // --- CAD SVG Components ---
+        const SvgDefs = () => (<defs><marker id="arrow-start" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M6,0 L0,3 L6,6" fill="none" stroke="#64748b" strokeWidth="1" /></marker><marker id="arrow-end" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#64748b" strokeWidth="1" /></marker></defs>);
+        const Chair = ({ x, y, r = 0, scale = 1 }) => (<g transform={`translate(${x},${y}) rotate(${r}) scale(${scale})`}><rect x="-7" y="-7" width="14" height="14" rx="2" className="cad-chair" /><path d="M-7 -4 Q0 -8 7 -4" fill="none" stroke="#334155" /><line x="-8" y1="0" x2="-8" y2="6" stroke="#334155" strokeWidth="1" /><line x1="8" y1="0" x2="8" y2="6" stroke="#334155" strokeWidth="1" /></g>);
+        const Dimension = ({ x1, y1, x2, y2, text, offset = 10, vertical = false }) => { if (vertical) return (<g><line x1={x1-offset} y1={y1} x2={x1-offset} y2={y2} className="cad-dim-line" markerStart="url(#arrow-start)" markerEnd="url(#arrow-end)" /><text x={x1-offset-4} y={(y1+y2)/2} className="cad-dim-text" transform={`rotate(-90 ${x1-offset-4} ${(y1+y2)/2})`} textAnchor="middle">{text}</text></g>); return (<g><line x1={x1} y1={y1+offset} x2={x2} y2={y2+offset} className="cad-dim-line" markerStart="url(#arrow-start)" markerEnd="url(#arrow-end)" /><text x={(x1+x2)/2} y={y1+offset+8} className="cad-dim-text" textAnchor="middle">{text}</text></g>); };
+
+        const SvgDesk = ({ type }) => {
+            return (
+                <svg viewBox="0 0 160 120" className="w-full h-full bg-white" preserveAspectRatio="xMidYMid meet"><SvgDefs />
+                    {type === 'small' && (<g transform="translate(20,20)"><rect x="0" y="20" width="120" height="40" className="cad-furniture" /><line x1="0" y1="40" x2="120" y2="40" stroke="#94a3b8" strokeDasharray="2,2" /><line x1="60" y1="20" x2="60" y2="60" stroke="#94a3b8" /><Chair x={30} y={10} r={180} /> <Chair x={90} y={10} r={180} /><Chair x={30} y={70} r={0} /> <Chair x={90} y={70} r={0} /><Dimension x1={0} y1={60} x2={60} y2={60} text="120" offset={15} /><Dimension x1={125} y1={20} x2={125} y2={60} text="140" offset={-5} vertical={true} /></g>)}
+                    {type === 'medium' && (<g transform="translate(30,20)"><path d="M0 0 H60 V60 H0 Z" fill="none" stroke="#94a3b8" strokeDasharray="2,2" /><path d="M60 0 H120 V60 H60 Z" fill="none" stroke="#94a3b8" strokeDasharray="2,2" /><path d="M2 2 H58 V58 H38 V22 H2 Z" className="cad-furniture" /><Chair x={30} y={40} r={0} /><path d="M62 2 H118 V58 H98 V22 H62 Z" className="cad-furniture" /><Chair x={90} y={40} r={0} /><Dimension x1={0} y1={60} x2={60} y2={60} text="150" offset={10} /><Dimension x1={125} y1={0} x2={125} y2={60} text="150" offset={-5} vertical={true} /></g>)}
+                    {type === 'large' && (<g transform="translate(30,25)"><rect x="0" y="0" width="100" height="15" className="cad-furniture" /><rect x="10" y="35" width="80" height="35" className="cad-furniture" /><rect x="70" y="35" width="20" height="50" className="cad-furniture" /><Chair x={50} y={25} r={180} /><Dimension x1={10} y1={70} x2={90} y2={70} text="180" offset={10} /></g>)}
+                </svg>
+            );
+        };
+
+        const SvgRoom = ({ type }) => {
+            return (
+                <svg viewBox="0 0 200 160" className="w-full h-full bg-white border border-slate-300" preserveAspectRatio="xMidYMid meet"><SvgDefs />
+                    {type === 'standard' && (<g transform="translate(40,30)"><rect x="0" y="0" width="120" height="90" className="cad-wall" /><path d="M0 70 A 20 20 0 0 1 20 90" className="cad-door-swing" /><line x1="0" y1="70" x2="0" y2="90" stroke="white" strokeWidth="4" /><line x1="0" y1="90" x2="20" y2="75" stroke="#1f2937" strokeWidth="1.5" /><rect x="20" y="10" width="60" height="25" className="cad-furniture" /><Chair x={50} y={45} r={180} /><circle cx="90" cy="60" r="15" className="cad-furniture" /><Chair x={90} y={40} r={180} /> <Chair x={75} y={70} r={300} /> <Chair x={105} y={70} r={60} /><Dimension x1={0} y1={90} x2={120} y2={90} text="400" offset={10} /><Dimension x1={120} y1={0} x2={120} y2={90} text="300" offset={-10} vertical={true} /></g>)}
+                    {type === 'senior' && (<g transform="translate(30,20)"><rect x="0" y="0" width="140" height="120" className="cad-wall" /><path d="M0 100 A 20 20 0 0 1 20 120" className="cad-door-swing" /><line x1="0" y1="100" x2="0" y2="120" stroke="white" strokeWidth="4" /><rect x="20" y="35" width="70" height="35" className="cad-furniture" /><Chair x={55} y={25} r={180} /><rect x="100" y="20" width="30" height="80" fill="#f1f5f9" stroke="#94a3b8" /><rect x="110" y="30" width="10" height="20" className="cad-chair" /><rect x="110" y="70" width="10" height="20" className="cad-chair" /><Dimension x1={0} y1={120} x2={140} y2={120} text="500" offset={10} /><Dimension x1={140} y1={0} x2={140} y2={120} text="500" offset={-10} vertical={true} /></g>)}
+                    {type === 'board' && (<g transform="translate(10,10)"><rect x="0" y="0" width="180" height="140" className="cad-wall" /><path d="M0 120 A 20 20 0 0 1 20 140" className="cad-door-swing" /><line x1="0" y1="120" x2="0" y2="140" stroke="white" strokeWidth="4" /><rect x="40" y="40" width="100" height="60" rx="20" className="cad-furniture" /><Chair x={30} y={50} r={90} /> <Chair x={30} y={70} r={90} /> <Chair x={30} y={90} r={90} /><Chair x={150} y={50} r={270} /> <Chair x={150} y={70} r={270} /> <Chair x={150} y={90} r={270} /><Chair x={60} y={30} r={180} /> <Chair x={90} y={30} r={180} /> <Chair x={120} y={30} r={180} /><Chair x={60} y={110} r={0} /> <Chair x={90} y={110} r={0} /> <Chair x={120} y={110} r={0} /><Dimension x1={0} y1={140} x2={180} y2={140} text="750" offset={10} /><Dimension x1={180} y1={0} x2={180} y2={140} text="800" offset={-10} vertical={true} /></g>)}
+                    {type === 'small' && (<g transform="translate(50,30)"><rect x="0" y="0" width="100" height="100" className="cad-wall" /><path d="M0 80 A 20 20 0 0 1 20 100" className="cad-door-swing" /><line x1="0" y1="80" x2="0" y2="100" stroke="white" strokeWidth="4" /><circle cx="50" cy="50" r="25" className="cad-furniture" /><Chair x={50} y={20} r={180} /> <Chair x={50} y={80} r={0} /><Chair x={20} y={50} r={90} /> <Chair x={80} y={50} r={270} /><Dimension x1={0} y1={100} x2={100} y2={100} text="330" offset={10} /><Dimension x1={100} y1={0} x2={100} y2={100} text="300" offset={-10} vertical={true} /></g>)}
+                    {type === 'medium' && (<g transform="translate(30,30)"><rect x="0" y="0" width="140" height="100" className="cad-wall" /><path d="M0 80 A 20 20 0 0 1 20 100" className="cad-door-swing" /><line x1="0" y1="80" x2="0" y2="100" stroke="white" strokeWidth="4" /><rect x="40" y="35" width="60" height="30" rx="5" className="cad-furniture" /><Chair x={50} y={25} r={180} /> <Chair x={70} y={25} r={180} /> <Chair x={90} y={25} r={180} /><Chair x={50} y={75} r={0} /> <Chair x={70} y={75} r={0} /> <Chair x={90} y={75} r={0} /><Dimension x1={0} y1={100} x2={140} y2={100} text="500" offset={10} /><Dimension x1={140} y1={0} x2={140} y2={100} text="400" offset={-10} vertical={true} /></g>)}
+                    {type === 'large' && (<g transform="translate(20,20)"><rect x="0" y="0" width="160" height="110" className="cad-wall" /><path d="M0 90 A 20 20 0 0 1 20 110" className="cad-door-swing" /><line x1="0" y1="90" x2="0" y2="110" stroke="white" strokeWidth="4" /><rect x="40" y="40" width="80" height="30" className="cad-furniture" /><Chair x={50} y={30} r={180} /> <Chair x={70} y={30} r={180} /> <Chair x={90} y={30} r={180} /> <Chair x={110} y={30} r={180} /><Chair x={50} y={80} r={0} /> <Chair x={70} y={80} r={0} /> <Chair x={90} y={80} r={0} /> <Chair x={110} y={80} r={0} /><Chair x={30} y={55} r={90} /> <Chair x={130} y={55} r={270} /><Dimension x1={0} y1={110} x2={160} y2={110} text="800" offset={10} /><Dimension x1={160} y1={0} x2={160} y2={110} text="550" offset={-10} vertical={true} /></g>)}
+                    {type === 'phone' && (<g transform="translate(80,40)"><rect x="0" y="0" width="40" height="40" className="cad-wall" /><path d="M0 30 A 10 10 0 0 1 10 40" className="cad-door-swing" /><line x1="0" y1="30" x2="0" y2="40" stroke="white" strokeWidth="4" /><line x1="0" y1="30" x2="10" y2="40" stroke="#1f2937" strokeWidth="1.5" /><rect x="5" y="5" width="30" height="10" className="cad-furniture" /><Chair x={20} y={25} r={0} scale={0.8} /><Dimension x1={0} y1={40} x2={40} y2={40} text="150" offset={5} /><Dimension x1={40} y1={0} x2={40} y2={40} text="150" offset={-5} vertical={true} /></g>)}
+                </svg>
+            );
+        };
+
+        // --- New Component: Detailed Audit (Reusable) ---
+        const DetailedAudit = ({ inputs, results, DATA }) => {
+            // Helper to render Staff rows
+            const renderStaffRows = () => {
+                 return inputs.staffGroups.map(g => {
+                   const count = g.headcount || 0;
+                   const growth = g.growth || 0;
+                   const ppl = Math.ceil((count * (100 + growth)) / 100);
+                   const desks = Math.ceil(ppl * g.sharing);
+                   const area = desks * DATA.desk[g.deskType].area;
+                   return (
+                       <div key={g.id} className="mb-2 pb-2 border-b border-slate-100 last:border-0">
+                           <div className="font-bold text-slate-700">{g.name} ({DATA.desk[g.deskType].label})</div>
+                           <div className="pl-2 text-xs text-slate-500">
+                               {count}人 x {1 + growth/100} = {ppl}人 ➜ {desks}席 * ({DATA.desk[g.deskType].area}m²) = {area.toFixed(1)}m²
+                           </div>
+                       </div>
+                   );
+                });
+            };
+
+            // Helper to render Room text
+            const renderRoomText = () => {
+                let parts = [];
+                const val = (key) => inputs[key] === '' ? 0 : parseFloat(inputs[key]);
+                if (val('roomStandard') > 0) parts.push(`${DATA.room.standardManager.label}(${inputs.roomStandard}間)`);
+                if (val('roomSenior') > 0) parts.push(`${DATA.room.seniorExec.label}(${inputs.roomSenior}間)`);
+                if (val('roomBoard') > 0) parts.push(`${DATA.room.boardOffice.label}(${inputs.roomBoard}間)`);
+                if (val('roomPhone') > 0) parts.push(`${DATA.room.phoneBooth.label}(${inputs.roomPhone}間)`);
+                if (val('meetSmall') > 0) parts.push(`${DATA.room.meetSmall.label}(${inputs.meetSmall}間)`);
+                if (val('meetMedium') > 0) parts.push(`${DATA.room.meetMedium.label}(${inputs.meetMedium}間)`);
+                if (val('meetLarge') > 0) parts.push(`${DATA.room.meetLarge.label}(${inputs.meetLarge}間)`);
+                return parts.length > 0 ? parts.join(' + ') + ` = ${results.areaRooms?.toFixed(0)} m²` : "0 m²";
+            };
+
+            return (
+                <div className="font-sans text-slate-900">
+                    <div className="text-center mb-6 border-b-4 border-slate-900 pb-2">
+                        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">詳細驗算清單</h1>
+                        <div className="text-sm text-slate-500 font-bold mt-1">辦公空間需求預估</div>
+                    </div>
+                    
+                    <div className="bg-red-50 border-l-4 border-red-600 p-3 mb-4 rounded-r shadow-sm">
+                        <p className="text-red-700 font-bold text-sm">⚠ 警語：以上計算僅供參考，因各建物的柱位、格局等利用效率有所差異，可使用面積會有所增減。</p>
+                    </div>
+
+                    <div className="space-y-6 text-sm leading-relaxed">
+                        {/* 1. Staffing */}
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-blue-600 pl-3 mb-2">1. 人員與座位需求 (Staffing)</h3>
+                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
+                                <p className="text-slate-600 font-bold mb-2">總人數: {results.totalPeople} / 總座位: {results.desksNeeded} / 總面積: {results.areaDesk?.toFixed(1)} m²</p>
+                                <div className="bg-slate-50 p-2 rounded text-xs">{renderStaffRows()}</div>
+                            </div>
+                        </div>
+
+                        {/* 2. Rooms */}
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-emerald-600 pl-3 mb-2">2. 房間面積加總 (Rooms)</h3>
+                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
+                                <div className="font-mono text-xs text-slate-500 mb-2 bg-slate-50 p-2 rounded">{renderRoomText()}</div>
+                                <p className="text-slate-600 font-medium">房間總計 = <span className="font-bold text-slate-900">{results.areaRooms?.toFixed(1)} m²</span></p>
+                            </div>
+                        </div>
+
+                        {/* 3. Support */}
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-amber-600 pl-3 mb-2">3. 支援空間 (Support)</h3>
+                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
+                                <p className="text-slate-600 font-medium">
+                                    接待({inputs.reception}m²) + 茶水({inputs.pantry}m²) + 機房({inputs.server}m²) + 儲藏({inputs.storage}m²) + 其他({inputs.otherSupport}m²) = <span className="font-bold text-slate-900">{results.areaSupport?.toFixed(1)} m²</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* 4. Totals */}
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-purple-600 pl-3 mb-2">4. 係數與總需求 (Factors & Totals)</h3>
+                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
+                                <p className="text-slate-600 font-medium mb-1">A. 淨面積 (Net) = <span className="font-bold text-slate-900">{results.netArea?.toFixed(1)} m²</span></p>
+                                <p className="text-slate-600 font-medium mb-1">B. 使用面積 (Usable) = Net x {inputs.circulation} (走道) = <span className="font-bold text-slate-900">{results.usableArea?.toFixed(1)} m²</span></p>
+                                <p className="text-slate-600 font-medium mb-3">C. 總需求面積 = Usable ÷ (1 - {inputs.publicRatio}%) (公設) = <span className="font-bold text-slate-900">{results.rentableArea?.toFixed(1)} m²</span></p>
+                                <p className="pt-2 border-t border-slate-200 font-bold text-blue-900 text-lg">➜ {results.rentableArea?.toFixed(1)} m² x 0.3025 = {results.ping?.toFixed(1)} 坪</p>
+                                <p className="mt-2 text-slate-600 font-bold bg-slate-50 p-2 rounded text-sm">
+                                    建議搜尋範圍 (±10%): <span className="text-slate-500 font-normal">{results.ping?.toFixed(1)} x 0.9 ~ 1.1 = </span> <span className="text-slate-900">{results.rangeMin?.toFixed(1)} ~ {results.rangeMax?.toFixed(1)} 坪</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* 5. Financials - Updated to 3 columns visible with RANGES */}
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-gray-600 pl-3 mb-2">5. 財務預算 (Financials - 依照建議坪數範圍)</h3>
+                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
+                                <div className="grid grid-cols-3 gap-4 mb-4">
+                                    <div>
+                                        <div className="text-xs text-slate-500">預計租金</div>
+                                        <div className="font-bold text-slate-800">{inputs.rentPerPing} 元/坪</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-500">預計管理費</div>
+                                        <div className="font-bold text-slate-800">{inputs.mgmtPerPing} 元/坪</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-500">預計售價</div>
+                                        <div className="font-bold text-slate-800">{inputs.salePricePerPingWan} 萬/坪</div>
+                                    </div>
+                                </div>
+                                <div className="pt-3 border-t border-slate-100 grid grid-cols-3 gap-4 text-center">
+                                    <div>
+                                        <div className="text-xs text-slate-500 mb-1">月租金總計範圍</div>
+                                        <div className="font-bold text-sm text-blue-800 break-words">{Math.round(results.rentMin).toLocaleString()} ~ {Math.round(results.rentMax).toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-500 mb-1">月管理費總計範圍</div>
+                                        <div className="font-bold text-sm text-blue-800 break-words">{Math.round(results.mgmtMin).toLocaleString()} ~ {Math.round(results.mgmtMax).toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-500 mb-1">總售價預估範圍</div>
+                                        <div className="font-bold text-sm text-blue-800 break-words">{Math.round(results.priceWanMin).toLocaleString()} ~ {Math.round(results.priceWanMax).toLocaleString()} 萬</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- PDF Page 1 Component (Fixed A4 Layout) ---
+        const PDFPage1 = ({ inputs, results, chartData }) => {
+            return (
+                <div className="flex flex-col h-full text-slate-900">
+                    <div className="text-center mb-8 pb-4 border-b-4 border-blue-600">
+                        <h1 className="text-4xl font-extrabold text-slate-900 mb-2">辦公空間需求預估報告</h1>
+                        <p className="text-slate-500 font-bold">日期: {new Date().toLocaleDateString()}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 mb-8">
+                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-700 mb-4 border-b border-slate-200 pb-2">主要輸入參數</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-slate-500">員工總數 (含成長)</span><span className="font-bold">{results.totalPeople} 人</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-500">辦公座位數</span><span className="font-bold">{results.desksNeeded} 席</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-500">走道係數</span><span className="font-bold">{inputs.circulation}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-500">預估公設比</span><span className="font-bold">{inputs.publicRatio}%</span></div>
+                                </div>
+                            </div>
+                             <div className="mt-4 pt-4 border-t border-slate-200">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-600 font-bold">建議搜尋面積區間</span>
+                                    <span className="bg-blue-100 text-blue-800 font-bold px-2 py-1 rounded text-sm">±10%</span>
+                                </div>
+                                <div className="font-bold text-lg text-slate-800 mt-1">{results.rangeMin?.toFixed(0)} ~ {results.rangeMax?.toFixed(0)} 坪</div>
+                            </div>
+                        </div>
+                        <div className="bg-slate-900 text-white p-6 rounded-xl flex flex-col justify-center items-center text-center">
+                             <div className="text-yellow-400 text-xs font-bold uppercase tracking-widest mb-1">總需求預估</div>
+                             <div className="text-5xl font-extrabold mb-1">{results.ping?.toFixed(1)} <span className="text-2xl font-medium">坪</span></div>
+                             <div className="text-cyan-300 font-mono text-sm mb-4">(= {results.rentableArea?.toFixed(1)} m²)</div>
+                             <div className="w-full bg-slate-800 rounded p-2 border border-slate-600 mb-4">
+                                 <div className="text-[10px] text-slate-400 mb-1">建議搜尋區間 (±10%)</div>
+                                 <div className="font-bold text-lg">{results.rangeMin?.toFixed(0)} ~ {results.rangeMax?.toFixed(0)} 坪</div>
+                             </div>
+                             
+                             {/* Financial Summary in PDF - 3 Column Layout (RANGES) */}
+                             <div className="w-full border-t border-slate-700 pt-3">
+                                <div className="text-xs text-slate-400 font-bold uppercase mb-2">財務預估小計 (依照建議坪數範圍)</div>
+                                <div className="grid grid-cols-3 gap-2 text-center">
+                                    <div className="bg-slate-800/50 p-1 rounded">
+                                        <div className="text-[10px] text-slate-500">月租金總計</div>
+                                        <div className="text-[10px] font-bold text-white leading-tight mt-1">{Math.round(results.rentMin).toLocaleString()} ~<br/>{Math.round(results.rentMax).toLocaleString()}</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 p-1 rounded">
+                                        <div className="text-[10px] text-slate-500">月管理費</div>
+                                        <div className="text-[10px] font-bold text-white leading-tight mt-1">{Math.round(results.mgmtMin).toLocaleString()} ~<br/>{Math.round(results.mgmtMax).toLocaleString()}</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 p-1 rounded">
+                                        <div className="text-[10px] text-slate-500">總售價預估</div>
+                                        <div className="text-[10px] font-bold text-white leading-tight mt-1">{Math.round(results.priceWanMin).toLocaleString()}萬 ~<br/>{Math.round(results.priceWanMax).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-grow flex flex-col min-h-0">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4"><i className="fas fa-chart-pie mr-2"></i>空間配置分析</h3>
+                        <SpaceUsageBar data={chartData} total={results.rentableArea} />
+                        <AreaTreemap 
+                            results={results} 
+                            containerClass="w-full select-none mt-4 pt-2 border-t border-slate-200 flex flex-col items-center" 
+                            svgClass="h-[250px] w-auto rounded-lg shadow border border-slate-300 bg-white" 
+                        />
+                    </div>
+
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-100 mt-auto">
+                        <p className="text-red-800 text-xs font-bold"><i className="fas fa-info-circle mr-1"></i> 免責聲明：本報告之計算結果僅供空間規劃初期參考。實際租賃面積需求仍需視各辦公大樓之具體格局（如柱位位置、形狀是否方正）、公設比計算方式及消防法規要求而定。財務預算未含稅金。</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const getCirculationDesc = (val) => {
+            if(val <= 1.30) return "格局方正、無柱位干擾";
+            if(val <= 1.40) return "格局狹長、或有部分柱位";
+            return "不規則形狀、多柱位";
+        };
+
+        const App = () => {
+            const [inputs, setInputs] = useState({
+                // Staff Groups
+                staffGroups: [
+                    { id: 1, name: '人員配置 A', headcount: 10, growth: 0, sharing: 1.0, deskType: 'medium' }
+                ],
+                // Rooms & Support
+                roomStandard: 0, roomSenior: 0, meetSmall: 1, meetMedium: 1, meetLarge: 0, roomBoard: 0, roomPhone: 0,
+                // Adjusted Defaults
+                reception: 3, pantry: 3, server: 1, storage: 0, otherSupport: 0,
+                circulation: 1.35, publicRatio: 30,
+                // Financials
+                rentPerPing: 0, mgmtPerPing: 150, salePricePerPingWan: 0
+            });
+
+            const [results, setResults] = useState({});
+            const [isExporting, setIsExporting] = useState(false);
+            
+            // Refs for PDF Generation (Hidden Staging Areas)
+            const pdfPage1Ref = useRef(null);
+            const pdfPage2Ref = useRef(null);
+
+            // --- Staff Group Helpers ---
+            const updateStaffGroup = (index, field, val) => {
+                const newGroups = [...inputs.staffGroups];
+                newGroups[index] = { ...newGroups[index], [field]: val };
+                setInputs(prev => ({ ...prev, staffGroups: newGroups }));
+            };
+            const addStaffGroup = () => {
+                const label = String.fromCharCode(65 + inputs.staffGroups.length);
+                setInputs(prev => ({
+                    ...prev,
+                    staffGroups: [...prev.staffGroups, { id: Date.now(), name: `人員配置 ${label}`, headcount: 0, growth: 0, sharing: 1.0, deskType: 'medium' }]
+                }));
+            };
+            const removeStaffGroup = (index) => {
+                if (inputs.staffGroups.length <= 1) return;
+                const newGroups = inputs.staffGroups.filter((_, i) => i !== index);
+                const renamed = newGroups.map((g, i) => ({ ...g, name: `人員配置 ${String.fromCharCode(65 + i)}` }));
+                setInputs(prev => ({ ...prev, staffGroups: renamed }));
+            };
+
+            const update = (field, val) => setInputs(prev => ({ ...prev, [field]: val }));
+
+            // --- Calculation ---
+            useEffect(() => {
+                const getVal = (val) => (val === '' || isNaN(val)) ? 0 : parseFloat(val);
+
+                let totalPeople = 0;
+                let totalDesks = 0;
+                let totalDeskArea = 0;
+
+                inputs.staffGroups.forEach(g => {
+                    const count = getVal(g.headcount);
+                    const growth = getVal(g.growth);
+                    const p = Math.ceil((count * (100 + growth)) / 100);
+                    const d = Math.ceil(p * g.sharing);
+                    const area = d * DATA.desk[g.deskType].area;
+                    totalPeople += p;
+                    totalDesks += d;
+                    totalDeskArea += area;
+                });
+
+                const areaRooms = (getVal(inputs.roomStandard) * DATA.room.standardManager.area) +
+                                  (getVal(inputs.roomSenior) * DATA.room.seniorExec.area) +
+                                  (getVal(inputs.roomPhone) * DATA.room.phoneBooth.area) +
+                                  (getVal(inputs.meetSmall) * DATA.room.meetSmall.area) +
+                                  (getVal(inputs.meetMedium) * DATA.room.meetMedium.area) +
+                                  (getVal(inputs.meetLarge) * DATA.room.meetLarge.area) +
+                                  (getVal(inputs.roomBoard) * DATA.room.boardOffice.area);
+                
+                const areaSupport = getVal(inputs.reception) + getVal(inputs.pantry) + getVal(inputs.server) + getVal(inputs.storage) + getVal(inputs.otherSupport);
+                
+                const netArea = totalDeskArea + areaRooms + areaSupport;
+                const usableArea = netArea * getVal(inputs.circulation);
+                const pubRatio = getVal(inputs.publicRatio);
+                const rentableArea = usableArea / (1 - (pubRatio / 100));
+
+                const ping = rentableArea * 0.3025;
+                const rangeMin = ping * 0.9;
+                const rangeMax = ping * 1.1;
+
+                // Financials (RANGES)
+                const rent = getVal(inputs.rentPerPing);
+                const mgmt = getVal(inputs.mgmtPerPing);
+                const salePriceWan = getVal(inputs.salePricePerPingWan);
+
+                // Calculate ranges
+                const rentMin = rent * rangeMin;
+                const rentMax = rent * rangeMax;
+                const mgmtMin = mgmt * rangeMin;
+                const mgmtMax = mgmt * rangeMax;
+                const priceWanMin = salePriceWan * rangeMin;
+                const priceWanMax = salePriceWan * rangeMax;
+
+                // Old single values kept for chart scaling if needed, but not for display
+                const totalMonthlyRent = (rent + mgmt) * ping;
+
+                setResults({
+                    totalPeople, desksNeeded: totalDesks, areaDesk: totalDeskArea, 
+                    areaRooms, areaSupport, netArea, rentableArea, usableArea,
+                    ping, rangeMin, rangeMax,
+                    perPerson: rentableArea > 0 ? rentableArea / totalPeople : 0,
+                    totalMonthlyRent, // Legacy
+                    rentMin, rentMax, mgmtMin, mgmtMax, priceWanMin, priceWanMax
+                });
+            }, [inputs]);
+
+            const generatePDF = async () => {
+                setIsExporting(true);
+                // Allow UI to update
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                try {
+                    const doc = new window.jspdf.jsPDF('p', 'mm', 'a4'); 
+                    const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+                    
+                    // Capture Page 1 (Summary) from hidden A4 container
+                    const canvas1 = await html2canvas(pdfPage1Ref.current, { 
+                        scale: 2, 
+                        useCORS: true,
+                        width: 794,
+                        windowWidth: 794 
+                    });
+                    const imgData1 = canvas1.toDataURL('image/jpeg', 0.85);
+                    const imgHeight1 = (canvas1.height * pageWidth) / canvas1.width;
+                    doc.addImage(imgData1, 'JPEG', 0, 0, pageWidth, imgHeight1);
+                    
+                    // Capture Page 2 (Audit) from hidden A4 container
+                    doc.addPage();
+                    const canvas2 = await html2canvas(pdfPage2Ref.current, { 
+                        scale: 2, 
+                        useCORS: true,
+                        width: 794,
+                        windowWidth: 794
+                    });
+                    const imgData2 = canvas2.toDataURL('image/jpeg', 0.85);
+                    const imgHeight2 = (canvas2.height * pageWidth) / canvas2.width;
+                    doc.addImage(imgData2, 'JPEG', 0, 0, pageWidth, imgHeight2);
+
+                    doc.save("Office_Space_Financial_Report.pdf");
+                } catch (error) { 
+                    console.error(error);
+                    alert("匯出失敗，請重試"); 
+                }
+                setIsExporting(false);
+            };
+
+            const chartData = [
+                { value: results.areaDesk || 0, color: '#3b82f6', label: '辦公座位' },
+                { value: results.areaRooms || 0, color: '#10b981', label: '獨立房間' },
+                { value: results.areaSupport || 0, color: '#f59e0b', label: '支援空間' },
+                { value: (results.usableArea - results.netArea) || 0, color: '#8b5cf6', label: '走道空間' },
+                { value: (results.rentableArea - results.usableArea) || 0, color: '#64748b', label: '大樓公設' },
+            ];
+
+            const isSaleMode = inputs.salePricePerPingWan > 0;
+
+            return (
+                <div className="min-h-screen bg-slate-50 pb-20 md:pb-0">
+                    <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+                        <div className="mb-6 text-center">
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 mb-2">辦公空間需求計算器 <span className="text-sm font-normal text-slate-500 bg-slate-200 px-2 py-1 rounded ml-2 align-middle">beta版</span></h1>
+                            <p className="text-red-700 text-xs md:text-sm font-bold bg-red-50 py-2 px-4 rounded-lg inline-block border border-red-200 shadow-sm mx-auto"><i className="fas fa-exclamation-triangle mr-2"></i>以上計算僅供參考，因各建物的柱位、格局等利用效率有所差異，可使用面積會有所增減。</p>
+                        </div>
+
+                        <div className="flex flex-col xl:flex-row gap-6">
+                            {/* LEFT PANEL (Inputs) */}
+                            <div className="xl:w-7/12 flex flex-col gap-6">
+                                {/* Staff */}
+                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <SectionHeader icon="fa-users" title="1. 人員配置 (Staffing)" color="text-blue-700" />
+                                    <div className="space-y-4">
+                                        {inputs.staffGroups.map((group, index) => (
+                                            <StaffCard key={group.id} group={group} index={index} onChange={updateStaffGroup} onRemove={() => removeStaffGroup(index)} />
+                                        ))}
+                                    </div>
+                                    <button onClick={addStaffGroup} className="w-full py-3 border-2 border-dashed border-blue-200 rounded-xl text-blue-500 font-bold hover:bg-blue-50 hover:border-blue-300 transition-colors mt-2 flex items-center justify-center gap-2"><i className="fas fa-plus-circle"></i> 新增人員分組</button>
+                                </div>
+
+                                {/* Rooms */}
+                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <SectionHeader icon="fa-door-open" title="2. 房間配置 (Rooms)" color="text-emerald-700" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <RoomCard type="standard" label="標準主管室" area="12" value={inputs.roomStandard} onChange={(val) => update('roomStandard', val)} />
+                                        <RoomCard type="senior" label="高級主管室" area="24" value={inputs.roomSenior} onChange={(val) => update('roomSenior', val)} />
+                                        <RoomCard type="phone" label="電話亭/專注空間" area="2" value={inputs.roomPhone} onChange={(val) => update('roomPhone', val)} />
+                                        <RoomCard type="small" label="小洽談室" area="10" value={inputs.meetSmall} onChange={(val) => update('meetSmall', val)} />
+                                        <RoomCard type="medium" label="中會議室" area="20" value={inputs.meetMedium} onChange={(val) => update('meetMedium', val)} />
+                                        <RoomCard type="large" label="大會議室" area="45" value={inputs.meetLarge} onChange={(val) => update('meetLarge', val)} />
+                                        <RoomCard type="board" label="董事會議室" area="60" value={inputs.roomBoard} onChange={(val) => update('roomBoard', val)} />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col md:flex-row gap-6">
+                                    <div className="w-full md:w-1/2 bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                                        <SectionHeader icon="fa-coffee" title="3. 支援空間" color="text-amber-700" />
+                                        <div className="space-y-3">
+                                            <SupportInput label="接待區" icon="fa-concierge-bell" value={inputs.reception} onChange={(val) => update('reception', val)} />
+                                            <SupportInput label="茶水間" icon="fa-mug-hot" value={inputs.pantry} onChange={(val) => update('pantry', val)} />
+                                            <SupportInput label="資訊機房" icon="fa-server" value={inputs.server} onChange={(val) => update('server', val)} />
+                                            <SupportInput label="儲藏室" icon="fa-box" value={inputs.storage} onChange={(val) => update('storage', val)} />
+                                            <SupportInput label="其他" icon="fa-plus-circle" value={inputs.otherSupport} onChange={(val) => update('otherSupport', val)} />
+                                        </div>
+                                    </div>
+                                    <div className="w-full md:w-1/2 bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                                        <SectionHeader icon="fa-ruler-combined" title="4. 係數設定" color="text-purple-700" />
+                                        <div className="space-y-4">
+                                            <div className="bg-white border border-slate-300 p-3 rounded-lg">
+                                                <div className="flex justify-between items-center mb-2"><div className="font-bold text-sm text-slate-700">內部走道係數</div><select value={inputs.circulation} onChange={(e)=>update('circulation', parseFloat(e.target.value))} className="border border-slate-300 rounded p-1 text-sm font-bold bg-slate-50 outline-none w-24 text-center"><option value="1.25">1.25</option><option value="1.35">1.35</option><option value="1.45">1.45</option></select></div>
+                                                <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-100">說明：{getCirculationDesc(inputs.circulation)}</div>
+                                            </div>
+                                            <div className="bg-white border border-slate-300 p-3 rounded-lg">
+                                                <div className="flex justify-between items-center mb-2"><div className="font-bold text-sm text-slate-700">公設比 (%)</div><div className="w-28"><SmartControl value={inputs.publicRatio} onChange={(val)=>update('publicRatio', val)} min={0} max={60} unit="%" /></div></div>
+                                                <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-100">說明：實得率約 {100 - inputs.publicRatio}%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* New Financial Section */}
+                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <SectionHeader icon="fa-calculator" title="5. 預算預估 (Financials)" color="text-gray-700" />
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div>
+                                            <label className="text-sm font-bold text-slate-500 mb-2 block">預計租金 (元/坪)</label>
+                                            <SmartControl value={inputs.rentPerPing} onChange={(val) => update('rentPerPing', val)} min={0} step={100} large={true} />
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-bold text-slate-500 mb-2 block">預計管理費 (元/坪)</label>
+                                            <SmartControl value={inputs.mgmtPerPing} onChange={(val) => update('mgmtPerPing', val)} min={0} step={10} large={true} />
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-bold text-slate-500 mb-2 block">預計售價 (萬元/坪)</label>
+                                            <SmartControl value={inputs.salePricePerPingWan} onChange={(val) => update('salePricePerPingWan', val)} min={0} step={5} large={true} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* RIGHT PANEL (Results & Visuals) */}
+                            <div className="xl:w-5/12 flex flex-col gap-6">
+                                {/* Factors Summary (Mobile only) */}
+                                <div className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-200 xl:hidden">
+                                     <div className="flex justify-between text-sm"><span className="text-gray-500 font-bold">走道係數: {inputs.circulation}</span><span className="text-gray-500 font-bold">公設比: {inputs.publicRatio}%</span></div>
+                                </div>
+
+                                {/* Result Card */}
+                                <div className="bg-black/70 text-white p-6 md:p-8 rounded-3xl shadow-2xl relative overflow-hidden" style={{paddingBottom: '2rem', lineHeight: '1.6'}}>
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full mix-blend-overlay filter blur-3xl opacity-50 -mr-16 -mt-16"></div>
+                                    <div className="relative z-10">
+                                        <div className="text-yellow-400 text-xs md:text-sm font-bold uppercase tracking-widest mb-1">總需求面積 (Total Requirement)</div>
+                                        <div className="flex items-baseline gap-2 mb-2"><div className="text-5xl md:text-6xl font-extrabold text-white" style={{lineHeight: 1.2}}>{results.ping?.toFixed(1)}</div><div className="text-xl md:text-2xl text-slate-400 font-medium">坪</div></div>
+                                        <div className="flex items-center gap-2 text-sm text-cyan-300 font-mono mb-4 font-bold">= {results.rentableArea?.toFixed(1)} m² </div>
+                                        
+                                        {/* Efficiency Badge -> Changed to Recommended Range */}
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <span className="text-xs text-slate-400 uppercase font-bold">建議面積區間 (±10%)</span>
+                                            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded">{results.rangeMin?.toFixed(0)} ~ {results.rangeMax?.toFixed(0)} 坪</span>
+                                        </div>
+
+                                        {/* Financial Breakdown Grid (Three Columns with RANGES) */}
+                                        <div className="mb-6">
+                                            <div className="grid grid-cols-3 gap-2 text-center">
+                                                {/* Rent Block */}
+                                                <div className="bg-slate-800 bg-opacity-40 p-2 rounded border border-slate-600 flex flex-col justify-center">
+                                                    <div className="text-[10px] text-slate-400 mb-1">月租金總計</div>
+                                                    <div className="font-bold text-white text-xs md:text-sm leading-tight">
+                                                        ${Math.round(results.rentMin).toLocaleString()} ~<br/>${Math.round(results.rentMax).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                                {/* Mgmt Block */}
+                                                <div className="bg-slate-800 bg-opacity-40 p-2 rounded border border-slate-600 flex flex-col justify-center">
+                                                     <div className="text-[10px] text-slate-400 mb-1">月管理費總計</div>
+                                                     <div className="font-bold text-white text-xs md:text-sm leading-tight">
+                                                        ${Math.round(results.mgmtMin).toLocaleString()} ~<br/>${Math.round(results.mgmtMax).toLocaleString()}
+                                                     </div>
+                                                </div>
+                                                {/* Sale Block */}
+                                                <div className="bg-slate-800 bg-opacity-40 p-2 rounded border border-slate-600 flex flex-col justify-center">
+                                                     <div className="text-[10px] text-slate-400 mb-1">總售價預估</div>
+                                                     <div className="font-bold text-white text-xs md:text-sm leading-tight">
+                                                        {Math.round(results.priceWanMin).toLocaleString()}萬 ~<br/>{Math.round(results.priceWanMax).toLocaleString()}萬
+                                                     </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 border-t border-slate-700 pt-4">
+                                            <div><div className="text-xs text-slate-400 uppercase font-bold">總座位數</div><div className="text-xl md:text-2xl font-bold text-white">{results.desksNeeded} <span className="text-sm font-normal text-slate-400">席</span></div></div>
+                                            <div><div className="text-xs text-slate-400 uppercase font-bold">人均使用</div><div className="text-xl md:text-2xl font-bold text-white">{results.perPerson?.toFixed(1)} <span className="text-sm font-normal text-slate-400">m²</span></div></div>
+                                        </div>
+                                        <button onClick={generatePDF} disabled={isExporting} className="mt-6 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 md:py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base">{isExporting ? <div className="loader"></div> : <i className="fas fa-file-pdf"></i>}{isExporting ? " 正在製作報告..." : " 下載完整報告 (A4)"}</button>
+                                    </div>
+                                </div>
+
+                                {/* Visualizations */}
+                                <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-200 flex-grow flex flex-col">
+                                    <h3 className="text-lg font-bold text-slate-800 mb-4"><i className="fas fa-chart-pie text-blue-600 mr-2"></i>空間面積分布</h3>
+                                    <div className="mb-6"><SpaceUsageBar data={chartData} total={results.rentableArea} /></div>
+                                    <AreaTreemap results={results} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* NEW: Visible Detailed Audit at the bottom */}
+                        <div className="mt-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <DetailedAudit inputs={inputs} results={results} DATA={DATA} />
+                        </div>
+                    </div>
+
+                    {/* --- HIDDEN PRINT STAGING AREA (Always A4 Sized) --- */}
+                    <div id="print-staging-area">
+                        {/* Page 1: Visual Summary */}
+                        <div ref={pdfPage1Ref} className="a4-page">
+                            <PDFPage1 inputs={inputs} results={results} chartData={chartData} />
+                        </div>
+
+                        {/* Page 2: Detailed Audit */}
+                        <div ref={pdfPage2Ref} className="a4-page">
+                            <DetailedAudit inputs={inputs} results={results} DATA={DATA} />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

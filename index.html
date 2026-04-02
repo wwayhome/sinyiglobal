@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>信義全球資產工具</title>
+    <title>系統入口網站</title>
     <!-- 引入 Tailwind CSS 進行快速排版與樣式設計 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Lucide Icons 作為暫時的圖象化 LOGO -->
@@ -16,97 +16,158 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6">
+<body class="min-h-screen flex flex-col items-center justify-center p-6 relative">
 
-    <!-- 頁面標題 (可選) -->
-    <header class="mb-12 text-center">
-        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 tracking-wider">信義全球資產工具</h1>
-        <p class="text-gray-500 mt-3">請選擇您要前往的服務模組</p>
-    </header>
-
-    <!-- 3x2 按鈕網格容器 -->
-    <!-- 電腦版 3 欄 (md:grid-cols-3)，平板 2 欄 (sm:grid-cols-2)，手機 1 欄 (grid-cols-1) -->
-    <main class="w-full max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-
-        <!-- 方塊 1 -->
-        <a href="https://wwayhome.github.io/sinyiglobal/T1/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-            <!-- 裝飾性背景光暈 -->
-            <div class="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+    <!-- ==================== 登入驗證畫面 ==================== -->
+    <div id="login-screen" class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center transition-all duration-500">
+        <div class="mb-6 flex justify-center">
+            <div class="p-4 bg-blue-100 text-blue-600 rounded-full">
+                <i data-lucide="lock" class="w-12 h-12"></i>
+            </div>
+        </div>
+        <h2 class="text-3xl font-extrabold text-gray-800 mb-2">安全驗證</h2>
+        <p class="text-gray-500 mb-8">請輸入8位數系統密碼以進入工具</p>
+        
+        <div class="space-y-4">
+            <input type="password" id="pwd-input" maxlength="8" 
+                   class="w-full px-5 py-3 text-center text-2xl tracking-[0.5em] font-mono border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                   placeholder="••••••••"
+                   onkeypress="if(event.key === 'Enter') checkPassword()">
             
-            <!-- 內容區塊 -->
-            <div class="relative z-10 flex flex-col items-center">
-                <div class="p-4 bg-blue-100 text-blue-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                    <i data-lucide="pencil" class="w-10 h-10 md:w-12 md:h-12"></i>
+            <p id="error-msg" class="text-red-500 text-sm font-bold opacity-0 transition-opacity">密碼錯誤，請重新輸入！</p>
+            
+            <button onclick="checkPassword()" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-1">
+                進入系統
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 系統主畫面 (預設隱藏) ==================== -->
+    <div id="main-content" class="hidden w-full flex-col items-center justify-center opacity-0 transition-opacity duration-700">
+        <!-- 頁面標題 -->
+        <header class="mb-12 text-center w-full">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 tracking-wider">信義全球資產小工具</h1>
+            <p class="text-gray-500 mt-2">請選擇您要前往的服務模組</p>
+        </header>
+
+        <!-- 3x2 按鈕網格容器 -->
+        <main class="w-full max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+
+            <!-- 方塊 1：物件提詞 -->
+            <a href="https://wwayhome.github.io/sinyiglobal/T1/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="p-4 bg-blue-100 text-blue-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                        <i data-lucide="pencil" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-blue-700 transition-colors">物件提詞</span>
                 </div>
-                <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-blue-700 transition-colors">物件提詞</span>
-            </div>
-        </a>
+            </a>
 
-        <!-- 方塊 2 -->
-        <a href="https://wwayhome.github.io/sinyiglobal/T2/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-            <div class="absolute inset-0 bg-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div class="relative z-10 flex flex-col items-center">
-                <div class="p-4 bg-emerald-100 text-emerald-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
-                    <i data-lucide="calculator" class="w-10 h-10 md:w-12 md:h-12"></i>
+            <!-- 方塊 2：面積計算 (圖示更換為 ruler) -->
+            <a href="https://wwayhome.github.io/sinyiglobal/T2/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="absolute inset-0 bg-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="p-4 bg-emerald-100 text-emerald-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
+                        <i data-lucide="ruler" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">面積計算</span>
                 </div>
-                <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">面積計算</span>
-            </div>
-        </a>
+            </a>
 
-        <!-- 方塊 3 -->
-        <a href="https://wwayhome.github.io/sinyiglobal/T3/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-            <div class="absolute inset-0 bg-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div class="relative z-10 flex flex-col items-center">
-                <div class="p-4 bg-purple-100 text-purple-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300">
-                    <i data-lucide="dollar-sign" class="w-10 h-10 md:w-12 md:h-12"></i>
+            <!-- 方塊 3：租買分析 -->
+            <a href="https://wwayhome.github.io/sinyiglobal/T3/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="absolute inset-0 bg-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="p-4 bg-purple-100 text-purple-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300">
+                        <i data-lucide="dollar-sign" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-purple-700 transition-colors">租買分析</span>
                 </div>
-                <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-purple-700 transition-colors">租買分析</span>
-            </div>
-        </a>
+            </a>
 
-        <!-- 方塊 4 -->
-        <a href="https://wwayhome.github.io/sinyiglobal/T4/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-            <div class="absolute inset-0 bg-amber-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div class="relative z-10 flex flex-col items-center">
-                <div class="p-4 bg-amber-100 text-amber-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
-                    <i data-lucide="image" class="w-10 h-10 md:w-12 md:h-12"></i>
+            <!-- 方塊 4：照片修圖 -->
+            <a href="https://wwayhome.github.io/sinyiglobal/T4/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="absolute inset-0 bg-amber-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="p-4 bg-amber-100 text-amber-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
+                        <i data-lucide="image" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-amber-700 transition-colors">照片修圖</span>
                 </div>
-                <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-amber-700 transition-colors">照片修圖</span>
-            </div>
-        </a>
+            </a>
 
-        <!-- 方塊 5 -->
-        <a href="https://wwayhome.github.io/sinyiglobal/T5/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden cursor-not-allowed">
-            <div class="absolute inset-0 bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div class="relative z-10 flex flex-col items-center">
-                <div class="p-4 bg-rose-100 text-rose-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-rose-500 group-hover:text-white transition-all duration-300">
-                    <i data-lucide="wrench" class="w-10 h-10 md:w-12 md:h-12"></i>
+            <!-- 方塊 5：製作中 -->
+            <a href="https://wwayhome.github.io/sinyiglobal/T5/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden cursor-not-allowed">
+                <div class="absolute inset-0 bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="p-4 bg-rose-100 text-rose-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-rose-500 group-hover:text-white transition-all duration-300">
+                        <i data-lucide="wrench" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-400 group-hover:text-rose-700 transition-colors">製作中</span>
                 </div>
-                <span class="text-xl md:text-2xl font-bold text-gray-400 group-hover:text-rose-700 transition-colors">製作中</span>
-            </div>
-        </a>
+            </a>
 
-        <!-- 方塊 6 -->
-        <a href="https://wwayhome.github.io/sinyiglobal/T6/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden cursor-not-allowed">
-            <div class="absolute inset-0 bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div class="relative z-10 flex flex-col items-center">
-                <div class="p-4 bg-slate-100 text-slate-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-slate-600 group-hover:text-white transition-all duration-300">
-                    <i data-lucide="cone" class="w-10 h-10 md:w-12 md:h-12"></i>
+            <!-- 方塊 6：製作中 -->
+            <a href="https://wwayhome.github.io/sinyiglobal/T6/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden cursor-not-allowed">
+                <div class="absolute inset-0 bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="p-4 bg-slate-100 text-slate-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-slate-600 group-hover:text-white transition-all duration-300">
+                        <i data-lucide="cone" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-400 group-hover:text-slate-800 transition-colors">製作中</span>
                 </div>
-                <span class="text-xl md:text-2xl font-bold text-gray-400 group-hover:text-slate-800 transition-colors">製作中</span>
+            </a>
+
+        </main>
+
+        <footer class="mt-16 text-center text-gray-400 text-sm">
+            &copy; 2026 Portal System. All rights reserved.
+            
+            <!-- 網站瀏覽次數計數器 -->
+            <div class="mt-4 flex justify-center">
+                <!-- 這裡使用第三方的 Hits API 來紀錄 https://wwayhome.github.io/sinyiglobal 的總瀏覽次數 -->
+                <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fwwayhome.github.io%2Fsinyiglobal&count_bg=%233B82F6&title_bg=%231F2937&title=%E7%80%8F%E8%A6%BD%E4%BA%BA%E6%AC%A1&edge_flat=true" alt="網站瀏覽人次" class="shadow-sm rounded opacity-80 hover:opacity-100 transition-opacity">
             </div>
-        </a>
+        </footer>
+    </div>
 
-    </main>
-
-    <!-- 頁尾 (可選) -->
-    <footer class="mt-16 text-center text-gray-400 text-sm">
-        &copy; 2026 Portal System. All rights reserved.
-    </footer>
-
-    <!-- 初始化 Lucide 圖示 -->
+    <!-- 腳本邏輯區 -->
     <script>
+        // 初始化圖示
         lucide.createIcons();
+
+        // ==================== 登入驗證邏輯 ====================
+        function checkPassword() {
+            const pwd = document.getElementById('pwd-input').value;
+            const errorMsg = document.getElementById('error-msg');
+            const loginScreen = document.getElementById('login-screen');
+            const mainContent = document.getElementById('main-content');
+
+            if (pwd === "24496939") {
+                // 密碼正確：隱藏登入，顯示主畫面
+                errorMsg.classList.remove('opacity-100');
+                errorMsg.classList.add('opacity-0');
+                
+                loginScreen.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    loginScreen.classList.add('hidden');
+                    mainContent.classList.remove('hidden');
+                    mainContent.classList.add('flex');
+                    // 觸發漸入動畫
+                    setTimeout(() => {
+                        mainContent.classList.remove('opacity-0');
+                        mainContent.classList.add('opacity-100');
+                    }, 50);
+                }, 300);
+            } else {
+                // 密碼錯誤：顯示警告
+                errorMsg.classList.remove('opacity-0');
+                errorMsg.classList.add('opacity-100');
+                document.getElementById('pwd-input').value = ""; // 清空輸入框
+            }
+        }
     </script>
 </body>
 </html>

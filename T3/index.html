@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商用不動產：租賃與購買財務決策分析 (CCIM模型)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Warm Neutrals with Slate (Professional/Financial), Emerald (Lease), and Indigo (Buy) Accents -->
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #334155; }
+        .chart-container { position: relative; width: 100%; max-width: 100%; margin: 0 auto; height: 350px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        @media (min-width: 1024px) { .chart-container { height: 350px; } }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #475569; cursor: pointer; margin-top: -6px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #cbd5e1; border-radius: 2px; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0; border-radius: 0.75rem; }
+    </style>
+</head>
+<body class="antialiased min-h-screen pb-12">
+
+<!-- Application Structure Plan: 
+The application uses a dashboard architecture optimized for financial modeling. 
+1. Header: Context setting. 
+2. Control Panel (Left/Top): Centralized inputs for property, market, and financial assumptions, allowing users to immediately play with scenarios. 
+3. Executive Summary (Right/Top): KPI cards showing the bottom-line decision (NPV comparison) immediately. 
+4. Visualization (Middle): Line and Bar charts comparing cumulative and annual cash flows to visually explain *when* one option overtakes the other. 
+5. Cash Flow Ledger (Bottom): Detailed, interactive data table for analysts who want to see the exact math and tax impacts year-by-year based on Taiwan regulations. This structure moves from "High-level Result" -> "Visual Trend" -> "Granular Data", which is the standard cognitive flow for financial decision-making. -->
+
+<!-- Visualization & Content Choices: 
+1. KPI Cards (HTML/CSS): Goal: Inform decision. Shows Net Present Value (NPV) of both options. Justification: Immediate bottom-line answer. 
+2. Cumulative Cash Flow Chart (Chart.js Line): Goal: Compare & Change. Shows breakeven point and long-term trajectory. Justification: Visualizes the time-value impact of buying (high upfront, long-term gain) vs leasing (low upfront, steady drain).
+3. Annual Cash Flow Breakdown (Chart.js Bar): Goal: Organize & Compare. Shows exact inflows/outflows per year. Justification: Highlights major events like initial downpayment, tax shields, and final property sale.
+4. Detailed Data Table (HTML/JS): Goal: Inform & Organize. Justification: Transparency. Shows CCIM methodology steps including depreciation, interest tax shields, and Taiwan's 20% corporate tax / capital gains tax calculations.
+-->
+
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+    <header class="mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2">🏢 商用不動產決策：租賃 vs. 購買</h1>
+        <p class="text-slate-600 max-w-3xl leading-relaxed">
+            本分析工具基於美國 CCIM (國際認證不動產投資師) 現金流折現法，並整合台灣現行法令 (營利事業所得稅 20%、房地合一稅 2.0)。透過調整參數，協助企業客觀評估不同持有年期下，最符合企業利益的資產配置策略。
+        </p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <div class="lg:col-span-4 space-y-6">
+            <div class="glass-card p-6">
+                <h2 class="text-xl font-semibold text-slate-800 mb-4 border-b pb-2">📊 標的物與市場假設</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">需求總坪數 (坪)</span><span id="valArea" class="text-indigo-600 font-bold">100</span></div>
+                        <input type="range" id="inpArea" min="30" max="500" step="10" value="100">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">預估買價 (萬元/坪)</span><span id="valPrice" class="text-indigo-600 font-bold">80</span></div>
+                        <input type="range" id="inpPrice" min="20" max="250" step="5" value="80">
+                        <p class="text-xs text-slate-400 mt-1">總價: <span id="dispTotalPrice">8,000</span> 萬元</p>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">首年預估租金 (元/坪/月)</span><span id="valRent" class="text-emerald-600 font-bold">2,500</span></div>
+                        <input type="range" id="inpRent" min="500" max="6000" step="100" value="2000">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">預估租金年調幅 (%)</span><span id="valRentGrowth" class="text-emerald-600 font-bold">0.0</span></div>
+                        <input type="range" id="inpRentGrowth" min="0.0" max="10.0" step="0.5" value="1.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">預估房價年增值率 (%)</span><span id="valAppreciation">2.0</span></div>
+                        <input type="range" id="inpAppreciation" min="-5" max="10" step="0.5" value="2.0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-6">
+                <h2 class="text-xl font-semibold text-slate-800 mb-4 border-b pb-2">💰 財務與稅務參數</h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">分析年期 (年)</span><span id="valYears" class="text-indigo-600 font-bold">5</span></div>
+                        <input type="range" id="inpYears" min="1" max="20" step="1" value="5">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">貸款成數 (%)</span><span id="valLtv">70</span></div>
+                        <input type="range" id="inpLtv" min="0" max="85" step="5" value="70">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">貸款年期 (年)</span><span id="valLoanTerm">20</span></div>
+                        <input type="range" id="inpLoanTerm" min="10" max="40" step="5" value="20">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">貸款利率 (%)</span><span id="valRate">2.5</span></div>
+                        <input type="range" id="inpRate" min="1.0" max="5.0" step="0.1" value="2.8">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">企業投資折現率 (%) ⓘ</span><span id="valDiscount">5.0</span></div>
+                        <p class="text-xs text-slate-500 mb-2">企業資金成本或期望報酬率，用於計算淨現值(NPV)。</p>
+                        <input type="range" id="inpDiscount" min="1.0" max="15.0" step="0.5" value="5.0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span class="font-medium">房屋價值占比 (%) ⓘ</span><span id="valBuildingRatio">15</span></div>
+                        <p class="text-xs text-slate-500 mb-2">房地比之房屋現值佔比，用於計算折舊費用抵稅。</p>
+                        <input type="range" id="inpBuildingRatio" min="5" max="80" step="1" value="15">
+                    </div>
+                    <div class="pt-2">
+                        <p class="text-xs text-slate-600 leading-tight bg-slate-100 p-2 rounded">
+                            ⚖️ 系統內建稅務假設 (法人)：<br>
+                            - 營利事業所得稅率：20% (租金、利息、折舊具抵稅效果)<br>
+                            - 房地合一稅 2.0：依持有年期自動判斷 (≤2年:45%, ≤5年:35%, >5年:20%)<br>
+                            - 建物折舊基準：依上方「房屋價值占比」計算
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="glass-card p-5 border-l-4 border-indigo-500">
+                    <h3 class="text-sm font-semibold text-slate-500 uppercase">方案一：購買淨成本 (NPV)</h3>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span class="text-3xl font-bold text-slate-800" id="resBuyNpv">0</span>
+                        <span class="text-sm text-slate-500">萬元</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">含自備款、房貸、稅賦及期末售屋淨現金流折現。</p>
+                </div>
+                <div class="glass-card p-5 border-l-4 border-emerald-500">
+                    <h3 class="text-sm font-semibold text-slate-500 uppercase">方案二：租賃淨成本 (NPV)</h3>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span class="text-3xl font-bold text-slate-800" id="resLeaseNpv">0</span>
+                        <span class="text-sm text-slate-500">萬元</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">含押金、租金支出及租金抵稅效果折現。</p>
+                </div>
+                <div class="glass-card p-5 bg-slate-800 text-white border-none shadow-lg">
+                    <h3 class="text-sm font-semibold text-slate-300 uppercase">財務優勢決策</h3>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span class="text-2xl font-bold" id="resDecision">計算中...</span>
+                    </div>
+                    <p class="text-xs text-slate-300 mt-1">以 <span id="dispYearsKpi">5</span> 年期總現金流折現比較。數值越接近 0 成本越低。</p>
+                </div>
+            </div>
+
+            <div class="glass-card p-6">
+                <h3 class="text-lg font-semibold text-slate-800 mb-4">📈 <span id="dispYearsChart">5</span>年期累積現金流比較 (稅後)</h3>
+                <div class="chart-container">
+                    <canvas id="cumulativeChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card p-6">
+                <h3 class="text-lg font-semibold text-slate-800 mb-4">📊 年度現金流量拆解 (萬元)</h3>
+                <div class="chart-container">
+                    <canvas id="annualChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 glass-card overflow-hidden">
+        <div class="bg-slate-100 p-4 border-b flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-slate-800">📑 詳細財務報表 (Tax & Cash Flow Ledger)</h3>
+            <div class="flex space-x-2">
+                <button onclick="switchTable('buy')" id="btnTabBuy" class="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white shadow">購買方案</button>
+                <button onclick="switchTable('lease')" id="btnTabLease" class="px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-700 border hover:bg-slate-50">租賃方案</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto p-0">
+            <table class="w-full text-sm text-left text-slate-600" id="dataTable">
+            </table>
+        </div>
+        <div class="p-4 bg-slate-50 text-xs text-slate-500 border-t">
+            * 備註：表內金額單位為「萬元」。現金流為負值代表資金流出（成本/支出），正值代表資金流入（回收/收益）。本試算模型未包含裝潢費、仲介費、契稅等一次性交易成本，實際決策需視個案調整。
+        </div>
+    </div>
+</div>
+
+<script>
+    const STATE = {
+        years: 5,
+        corpTaxRate: 0.20,
+        buildingRatio: 0.40,
+        depreciationYears: 50,
+        propTaxRate: 0.001, 
+        buyData: [],
+        leaseData: []
+    };
+
+    let chartCum, chartAnn;
+
+    function formatCurrency(num) {
+        return Math.round(num).toLocaleString('en-US');
+    }
+
+    function PMT(rate, nper, pv) {
+        if (rate === 0) return -(pv / nper);
+        const pmt = rate * pv / (1 - Math.pow(1 + rate, -nper));
+        return -pmt;
+    }
+
+    function calculate() {
+        STATE.years = parseInt(document.getElementById('inpYears').value);
+        const area = parseFloat(document.getElementById('inpArea').value);
+        const pricePerPing = parseFloat(document.getElementById('inpPrice').value);
+        const rentPerPing = parseFloat(document.getElementById('inpRent').value);
+        const rentGrowth = parseFloat(document.getElementById('inpRentGrowth').value) / 100;
+        const appreciation = parseFloat(document.getElementById('inpAppreciation').value) / 100;
+        const ltv = parseFloat(document.getElementById('inpLtv').value) / 100;
+        const loanTerm = parseInt(document.getElementById('inpLoanTerm').value);
+        const rate = parseFloat(document.getElementById('inpRate').value) / 100;
+        const discount = parseFloat(document.getElementById('inpDiscount').value) / 100;
+        const buildingRatio = parseFloat(document.getElementById('inpBuildingRatio').value) / 100;
+
+        document.getElementById('valArea').innerText = area;
+        document.getElementById('valPrice').innerText = pricePerPing;
+        document.getElementById('valRent').innerText = formatCurrency(rentPerPing);
+        document.getElementById('valRentGrowth').innerText = (rentGrowth * 100).toFixed(1);
+        document.getElementById('valAppreciation').innerText = (appreciation * 100).toFixed(1);
+        document.getElementById('valLtv').innerText = (ltv * 100).toFixed(0);
+        document.getElementById('valLoanTerm').innerText = loanTerm;
+        document.getElementById('valRate').innerText = (rate * 100).toFixed(1);
+        document.getElementById('valDiscount').innerText = (discount * 100).toFixed(1);
+        document.getElementById('valBuildingRatio').innerText = (buildingRatio * 100).toFixed(0);
+        document.getElementById('valYears').innerText = STATE.years;
+        document.getElementById('dispYearsKpi').innerText = STATE.years;
+        document.getElementById('dispYearsChart').innerText = STATE.years;
+
+        const totalPrice = Math.round(area * pricePerPing);
+        document.getElementById('dispTotalPrice').innerText = formatCurrency(totalPrice);
+
+        const annualRent = (rentPerPing * area * 12) / 10000; 
+        const deposit = annualRent / 12 * 2; // 修改為2個月押金
+
+        const loanAmount = totalPrice * ltv;
+        const downPayment = totalPrice - loanAmount;
+        const annualMortgagePayment = -PMT(rate, loanTerm, loanAmount);
+
+        STATE.buyData = [];
+        STATE.leaseData = [];
+        let buyNpv = 0;
+        let leaseNpv = 0;
+
+        let buyCumCF = 0;
+        let leaseCumCF = 0;
+
+        let currentLoanBalance = loanAmount;
+
+        STATE.buyData.push({ year: 0, payment: -downPayment, interest: 0, depr: 0, taxShield: 0, atcf: -downPayment, cumCF: -downPayment, note: '頭期款' });
+        buyNpv += -downPayment;
+        buyCumCF -= downPayment;
+
+        STATE.leaseData.push({ year: 0, rent: 0, taxShield: 0, depositCF: -deposit, atcf: -deposit, cumCF: -deposit, note: '支付押金(2個月)' });
+        leaseNpv += -deposit;
+        leaseCumCF -= deposit;
+
+        for (let i = 1; i <= STATE.years; i++) {
+            const interestPayment = currentLoanBalance * rate;
+            const principalPayment = annualMortgagePayment - interestPayment;
+            currentLoanBalance -= principalPayment;
+
+            const depr = (totalPrice * buildingRatio) / STATE.depreciationYears;
+            const propTax = totalPrice * STATE.propTaxRate;
+            
+            const taxShieldBuy = (interestPayment + depr + propTax) * STATE.corpTaxRate;
+            let atcfBuy = -annualMortgagePayment - propTax + taxShieldBuy;
+            
+            let noteBuy = '';
+
+            if (i === STATE.years) {
+                const sellPrice = totalPrice * Math.pow(1 + appreciation, STATE.years);
+                const capGain = Math.max(0, sellPrice - totalPrice); 
+                
+                // 房地合一稅 2.0 針對營利事業的稅率判斷
+                let taxRate = 0.20;
+                if (STATE.years <= 2) {
+                    taxRate = 0.45;
+                } else if (STATE.years <= 5) {
+                    taxRate = 0.35;
+                }
+                
+                const capGainTax = capGain * taxRate; 
+                const netProceeds = sellPrice - currentLoanBalance - capGainTax;
+                atcfBuy += netProceeds;
+                noteBuy = `期滿售出(淨額:${formatCurrency(netProceeds)}萬, 稅率${taxRate*100}%)`;
+            }
+
+            buyCumCF += atcfBuy;
+            buyNpv += atcfBuy / Math.pow(1 + discount, i);
+            STATE.buyData.push({ year: i, payment: -annualMortgagePayment, interest: interestPayment, depr: depr, taxShield: taxShieldBuy, atcf: atcfBuy, cumCF: buyCumCF, note: noteBuy });
+
+            // 引入租金年調幅，第 i 年的租金 = 首年租金 * (1 + 增長率)^(i-1)
+            const rentExp = annualRent * Math.pow(1 + rentGrowth, i - 1);
+            const taxShieldLease = rentExp * STATE.corpTaxRate;
+            let atcfLease = -rentExp + taxShieldLease;
+            let noteLease = '';
+
+            if (i === STATE.years) {
+                atcfLease += deposit; 
+                noteLease = '退還押金';
+            }
+
+            leaseCumCF += atcfLease;
+            leaseNpv += atcfLease / Math.pow(1 + discount, i);
+            STATE.leaseData.push({ year: i, rent: -rentExp, taxShield: taxShieldLease, depositCF: (i===STATE.years ? deposit : 0), atcf: atcfLease, cumCF: leaseCumCF, note: noteLease });
+        }
+
+        document.getElementById('resBuyNpv').innerText = formatCurrency(buyNpv);
+        document.getElementById('resLeaseNpv').innerText = formatCurrency(leaseNpv);
+
+        const decisionEl = document.getElementById('resDecision');
+        if (buyNpv > leaseNpv) {
+            decisionEl.innerText = `購買較划算 (省 ${formatCurrency(buyNpv - leaseNpv)} 萬)`;
+            decisionEl.className = "text-xl md:text-2xl font-bold text-indigo-400";
+        } else {
+            decisionEl.innerText = `租賃較划算 (省 ${formatCurrency(leaseNpv - buyNpv)} 萬)`;
+            decisionEl.className = "text-xl md:text-2xl font-bold text-emerald-400";
+        }
+
+        updateCharts();
+        renderTable(document.getElementById('btnTabBuy').classList.contains('bg-indigo-600') ? 'buy' : 'lease');
+    }
+
+    function updateCharts() {
+        const labels = Array.from({length: STATE.years + 1}, (_, i) => 'Year ' + i);
+        
+        const buyCum = STATE.buyData.map(d => d.cumCF);
+        const leaseCum = STATE.leaseData.map(d => d.cumCF);
+
+        const buyAnn = STATE.buyData.map(d => d.atcf);
+        const leaseAnn = STATE.leaseData.map(d => d.atcf);
+
+        if (chartCum) chartCum.destroy();
+        const ctxCum = document.getElementById('cumulativeChart').getContext('2d');
+        chartCum = new Chart(ctxCum, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '購買累計現金流', data: buyCum, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', borderWidth: 3, fill: true, tension: 0.3 },
+                    { label: '租賃累計現金流', data: leaseCum, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 3, fill: true, tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { 
+                    tooltip: { mode: 'index', intersect: false, callbacks: { label: function(c) { return c.dataset.label + ': ' + formatCurrency(c.raw) + ' 萬'; } } },
+                    legend: { position: 'top' }
+                },
+                scales: { y: { grid: { color: '#f1f5f9' }, title: { display: true, text: '金額 (萬元)' } }, x: { grid: { display: false } } }
+            }
+        });
+
+        if (chartAnn) chartAnn.destroy();
+        const ctxAnn = document.getElementById('annualChart').getContext('2d');
+        chartAnn = new Chart(ctxAnn, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '購買年度淨金流', data: buyAnn, backgroundColor: '#818cf8', borderRadius: 4 },
+                    { label: '租賃年度淨金流', data: leaseAnn, backgroundColor: '#34d399', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    tooltip: { mode: 'index', intersect: false, callbacks: { label: function(c) { return c.dataset.label + ': ' + formatCurrency(c.raw) + ' 萬'; } } },
+                    legend: { position: 'top' }
+                },
+                scales: { y: { grid: { color: '#f1f5f9' }, title: { display: true, text: '金額 (萬元)' } }, x: { grid: { display: false } } }
+            }
+        });
+    }
+
+    function switchTable(type) {
+        const btnBuy = document.getElementById('btnTabBuy');
+        const btnLease = document.getElementById('btnTabLease');
+        if (type === 'buy') {
+            btnBuy.className = "px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white shadow";
+            btnLease.className = "px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-700 border hover:bg-slate-50";
+        } else {
+            btnLease.className = "px-4 py-2 text-sm font-medium rounded-md bg-emerald-600 text-white shadow";
+            btnBuy.className = "px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-700 border hover:bg-slate-50";
+        }
+        renderTable(type);
+    }
+
+    function renderTable(type) {
+        const table = document.getElementById('dataTable');
+        let html = '';
+        if (type === 'buy') {
+            html += `
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                        <th class="px-6 py-3">年度</th>
+                        <th class="px-6 py-3">房貸本息支出</th>
+                        <th class="px-6 py-3">利息費用 (可抵稅)</th>
+                        <th class="px-6 py-3">折舊費用 (可抵稅)</th>
+                        <th class="px-6 py-3 text-emerald-600">營所稅節稅利益</th>
+                        <th class="px-6 py-3 text-indigo-600 font-bold">稅後淨現金流 (ATCF)</th>
+                        <th class="px-6 py-3 text-indigo-800 font-bold">累計稅後淨現金流</th>
+                        <th class="px-6 py-3">備註</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+            `;
+            STATE.buyData.forEach(row => {
+                html += `
+                    <tr class="bg-white hover:bg-slate-50">
+                        <td class="px-6 py-4 font-medium text-slate-900">Year ${row.year}</td>
+                        <td class="px-6 py-4">${formatCurrency(row.payment)}</td>
+                        <td class="px-6 py-4">${formatCurrency(row.interest)}</td>
+                        <td class="px-6 py-4">${formatCurrency(row.depr)}</td>
+                        <td class="px-6 py-4 text-emerald-600">+${formatCurrency(row.taxShield)}</td>
+                        <td class="px-6 py-4 font-bold ${row.atcf >= 0 ? 'text-emerald-600' : 'text-red-500'}">${formatCurrency(row.atcf)}</td>
+                        <td class="px-6 py-4 font-bold ${row.cumCF >= 0 ? 'text-emerald-600' : 'text-red-500'} bg-slate-50">${formatCurrency(row.cumCF)}</td>
+                        <td class="px-6 py-4 text-xs text-slate-400">${row.note}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += `
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                        <th class="px-6 py-3">年度</th>
+                        <th class="px-6 py-3">租金支出</th>
+                        <th class="px-6 py-3">押金流動</th>
+                        <th class="px-6 py-3 text-emerald-600">營所稅節稅利益</th>
+                        <th class="px-6 py-3 text-indigo-600 font-bold">稅後淨現金流 (ATCF)</th>
+                        <th class="px-6 py-3 text-indigo-800 font-bold">累計稅後淨現金流</th>
+                        <th class="px-6 py-3">備註</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+            `;
+            STATE.leaseData.forEach(row => {
+                html += `
+                    <tr class="bg-white hover:bg-slate-50">
+                        <td class="px-6 py-4 font-medium text-slate-900">Year ${row.year}</td>
+                        <td class="px-6 py-4">${formatCurrency(row.rent)}</td>
+                        <td class="px-6 py-4">${formatCurrency(row.depositCF)}</td>
+                        <td class="px-6 py-4 text-emerald-600">+${formatCurrency(row.taxShield)}</td>
+                        <td class="px-6 py-4 font-bold ${row.atcf >= 0 ? 'text-emerald-600' : 'text-red-500'}">${formatCurrency(row.atcf)}</td>
+                        <td class="px-6 py-4 font-bold ${row.cumCF >= 0 ? 'text-emerald-600' : 'text-red-500'} bg-slate-50">${formatCurrency(row.cumCF)}</td>
+                        <td class="px-6 py-4 text-xs text-slate-400">${row.note}</td>
+                    </tr>
+                `;
+            });
+        }
+        html += `</tbody>`;
+        table.innerHTML = html;
+    }
+
+    ['inpYears', 'inpArea', 'inpPrice', 'inpRent', 'inpRentGrowth', 'inpAppreciation', 'inpLtv', 'inpLoanTerm', 'inpRate', 'inpDiscount', 'inpBuildingRatio'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculate);
+    });
+
+    window.onload = calculate;
+
+</script>
+</body>
+</html>

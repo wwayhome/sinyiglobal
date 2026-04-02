@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>房產照片一鍵AI最佳化工具</title>
+    
+    <!-- 引入 Tailwind CSS 進行排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 Lucide Icons 圖示庫 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* 隱藏預設捲軸，讓畫面更乾淨 */
+        body { overflow-x: hidden; }
+        
+        /* 讓拖曳時不會反白文字或圖片 */
+        .select-none {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans p-6 flex flex-col items-center">
+
+    <!-- Header -->
+    <header class="w-full max-w-5xl mb-8 text-center space-y-2">
+        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 flex items-center justify-center gap-3">
+            <i data-lucide="image" class="text-blue-600 w-9 h-9"></i>
+            房產行銷照片一鍵 AI 最佳化
+        </h1>
+        <p class="text-slate-500">自動修正白平衡、以 HDR 曲線提亮暗部、提升立體對比度</p>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        
+        <!-- Upload Area (初始顯示) -->
+        <div id="upload-section" class="p-12 flex flex-col items-center justify-center border-2 border-dashed border-blue-200 bg-blue-50/50 m-6 rounded-xl hover:bg-blue-50 transition-colors">
+            <input type="file" accept="image/*" class="hidden" id="image-upload" />
+            <label for="image-upload" class="cursor-pointer flex flex-col items-center gap-4">
+                <div class="p-4 bg-white rounded-full shadow-sm text-blue-500">
+                    <i data-lucide="upload-cloud" class="w-12 h-12"></i>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-medium text-slate-700">點擊上傳建築或室內照片</p>
+                    <p class="text-sm text-slate-500 mt-1">支援 JPG, PNG 格式</p>
+                </div>
+                <div class="mt-4 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">
+                    選擇圖片
+                </div>
+            </label>
+        </div>
+
+        <!-- Editor Area (初始隱藏，上傳後顯示) -->
+        <div id="editor-section" class="hidden flex flex-col">
+            
+            <!-- 圖片預覽與比較滑桿區 -->
+            <div id="slider-container" class="relative w-full bg-slate-900 aspect-video md:aspect-[16/9] overflow-hidden cursor-ew-resize select-none">
+                
+                <!-- 處理後的圖片 (底層) -->
+                <img id="processed-img" alt="Processed" class="absolute inset-0 w-full h-full object-contain" />
+                
+                <!-- 原始圖片 (上層，透過 clip-path 裁切來顯示一半) -->
+                <img id="original-img" alt="Original" class="absolute inset-0 w-full h-full object-contain" style="clip-path: inset(0 50% 0 0);" />
+
+                <!-- 比較滑桿線與控制把手 -->
+                <div id="slider-line" class="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_rgba(0,0,0,0.5)] flex items-center justify-center pointer-events-none" style="left: 50%; transform: translateX(-50%); display: none;">
+                    <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-slate-200">
+                        <div class="flex gap-1">
+                            <div class="w-1 h-3 bg-slate-400 rounded-full"></div>
+                            <div class="w-1 h-3 bg-slate-400 rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 標籤 (Before/After) -->
+                <div id="labels" style="display: none;">
+                    <div class="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm font-medium rounded backdrop-blur-sm pointer-events-none">原圖 (Before)</div>
+                    <div class="absolute top-4 right-4 px-3 py-1 bg-blue-600/80 text-white text-sm font-medium rounded backdrop-blur-sm pointer-events-none">最佳化後 (After)</div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕區 -->
+            <div class="p-6 bg-slate-100 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200">
+                <div class="flex gap-3">
+                    <button id="reset-btn" class="px-4 py-2 flex items-center gap-2 text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition font-medium">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        重新上傳
+                    </button>
+                </div>
+
+                <div class="flex gap-3 ml-auto">
+                    <!-- 處理按鈕 -->
+                    <button id="process-btn" class="px-6 py-2.5 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 shadow-md transition font-medium">
+                        <i data-lucide="wand-2" class="w-5 h-5" id="process-icon"></i>
+                        <span id="process-text">一鍵行銷最佳化</span>
+                    </button>
+                    
+                    <!-- 下載按鈕 (初始隱藏) -->
+                    <button id="download-btn" class="hidden px-6 py-2.5 items-center gap-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-md transition font-medium">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                        下載高畫質照片
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 用來進行影像處理的隱藏 Canvas -->
+    <canvas id="processing-canvas" class="hidden"></canvas>
+
+    <!-- Features Description -->
+    <section class="w-full max-w-5xl mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-slate-600">
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center gap-2">☀️ 智慧 HDR 陰影提亮</h3>
+            <p class="text-sm leading-relaxed">針對背光或室內暗角，使用非線性光度曲線(Luminance Curve)進行像素提亮，保留窗外高光細節不過曝。</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center gap-2">📈 S曲線立體感增強</h3>
+            <p class="text-sm leading-relaxed">捨棄傳統粗暴的拉高對比，採用平滑的 Sigmoid S-Curve 函數，使照片具備立體感且過渡自然協調。</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center gap-2">🎨 房產專屬色彩科學</h3>
+            <p class="text-sm leading-relaxed">內建灰世界(Gray World)白平衡校正，並微調至偏暖色調，同時智慧提升飽和度，打造溫馨透亮的空間感。</p>
+        </div>
+    </section>
+
+    <!-- 核心 JavaScript 邏輯 -->
+    <script>
+        // 初始化 Lucide 圖示
+        lucide.createIcons();
+
+        // 取得 DOM 元素
+        const uploadInput = document.getElementById('image-upload');
+        const uploadSection = document.getElementById('upload-section');
+        const editorSection = document.getElementById('editor-section');
+        
+        const originalImg = document.getElementById('original-img');
+        const processedImg = document.getElementById('processed-img');
+        const sliderContainer = document.getElementById('slider-container');
+        const sliderLine = document.getElementById('slider-line');
+        const labels = document.getElementById('labels');
+        
+        const processBtn = document.getElementById('process-btn');
+        const processIcon = document.getElementById('process-icon');
+        const processText = document.getElementById('process-text');
+        const downloadBtn = document.getElementById('download-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        
+        const canvas = document.getElementById('processing-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 狀態變數
+        let originalDataUrl = null;
+        let processedDataUrl = null;
+        let isProcessed = false;
+
+        // 1. 處理圖片上傳
+        uploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    originalDataUrl = event.target.result;
+                    
+                    // 重置 UI 狀態
+                    originalImg.src = originalDataUrl;
+                    processedImg.src = originalDataUrl; // 處理前，底圖先放原圖
+                    processedDataUrl = null;
+                    isProcessed = false;
+                    
+                    // 顯示/隱藏區塊
+                    uploadSection.classList.add('hidden');
+                    editorSection.classList.remove('hidden');
+                    processBtn.classList.remove('hidden');
+                    downloadBtn.classList.add('hidden');
+                    sliderLine.style.display = 'none';
+                    labels.style.display = 'none';
+                    
+                    // 重置滑桿位置
+                    updateSlider(50);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 2. 處理返回/重置
+        resetBtn.addEventListener('click', () => {
+            uploadInput.value = ''; // 清除檔案
+            uploadSection.classList.remove('hidden');
+            editorSection.classList.add('hidden');
+            originalDataUrl = null;
+            processedDataUrl = null;
+        });
+
+        // 3. 核心演算法：一鍵最佳化
+        processBtn.addEventListener('click', () => {
+            if (!originalDataUrl) return;
+
+            // 變更按鈕為處理中狀態
+            processBtn.disabled = true;
+            processBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            processIcon.setAttribute('data-lucide', 'loader-2');
+            processIcon.classList.add('animate-spin');
+            processText.innerText = 'AI 處理中...';
+            lucide.createIcons(); // 重新渲染圖示
+
+            // 使用 setTimeout 讓瀏覽器有時間更新 UI (顯示 loading 狀態)
+            setTimeout(() => {
+                const img = new Image();
+                img.onload = () => {
+                    // 設定 Canvas 尺寸與原圖相同
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imgData.data;
+
+                    // A. 計算全圖平均值 (用於灰世界白平衡)
+                    let rSum = 0, gSum = 0, bSum = 0;
+                    for (let i = 0; i < data.length; i += 4) {
+                        rSum += data[i]; gSum += data[i+1]; bSum += data[i+2];
+                    }
+                    const pixelCount = data.length / 4;
+                    const rAvg = rSum / pixelCount;
+                    const gAvg = gSum / pixelCount;
+                    const bAvg = bSum / pixelCount;
+                    const avgGray = (rAvg + gAvg + bAvg) / 3;
+
+                    // 白平衡乘數 (只套用 40% 的強度)
+                    const wbStrength = 0.4;
+                    const rWb = ((avgGray / rAvg) - 1) * wbStrength + 1;
+                    const gWb = ((avgGray / gAvg) - 1) * wbStrength + 1;
+                    const bWb = ((avgGray / bAvg) - 1) * wbStrength + 1;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        let r = data[i];
+                        let g = data[i+1];
+                        let b = data[i+2];
+
+                        // 1. 白平衡調整 & 微暖色調
+                        r *= rWb; g *= gWb; b *= bWb;
+                        r *= 1.02; b *= 0.98;
+
+                        // 計算亮度 (Luminance) 並限制範圍，避免白雲(高光)出現 NaN 變成黑色
+                        let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                        lum = Math.min(255, Math.max(0, lum));
+
+                        // 2. HDR 陰影提亮 (非線性) - 調降強度讓過渡更自然
+                        const shadowStrength = 0.6; 
+                        const shadowFactor = 1 + shadowStrength * Math.pow(1 - (lum / 255), 2.5);
+                        r *= shadowFactor;
+                        g *= shadowFactor;
+                        b *= shadowFactor;
+
+                        // 3. S-Curve 曲線對比度調整
+                        const applySCurve = (val) => {
+                            // 進入 S 曲線前，強制限制在 255 以內，防止數學曲線反轉導致高光變黑
+                            val = Math.min(255, Math.max(0, val));
+                            let norm = val / 255;
+                            let curved = norm < 0.5 ? 2 * norm * norm : 1 - 2 * Math.pow(1 - norm, 2);
+                            let blended = norm * 0.7 + curved * 0.3; // 強度從 0.35 降至 0.3
+                            return blended * 255;
+                        };
+                        r = applySCurve(r);
+                        g = applySCurve(g);
+                        b = applySCurve(b);
+
+                        // 4. 飽和度提升 - 稍微調降避免過度鮮豔
+                        const newLum = 0.299 * r + 0.587 * g + 0.114 * b;
+                        const satBoost = 1.20; 
+                        r = newLum + (r - newLum) * satBoost;
+                        g = newLum + (g - newLum) * satBoost;
+                        b = newLum + (b - newLum) * satBoost;
+
+                        // 寫回並限制在 0-255 範圍內
+                        data[i] = Math.min(255, Math.max(0, r));
+                        data[i+1] = Math.min(255, Math.max(0, g));
+                        data[i+2] = Math.min(255, Math.max(0, b));
+                    }
+
+                    // 將算好的資料放回 Canvas
+                    ctx.putImageData(imgData, 0, 0);
+                    processedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                    
+                    // 更新 UI 顯示結果
+                    processedImg.src = processedDataUrl;
+                    isProcessed = true;
+                    
+                    // 顯示滑桿與下載按鈕
+                    sliderLine.style.display = 'flex';
+                    labels.style.display = 'block';
+                    processBtn.classList.add('hidden');
+                    downloadBtn.classList.remove('hidden');
+                    downloadBtn.style.display = 'flex';
+                    
+                    // 恢復處理按鈕狀態 (隱藏前先復原，避免下次顯示異常)
+                    processBtn.disabled = false;
+                    processBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                    processIcon.setAttribute('data-lucide', 'wand-2');
+                    processIcon.classList.remove('animate-spin');
+                    processText.innerText = '一鍵行銷最佳化';
+                    lucide.createIcons();
+
+                };
+                img.src = originalDataUrl;
+            }, 100);
+        });
+
+        // 4. 處理滑鼠/觸控拖曳比較滑桿
+        const updateSlider = (percent) => {
+            // clip-path: inset(top right bottom left)
+            originalImg.style.clipPath = `inset(0 ${100 - percent}% 0 0)`;
+            sliderLine.style.left = `${percent}%`;
+        };
+
+        const handleMove = (e) => {
+            if (!isProcessed) return;
+            
+            // 處理滑鼠與觸控的座標差異
+            let clientX;
+            if (e.type.includes('touch')) {
+                clientX = e.touches[0].clientX;
+            } else {
+                clientX = e.clientX;
+            }
+
+            const rect = sliderContainer.getBoundingClientRect();
+            const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+            const percent = (x / rect.width) * 100;
+            updateSlider(percent);
+        };
+
+        // 綁定拖曳事件
+        sliderContainer.addEventListener('mousemove', handleMove);
+        sliderContainer.addEventListener('touchmove', handleMove);
+
+        // 5. 處理圖片下載
+        downloadBtn.addEventListener('click', () => {
+            if (!processedDataUrl) return;
+            const link = document.createElement('a');
+            link.download = 'optimized_architecture.jpg';
+            link.href = processedDataUrl;
+            link.click();
+        });
+    </script>
+</body>
+</html>

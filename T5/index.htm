@@ -43,10 +43,13 @@
         const SHEET_URL_MAIN = "https://docs.google.com/spreadsheets/d/1OZIQFaNUUvMAgaPz9uLsoJdqcIXYgsIkT-d24uPWHXI/export?format=csv";
         // 組別資料連結
         const SHEET_URL_GROUP = "https://docs.google.com/spreadsheets/d/1UVdl15ETd-02hEeLrvdG-MTJ7zIhjFkPGs22Vx0DbaE/export?format=csv";
+        // 建管歸組(使用項目舉例)資料連結
+        const SHEET_URL_BUILDING = "https://docs.google.com/spreadsheets/d/16N0gKwGPa_yo3uDi9tlRVGtrHa_lWZm7HDpkRa9ft2Y/export?format=csv";
 
         function App() {
             const [mainData, setMainData] = useState([]);
             const [groupData, setGroupData] = useState([]);
+            const [buildingData, setBuildingData] = useState([]);
             const [isLoaded, setIsLoaded] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
             const [searchTerm, setSearchTerm] = useState('');
@@ -101,10 +104,14 @@
                             throw new Error("尚未設定 Google Sheets CSV 連結。");
                         }
 
-                        const [mainRaw, groupRaw] = await Promise.all([
+                        const [mainRaw, groupRaw, buildingRaw] = await Promise.all([
                             fetchCsv(SHEET_URL_MAIN),
                             fetchCsv(SHEET_URL_GROUP).catch(e => {
                                 console.warn("組別資料載入失敗或未設定");
+                                return [];
+                            }),
+                            fetchCsv(SHEET_URL_BUILDING).catch(e => {
+                                console.warn("建管歸組資料載入失敗或未設定");
                                 return [];
                             })
                         ]);
@@ -115,6 +122,7 @@
 
                         setMainData(normalizeData(mainRaw));
                         setGroupData(normalizeData(groupRaw));
+                        setBuildingData(normalizeData(buildingRaw));
                         setIsLoaded(true);
                     } catch (error) {
                         console.error("載入失敗:", error);
@@ -241,25 +249,82 @@
                             </div>
 
                             <div className="p-6 md:p-8">
-                                <div className="mb-6 bg-blue-50 p-6 rounded-xl border border-blue-100 text-blue-900">
-                                    <h3 className="text-sm font-bold text-blue-800 mb-2 uppercase tracking-widest">定義內容</h3>
-                                    <p className="text-lg leading-relaxed">{selectedItem['定義內容'] || '無詳細說明'}</p>
-                                </div>
+                                {(() => {
+                                    // 動態抓取欄位名稱，避免因為「建管歸組」或「建築歸組」等字眼差異而抓不到資料
+                                    const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
+                                    const landValue = landKey ? selectedItem[landKey] : null;
+                                    
+                                    const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
+                                    const buildValue = buildKey ? selectedItem[buildKey] : null;
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {Object.entries(selectedItem).map(([key, value]) => {
-                                        if (['營業項目代碼', '營業項目', '定義內容', ''].includes(key)) return null;
-                                        return (
-                                            <div key={key} className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                                                <div className="text-xs font-bold text-gray-500 mb-1">{key}</div>
-                                                <div className="text-gray-900 font-medium whitespace-pre-wrap">{value || '-'}</div>
+                                    return (
+                                        <React.Fragment>
+                                            <div className="mb-6 bg-gray-50 p-6 rounded-xl border border-gray-200 text-gray-800">
+                                                <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-widest">定義內容</h3>
+                                                <p className="text-lg leading-relaxed">{selectedItem['定義內容'] || '無詳細說明'}</p>
                                             </div>
-                                        );
-                                    })}
-                                </div>
+
+                                            <div className="flex flex-wrap gap-4 mb-6">
+                                                {landValue && (
+                                                    <div className="flex-1 min-w-[200px] bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                                                        <div className="bg-green-200 text-green-700 p-3 rounded-lg">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                                            </svg>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-bold text-green-600 uppercase tracking-widest mb-1">{landKey || '臺北市土管歸組'}</div>
+                                                            <div className="text-2xl font-black text-green-900">{landValue}</div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {buildValue && (
+                                                    <div className="flex-1 min-w-[200px] bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                                                        <div className="bg-purple-200 text-purple-700 p-3 rounded-lg">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                            </svg>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">{buildKey || '建管歸組'}</div>
+                                                            <div className="text-2xl font-black text-purple-900">{buildValue}</div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {Object.entries(selectedItem)
+                                                    .filter(([key]) => !['營業項目代碼', '營業項目', '定義內容', '', landKey, buildKey].includes(key))
+                                                    .sort(([keyA], [keyB]) => {
+                                                        // 自訂排序：確保「本業目別」排在「限辦目別」之前
+                                                        const customOrder = ['本業目別', '限辦歸組', '限辦目別', '策略型產業'];
+                                                        let indexA = customOrder.indexOf(keyA);
+                                                        let indexB = customOrder.indexOf(keyB);
+                                                        
+                                                        // 若不在自訂名單內，則維持在後方顯示
+                                                        if (indexA === -1) indexA = 999;
+                                                        if (indexB === -1) indexB = 999;
+                                                        
+                                                        return indexA - indexB;
+                                                    })
+                                                    .map(([key, value]) => (
+                                                        <div key={key} className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                                            <div className="text-xs font-bold text-gray-500 mb-1">{key}</div>
+                                                            <div className="text-gray-900 font-medium whitespace-pre-wrap">{value || '-'}</div>
+                                                        </div>
+                                                    ))
+                                                }
+                                            </div>
+                                        </React.Fragment>
+                                    );
+                                })()}
 
                                 {(() => {
-                                    const targetGroupNum = selectedItem['土管歸組'];
+                                    // 下方關聯附屬組別表格，同樣改為動態抓取以防錯誤
+                                    const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
+                                    const targetGroupNum = landKey ? selectedItem[landKey] : null;
+                                    
                                     if (!targetGroupNum || groupData.length === 0) return null;
                                     
                                     // 抓取第一欄作為對照用的「土管歸組編號」
@@ -276,7 +341,7 @@
                                     return (
                                         <div className="mt-8 bg-green-50 rounded-xl border border-green-200 overflow-hidden">
                                             <div className="px-6 py-4 bg-green-100/60 font-bold text-green-800">
-                                                附屬組別資料 (第 {targetGroupNum} 組)
+                                                土管歸組資料 (第 {targetGroupNum} 組)
                                             </div>
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-sm">
@@ -292,6 +357,56 @@
                                                                 <tr key={i} className="border-b border-green-100 bg-white">
                                                                     <td className="px-6 py-4 font-bold text-green-800 align-top whitespace-pre-wrap">{g[displayKeys[0]]}</td>
                                                                     <td className="px-6 py-4 whitespace-pre-wrap">{g[displayKeys[1]]}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {(() => {
+                                    // 下方關聯「建管歸組/使用項目」表格
+                                    const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
+                                    const buildValue = buildKey ? selectedItem[buildKey] : null;
+                                    
+                                    if (!buildValue || buildingData.length === 0) return null;
+                                    
+                                    // 抓取第一欄作為對照用的「建管歸組編號」
+                                    const bKeyName = Object.keys(buildingData[0])[0];
+                                    const matchedBItems = buildingData.filter(b => String(b[bKeyName]) === String(buildValue));
+                                    
+                                    if (matchedBItems.length === 0) return null;
+
+                                    // 抓取其他欄位名稱 (預設顯示為使用項目舉例)
+                                    const displayBKeys = Object.keys(buildingData[0]).filter(k => k !== bKeyName);
+                                    const col2Name = displayBKeys[0] || '使用項目舉例';
+
+                                    return (
+                                        <div className="mt-8 bg-purple-50 rounded-xl border border-purple-200 overflow-hidden">
+                                            <div className="px-6 py-4 bg-purple-100/60 font-bold text-purple-800">
+                                                建管使用類組說明 ({buildValue})
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead className="bg-purple-200/50 text-purple-800 text-left">
+                                                        <tr>
+                                                            <th className="px-6 py-3 w-1/4">建築類組</th>
+                                                            <th className="px-6 py-3 w-3/4">{col2Name}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {matchedBItems.map((b, i) => {
+                                                            const rawText = b[displayBKeys[0]] || '';
+                                                            // 遇到半形或全形分號時，在後方加上換行符號
+                                                            const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
+                                                            
+                                                            return (
+                                                                <tr key={i} className="border-b border-purple-100 bg-white hover:bg-purple-50/50 transition-colors">
+                                                                    <td className="px-6 py-4 font-bold text-purple-800 align-top whitespace-pre-wrap">{b[bKeyName]}</td>
+                                                                    <td className="px-6 py-4 whitespace-pre-wrap text-gray-700 leading-relaxed">{formattedText}</td>
                                                                 </tr>
                                                             );
                                                         })}

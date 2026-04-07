@@ -257,6 +257,19 @@
                                     const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
                                     const buildValue = buildKey ? selectedItem[buildKey] : null;
 
+                                    // 動態從 buildingData 找出對應的「組別定義」
+                                    let buildingDef = null;
+                                    if (buildValue && buildingData.length > 0) {
+                                        const bKeyName = Object.keys(buildingData[0])[0];
+                                        const matchedBItem = buildingData.find(b => String(b[bKeyName]) === String(buildValue));
+                                        if (matchedBItem) {
+                                            const defKey = Object.keys(matchedBItem).find(k => k.includes('組別定義'));
+                                            if (defKey) {
+                                                buildingDef = matchedBItem[defKey];
+                                            }
+                                        }
+                                    }
+
                                     return (
                                         <React.Fragment>
                                             <div className="mb-6 bg-gray-50 p-6 rounded-xl border border-gray-200 text-gray-800">
@@ -294,11 +307,18 @@
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {Object.entries(selectedItem)
-                                                    .filter(([key]) => !['營業項目代碼', '營業項目', '定義內容', '', landKey, buildKey].includes(key))
-                                                    .sort(([keyA], [keyB]) => {
-                                                        // 自訂排序：確保「本業目別」排在「限辦目別」之前
-                                                        const customOrder = ['本業目別', '限辦歸組', '限辦目別', '策略型產業'];
+                                                {(() => {
+                                                    // 整理要顯示的項目，並將動態抓取到的「組別定義」加進來一起排序
+                                                    let entries = Object.entries(selectedItem)
+                                                        .filter(([key]) => !['營業項目代碼', '營業項目', '定義內容', '', landKey, buildKey].includes(key));
+                                                    
+                                                    if (buildingDef) {
+                                                        entries.push(['組別定義', buildingDef]);
+                                                    }
+
+                                                    return entries.sort(([keyA], [keyB]) => {
+                                                        // 自訂排序：確保「組別定義」排在「本業目別」之後、「限辦歸組」之前
+                                                        const customOrder = ['本業目別', '組別定義', '限辦歸組', '限辦目別', '策略型產業'];
                                                         let indexA = customOrder.indexOf(keyA);
                                                         let indexB = customOrder.indexOf(keyB);
                                                         
@@ -313,8 +333,8 @@
                                                             <div className="text-xs font-bold text-gray-500 mb-1">{key}</div>
                                                             <div className="text-gray-900 font-medium whitespace-pre-wrap">{value || '-'}</div>
                                                         </div>
-                                                    ))
-                                                }
+                                                    ));
+                                                })()}
                                             </div>
                                         </React.Fragment>
                                     );
@@ -380,8 +400,8 @@
                                     
                                     if (matchedBItems.length === 0) return null;
 
-                                    // 抓取其他欄位名稱 (預設顯示為使用項目舉例)
-                                    const displayBKeys = Object.keys(buildingData[0]).filter(k => k !== bKeyName);
+                                    // 抓取其他欄位名稱 (排除已經獨立顯示的組別定義，預設顯示為使用項目舉例)
+                                    const displayBKeys = Object.keys(buildingData[0]).filter(k => k !== bKeyName && !k.includes('組別定義'));
                                     const col2Name = displayBKeys[0] || '使用項目舉例';
 
                                     return (

@@ -20,15 +20,6 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
     </style>
-        <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-5YQY4RT9H2');
-</script>
 </head>
 <body>
     <div id="root"></div>
@@ -40,7 +31,7 @@
         // 主資料連結
         const SHEET_URL_MAIN = "https://docs.google.com/spreadsheets/d/1OZIQFaNUUvMAgaPz9uLsoJdqcIXYgsIkT-d24uPWHXI/export?format=csv";
         // 組別資料連結
-        const SHEET_URL_GROUP = "https://docs.google.com/spreadsheets/d/1p-N52gEcOHxo-Ml9sGOoe-Fnbmy7DeQT5-9fY4VeQ7w/export?format=csv";
+        const SHEET_URL_GROUP = "https://docs.google.com/spreadsheets/d/1UVdl15ETd-02hEeLrvdG-MTJ7zIhjFkPGs22Vx0DbaE/export?format=csv";
 
         function App() {
             const [mainData, setMainData] = useState([]);
@@ -188,9 +179,13 @@
                 <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">營業項目編號對應台北市土管歸組</h1>
-                        <p className="text-sm text-gray-600 bg-gray-100 inline-block px-3 py-1 rounded-md mb-2">
-                            資料更新：113.07.09經濟部營業項目總表_對應土管歸組及歸目
-                        </p>
+                        <div className="text-sm text-gray-600 bg-gray-100 inline-block px-4 py-3 rounded-md mb-2 leading-relaxed">
+                            <div className="font-bold mb-1 text-gray-700">資料更新：</div>
+                            <ol className="list-decimal list-inside ml-1">
+                                <li>113.07.09 經濟部營業項目總表_對應土管歸組及歸目</li>
+                                <li>114.07.09 臺北市土地使用分區管制自治條例</li>
+                            </ol>
+                        </div>
                         <p className="text-xs text-gray-400 mt-1">同步自 Google Sheets | 主資料: {mainData.length} 筆</p>
                     </div>
 
@@ -255,10 +250,17 @@
                                 {(() => {
                                     const targetGroupNum = selectedItem['土管歸組'];
                                     if (!targetGroupNum || groupData.length === 0) return null;
-                                    const groupKeyName = Object.keys(groupData[0]).find(k => k.includes('組')) || '組別';
+                                    
+                                    // 抓取第一欄作為對照用的「土管歸組編號」
+                                    const groupKeyName = Object.keys(groupData[0])[0];
                                     const matchedItems = groupData.filter(g => String(g[groupKeyName]) === String(targetGroupNum));
                                     
                                     if (matchedItems.length === 0) return null;
+
+                                    // 抓取第二欄與第三欄的標題名稱 (如果沒有標題，預設顯示為使用組、使用項目)
+                                    const displayKeys = Object.keys(groupData[0]).filter(k => k !== groupKeyName);
+                                    const col2Name = displayKeys[0] || '使用組';
+                                    const col3Name = displayKeys[1] || '使用項目';
 
                                     return (
                                         <div className="mt-8 bg-green-50 rounded-xl border border-green-200 overflow-hidden">
@@ -269,17 +271,16 @@
                                                 <table className="w-full text-sm">
                                                     <thead className="bg-green-200/50 text-green-800 text-left">
                                                         <tr>
-                                                            <th className="px-6 py-3">項目</th>
-                                                            <th className="px-6 py-3">歸類項目</th>
+                                                            <th className="px-6 py-3 w-1/3">{col2Name}</th>
+                                                            <th className="px-6 py-3 w-2/3">{col3Name}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {matchedItems.map((g, i) => {
-                                                            const keys = Object.keys(g).filter(k => k !== groupKeyName);
                                                             return (
                                                                 <tr key={i} className="border-b border-green-100 bg-white">
-                                                                    <td className="px-6 py-4 font-bold text-green-800 align-top">{g[keys[0]]}</td>
-                                                                    <td className="px-6 py-4 whitespace-pre-wrap">{keys.slice(1).map(k => g[k]).join('\n')}</td>
+                                                                    <td className="px-6 py-4 font-bold text-green-800 align-top whitespace-pre-wrap">{g[displayKeys[0]]}</td>
+                                                                    <td className="px-6 py-4 whitespace-pre-wrap">{g[displayKeys[1]]}</td>
                                                                 </tr>
                                                             );
                                                         })}

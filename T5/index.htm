@@ -22,8 +22,6 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- 引入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- 引入 PapaParse 用於解析 Google Sheets CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft JhengHei'; background-color: #f3f4f6; }
@@ -38,13 +36,8 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- 設定區：請在此輸入你的 Google Sheets 發佈連結 (CSV 格式) ---
-        // 主資料連結
-        const SHEET_URL_MAIN = "https://docs.google.com/spreadsheets/d/1OZIQFaNUUvMAgaPz9uLsoJdqcIXYgsIkT-d24uPWHXI/export?format=csv";
-        // 組別資料連結
-        const SHEET_URL_GROUP = "https://docs.google.com/spreadsheets/d/1UVdl15ETd-02hEeLrvdG-MTJ7zIhjFkPGs22Vx0DbaE/export?format=csv";
-        // 建管歸組(使用項目舉例)資料連結
-        const SHEET_URL_BUILDING = "https://docs.google.com/spreadsheets/d/16N0gKwGPa_yo3uDi9tlRVGtrHa_lWZm7HDpkRa9ft2Y/export?format=csv";
+        // --- 設定區：您部署 Google Apps Script 後取得的「網頁應用程式網址」 ---
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzUDD23PmWZpEw3Nt_nlavTVLgxucAhxKshpF4mfyIEYS3HY12pGjZ3zZmrVKVq7FBC/exec";
 
         function App() {
             const [mainData, setMainData] = useState([]);
@@ -68,65 +61,50 @@
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, []);
 
-            // 資料正規化 (去除欄位名稱的換行與空白)
-            const normalizeData = (rawData) => {
-                if (!rawData || !Array.isArray(rawData)) return [];
-                return rawData.map(item => {
-                    const newItem = {};
-                    for (let key in item) {
-                        const cleanKey = key.replace(/[\n\r\s]+/g, '');
-                        newItem[cleanKey] = item[key];
-                    }
-                    return newItem;
-                });
-            };
-
-            // 使用 PapaParse 抓取並解析 CSV
-            const fetchCsv = (url) => {
-                return new Promise((resolve, reject) => {
-                    if (!url || url.includes("你的_")) {
-                        resolve([]); 
-                        return;
-                    }
-                    Papa.parse(url, {
-                        download: true,
-                        header: true,
-                        complete: (results) => resolve(results.data),
-                        error: (err) => reject(err)
-                    });
-                });
+            // 呼叫 GAS API 取得 JSON 資料
+            const fetchJsonData = async (type) => {
+                if (!GAS_URL) {
+                    return [];
+                }
+                const response = await fetch(`${GAS_URL}?type=${type}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                return data;
             };
 
             useEffect(() => {
                 const loadData = async () => {
                     try {
-                        if (SHEET_URL_MAIN.includes("你的_") || !SHEET_URL_MAIN) {
-                            throw new Error("尚未設定 Google Sheets CSV 連結。");
+                        if (!GAS_URL) {
+                            throw new Error("尚未設定 Google Apps Script (GAS) URL。請確認程式碼設定。");
                         }
 
+                        // 同時向 GAS 發送三個請求，分別取得 main, group, building 的資料
                         const [mainRaw, groupRaw, buildingRaw] = await Promise.all([
-                            fetchCsv(SHEET_URL_MAIN),
-                            fetchCsv(SHEET_URL_GROUP).catch(e => {
-                                console.warn("組別資料載入失敗或未設定");
+                            fetchJsonData('main'),
+                            fetchJsonData('group').catch(e => {
+                                console.warn("組別資料載入失敗", e);
                                 return [];
                             }),
-                            fetchCsv(SHEET_URL_BUILDING).catch(e => {
-                                console.warn("建管歸組資料載入失敗或未設定");
+                            fetchJsonData('building').catch(e => {
+                                console.warn("建管歸組資料載入失敗", e);
                                 return [];
                             })
                         ]);
 
                         if (!mainRaw || mainRaw.length === 0) {
-                            throw new Error("讀取到的資料為空，請確認試算表內容或權限是否已「發佈到網路」。");
+                            throw new Error("讀取到的資料為空，請確認 Apps Script 權限或試算表 ID。");
                         }
 
-                        setMainData(normalizeData(mainRaw));
-                        setGroupData(normalizeData(groupRaw));
-                        setBuildingData(normalizeData(buildingRaw));
+                        // 因為在 GAS 中已經處理過標題的空白，這裡可以直接設定
+                        setMainData(mainRaw);
+                        setGroupData(groupRaw);
+                        setBuildingData(buildingRaw);
                         setIsLoaded(true);
                     } catch (error) {
                         console.error("載入失敗:", error);
-                        setErrorMsg("無法從雲端資料庫讀取資料。請確認：\n1. Google 試算表已「發佈到網路」。\n2. 格式選擇為「CSV」。\n3. 連結正確且權限已開放。");
+                        setErrorMsg(`連線至資料庫時發生錯誤：\n${error.message}\n\n請確認您的 GAS API 網址是否正確，且已部署為「所有人」皆可存取。`);
                     }
                 };
 
@@ -177,7 +155,7 @@
                                 </svg>
                                 雲端連線失敗
                             </h1>
-                            <p className="text-gray-600 whitespace-pre-wrap leading-relaxed bg-red-50 p-4 rounded-lg">{errorMsg}</p>
+                            <p className="text-gray-600 whitespace-pre-wrap leading-relaxed bg-red-50 p-4 rounded-lg text-sm">{errorMsg}</p>
                         </div>
                     </div>
                 );
@@ -188,7 +166,7 @@
                     <div className="min-h-screen flex items-center justify-center">
                         <div className="flex flex-col items-center">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                            <p className="text-gray-500 font-medium">正在連線至 Google 雲端資料庫...</p>
+                            <p className="text-gray-500 font-medium">正在連線至 API 資料庫...</p>
                         </div>
                     </div>
                 );
@@ -205,7 +183,7 @@
                                 <li>114.07.09 臺北市土地使用分區管制自治條例</li>
                             </ol>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">同步自 Google Sheets | 主資料: {mainData.length} 筆</p>
+                        <p className="text-xs text-gray-400 mt-1">透過 Google API 同步 | 主資料: {mainData.length} 筆</p>
                     </div>
 
                     <div className="relative mb-8 z-50" ref={dropdownRef}>

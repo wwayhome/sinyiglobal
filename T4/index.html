@@ -24,14 +24,14 @@
         }
     </style>
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-  gtag('config', 'G-5YQY4RT9H2');
-</script>
+      gtag('config', 'G-5YQY4RT9H2');
+    </script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 font-sans p-6 flex flex-col items-center">
 
@@ -55,7 +55,7 @@
                     <i data-lucide="upload-cloud" class="w-12 h-12"></i>
                 </div>
                 <div class="text-center">
-                    <p class="text-lg font-medium text-slate-700">點擊上傳建築或室內照片</p>
+                    <p class="text-lg font-medium text-slate-700">拖曳圖片至此，或點擊上傳</p>
                     <p class="text-sm text-slate-500 mt-1">支援 JPG, PNG 格式</p>
                 </div>
                 <div class="mt-4 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">
@@ -161,17 +161,16 @@
         const resetBtn = document.getElementById('reset-btn');
         
         const canvas = document.getElementById('processing-canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         // 狀態變數
         let originalDataUrl = null;
         let processedDataUrl = null;
         let isProcessed = false;
 
-        // 1. 處理圖片上傳
-        uploadInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
+        // 獨立出檔案處理邏輯，讓點擊和拖曳都能共用
+        const handleFileUpload = (file) => {
+            if (file && file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     originalDataUrl = event.target.result;
@@ -194,7 +193,47 @@
                     updateSlider(50);
                 };
                 reader.readAsDataURL(file);
+            } else if (file) {
+                // 如果拖曳的不是圖片
+                alert('請上傳正確的圖片格式 (JPG, PNG 等)');
             }
+        };
+
+        // 1. 處理圖片上傳 (點擊選擇檔案)
+        uploadInput.addEventListener('change', (e) => {
+            handleFileUpload(e.target.files[0]);
+        });
+
+        // 1-1. 處理圖片上傳 (拖曳檔案功能)
+        // 阻止瀏覽器預設行為 (避免直接打開圖片)
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // 拖曳進入時的視覺回饋 (變換背景色與邊框)
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.classList.add('bg-blue-100', 'border-blue-400');
+                uploadSection.classList.remove('bg-blue-50/50', 'border-blue-200');
+            }, false);
+        });
+
+        // 拖曳離開或放下時恢復預設視覺
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.classList.remove('bg-blue-100', 'border-blue-400');
+                uploadSection.classList.add('bg-blue-50/50', 'border-blue-200');
+            }, false);
+        });
+
+        // 處理拖曳放下事件，讀取檔案
+        uploadSection.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            handleFileUpload(file);
         });
 
         // 2. 處理返回/重置

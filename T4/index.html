@@ -167,10 +167,22 @@
         let originalDataUrl = null;
         let processedDataUrl = null;
         let isProcessed = false;
+        let exportFileName = 'optimized_architecture.jpg'; // 新增變數來儲存下載檔名
 
         // 獨立出檔案處理邏輯，讓點擊和拖曳都能共用
         const handleFileUpload = (file) => {
             if (file && file.type.startsWith('image/')) {
+                // 處理檔名：在副檔名前加上 _optimized
+                const originalName = file.name || 'image.jpg';
+                const lastDotIndex = originalName.lastIndexOf('.');
+                if (lastDotIndex !== -1) {
+                    const name = originalName.substring(0, lastDotIndex);
+                    const ext = originalName.substring(lastDotIndex);
+                    exportFileName = `${name}_optimized${ext}`;
+                } else {
+                    exportFileName = `${originalName}_optimized.jpg`;
+                }
+
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     originalDataUrl = event.target.result;
@@ -392,7 +404,7 @@
         downloadBtn.addEventListener('click', () => {
             if (!processedDataUrl) return;
             const link = document.createElement('a');
-            link.download = 'optimized_architecture.jpg';
+            link.download = exportFileName; // 使用動態產生的檔名
             link.href = processedDataUrl;
             link.click();
         });

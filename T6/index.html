@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>土地開發分析法 - 價格推估系統</title>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-5YQY4RT9H2');
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -294,7 +304,7 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="glass-card rounded-xl p-5 flex flex-col">
+                <div class="glass-card rounded-xl p-5 flex flex-col h-[360px]">
                     <div class="flex justify-between items-end mb-2">
                         <div>
                             <h3 class="text-base font-bold text-stone-800">🏗️ 建築量體剖面模擬</h3>
@@ -306,7 +316,7 @@
                         </div>
                     </div>
                     
-                    <div class="flex-grow w-full bg-stone-50 rounded border border-stone-200 relative overflow-hidden flex items-center justify-center p-2" style="min-height: 250px;">
+                    <div class="flex-grow w-full bg-stone-50 rounded border border-stone-200 relative overflow-hidden flex items-center justify-center p-2">
                         <canvas id="massingCanvas" class="w-full h-full"></canvas>
                     </div>
 
@@ -316,10 +326,10 @@
                     </div>
                 </div>
 
-                <div class="glass-card rounded-xl p-5 flex flex-col">
+                <div class="glass-card rounded-xl p-5 flex flex-col h-[360px]">
                     <h3 class="text-base font-bold text-stone-800 mb-1">💰 開發價值瀑布圖 (價值拆解)</h3>
                     <p class="text-[10px] text-stone-500 mb-3">總銷金額 (S) 向下扣減各項成本至土地價值 (V) 之過程</p>
-                    <div class="chart-container flex-grow" style="height: 250px; max-height: 250px;">
+                    <div class="chart-container flex-grow relative">
                         <canvas id="waterfallChart"></canvas>
                     </div>
                     <p class="text-[10px] text-stone-400 text-center mt-2">註：為符合折現邏輯，各區塊總和可能因現值計算產生微小尾數差</p>
@@ -450,7 +460,6 @@
 
         // Initialize Application
         function init() {
-            // 優化 1: 導入 Debounce 處理頻繁的 input 事件 (特別是 Range Slider)
             let calcTimeout;
             Object.values(inputs).forEach(input => {
                 input.addEventListener('input', (e) => {
@@ -462,11 +471,10 @@
                     clearTimeout(calcTimeout);
                     calcTimeout = setTimeout(() => {
                         updateDashboard();
-                    }, 50); // 延遲 50 毫秒
+                    }, 50); 
                 });
             });
 
-            // 優化 2: 改用 ResizeObserver 來監聽 Canvas 容器大小變化，確保 Tailwind 排版變動時能精準重繪
             const massingContainer = massingCanvas.parentElement;
             const resizeObserver = new ResizeObserver(() => {
                 if (currentMassingData) {
@@ -491,7 +499,6 @@
 
         // Main Calculation Logic
         function calculateCore(p_price, p_cost, p_coef, p_profit) {
-            // 讀取參數
             const area = parseFloat(inputs.area.value) || 0;
             const far = parseFloat(inputs.far.value) / 100 || 0;
             const coef = p_coef !== undefined ? p_coef : (parseFloat(inputs.coef.value) || 0);
@@ -505,10 +512,7 @@
             const parkPrice = parseFloat(inputs.parkPrice.value) || 0;
             const cost = p_cost !== undefined ? p_cost : (parseFloat(inputs.cost.value) || 0);
             const bonusCost = parseFloat(inputs.bonusCost.value) || 0;
-            
-            // 利潤率若有帶入參數則使用參數，否則讀取輸入欄位
             const profitRate = p_profit !== undefined ? p_profit : (parseFloat(inputs.profit.value) / 100 || 0);
-            
             const expenseRate = parseFloat(inputs.expense.value) / 100 || 0;
             const equityReturnRate = parseFloat(inputs.equityReturn.value) / 100 || 0;
             const loanInterestRate = parseFloat(inputs.loanInterest.value) / 100 || 0;
@@ -530,11 +534,9 @@
             const parkArea = basementArea - mepArea;
             const parkCount = Math.floor(parkArea / 12); 
             
-            // 地上實體樓層推算
             const aboveGroundSalesPing = totalSalePing - mepArea;
             const structuralAboveGroundPing = aboveGroundSalesPing / 1.15;
             const floorFootprint = area * bcr;
-            // 優化 3: 加入除以零的防呆機制，避免建蔽率為 0 時導致 Infinity
             const floorsAbove = floorFootprint > 0 ? Math.max(0, structuralAboveGroundPing / floorFootprint) : 0;
 
             // --- 3. 收入與成本 ---
@@ -711,6 +713,8 @@
         function initCharts() {
             Chart.defaults.font.family = "'Noto Sans TC', sans-serif";
             Chart.defaults.color = '#78716c';
+            // ✅ 新增這行：強制關閉所有 Chart.js 的繪圖與更新動畫
+            Chart.defaults.animation = false; 
 
             // 1. 價值瀑布圖
             const ctx1 = document.getElementById('waterfallChart').getContext('2d');
@@ -941,7 +945,6 @@
                     const val = cell.price;
                     const displayPrice = val > 0 ? val.toFixed(2) : '0.00';
                     
-                    // 優化 4: 處理最大值等於最小值的情況 (避免除以零)
                     let ratio = 0;
                     if (val > 0) {
                         ratio = (maxPrice === minPrice) ? 0.5 : (val - minPrice) / (maxPrice - minPrice);

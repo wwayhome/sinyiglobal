@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>信義全球資產小工具</title>
+    <title>系統入口網站</title>
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
@@ -121,13 +121,13 @@
             </a>
 
             <!-- 方塊 6：土開分析 -->
-            <a href="https://wwayhome.github.io/sinyiglobal/T6/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden cursor-not-allowed">
-                <div class="absolute inset-0 bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <a href="https://wwayhome.github.io/sinyiglobal/T6/" target="_blank" rel="noopener noreferrer" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="absolute inset-0 bg-orange-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <div class="relative z-10 flex flex-col items-center">
-                    <div class="p-4 bg-slate-100 text-slate-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-slate-600 group-hover:text-white transition-all duration-300">
+                    <div class="p-4 bg-orange-100 text-orange-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all duration-300">
                         <i data-lucide="cone" class="w-10 h-10 md:w-12 md:h-12"></i>
                     </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-rose-700 transition-colors">土開分析</span>
+                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-orange-700 transition-colors">土開分析</span>
                 </div>
             </a>
 
@@ -150,33 +150,53 @@
         lucide.createIcons();
 
         // ==================== 登入驗證邏輯 ====================
+        
+        // 網頁載入時檢查是否已經登入過
+        window.addEventListener('DOMContentLoaded', (event) => {
+            if (sessionStorage.getItem('isLoggedIn') === 'true') {
+                showMainContent(false); // 傳入 false 表示不需要延遲動畫，直接顯示
+            }
+        });
+
         function checkPassword() {
             const pwd = document.getElementById('pwd-input').value;
             const errorMsg = document.getElementById('error-msg');
-            const loginScreen = document.getElementById('login-screen');
-            const mainContent = document.getElementById('main-content');
 
             if (pwd === "24496939") {
-                // 密碼正確：隱藏登入，顯示主畫面
+                // 密碼正確：記錄到 sessionStorage 並顯示主畫面
+                sessionStorage.setItem('isLoggedIn', 'true');
                 errorMsg.classList.remove('opacity-100');
                 errorMsg.classList.add('opacity-0');
-                
+                showMainContent(true); // 傳入 true 顯示過場動畫
+            } else {
+                // 密碼錯誤：顯示警告
+                errorMsg.classList.remove('opacity-0');
+                errorMsg.classList.add('opacity-100');
+                document.getElementById('pwd-input').value = ""; // 清空輸入框
+            }
+        }
+
+        function showMainContent(animate) {
+            const loginScreen = document.getElementById('login-screen');
+            const mainContent = document.getElementById('main-content');
+            
+            if (animate) {
+                // 有動畫的切換 (第一次登入時)
                 loginScreen.classList.add('scale-95', 'opacity-0');
                 setTimeout(() => {
                     loginScreen.classList.add('hidden');
                     mainContent.classList.remove('hidden');
                     mainContent.classList.add('flex');
-                    // 觸發漸入動畫
                     setTimeout(() => {
                         mainContent.classList.remove('opacity-0');
                         mainContent.classList.add('opacity-100');
                     }, 50);
                 }, 300);
             } else {
-                // 密碼錯誤：顯示警告
-                errorMsg.classList.remove('opacity-0');
-                errorMsg.classList.add('opacity-100');
-                document.getElementById('pwd-input').value = ""; // 清空輸入框
+                // 無動畫切換 (重新整理網頁時)
+                loginScreen.classList.add('hidden');
+                mainContent.classList.remove('hidden', 'opacity-0');
+                mainContent.classList.add('flex', 'opacity-100');
             }
         }
     </script>

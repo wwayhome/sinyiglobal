@@ -3,27 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>房產照片一鍵AI最佳化工具</title>
+    <title>土地開發分析法 - 價格推估系統</title>
     
-    <!-- 引入 Tailwind CSS 進行排版 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 引入 Lucide Icons 圖示庫 -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <style>
-        /* 隱藏預設捲軸，讓畫面更乾淨 */
-        body { overflow-x: hidden; }
-        
-        /* 讓拖曳時不會反白文字或圖片 */
-        .select-none {
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-    </style>
-    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -32,382 +13,962 @@
 
       gtag('config', 'G-5YQY4RT9H2');
     </script>
-</head>
-<body class="min-h-screen bg-slate-50 text-slate-900 font-sans p-6 flex flex-col items-center">
 
-    <!-- Header -->
-    <header class="w-full max-w-5xl mb-8 text-center space-y-2">
-        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 flex items-center justify-center gap-3">
-            <i data-lucide="image" class="text-blue-600 w-9 h-9"></i>
-            房產行銷照片一鍵 AI 最佳化
-        </h1>
-        <p class="text-slate-500">自動修正白平衡、以 HDR 曲線提亮暗部、提升立體對比度</p>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #F5F5F4; /* stone-100 */
+        }
+
+        /* Mandatory Chart Container Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 300px; /* Adjusted for better layout packing */
+            }
+        }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Glassmorphism card effect */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        /* Slider Styling */
+        input[type=range] {
+            accent-color: #059669; /* emerald-600 */
+        }
+    </style>
+</head>
+<body class="text-stone-800 antialiased min-h-screen flex flex-col">
+
+    <header class="bg-stone-900 text-stone-50 py-6 px-4 shadow-md z-10 relative">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wider">🏢 土地開發分析估價系統</h1>
+                <p class="text-stone-400 text-sm mt-1">基於不動產估價技術規則第79條：高階財務指標與量體推估版</p>
+            </div>
+            <div class="mt-4 md:mt-0 px-4 py-2 bg-stone-800 rounded text-sm text-stone-300 border border-stone-700">
+                🔄 調整參數即時繪製量體與財務分析
+            </div>
+        </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+    <main class="flex-grow max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4 items-stretch">
         
-        <!-- Upload Area (初始顯示) -->
-        <div id="upload-section" class="p-12 flex flex-col items-center justify-center border-2 border-dashed border-blue-200 bg-blue-50/50 m-6 rounded-xl hover:bg-blue-50 transition-colors">
-            <input type="file" accept="image/*" class="hidden" id="image-upload" />
-            <label for="image-upload" class="cursor-pointer flex flex-col items-center gap-4">
-                <div class="p-4 bg-white rounded-full shadow-sm text-blue-500">
-                    <i data-lucide="upload-cloud" class="w-12 h-12"></i>
-                </div>
-                <div class="text-center">
-                    <p class="text-lg font-medium text-slate-700">拖曳圖片至此，或點擊上傳</p>
-                    <p class="text-sm text-slate-500 mt-1">支援 JPG, PNG 格式</p>
-                </div>
-                <div class="mt-4 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">
-                    選擇圖片
-                </div>
-            </label>
-        </div>
-
-        <!-- Editor Area (初始隱藏，上傳後顯示) -->
-        <div id="editor-section" class="hidden flex flex-col">
+        <section class="lg:col-span-4 glass-card rounded-xl p-5 custom-scrollbar flex flex-col h-full">
+            <h2 class="text-lg font-bold text-stone-800 mb-4 border-b border-stone-200 pb-2">📊 參數設定</h2>
             
-            <!-- 圖片預覽與比較滑桿區 -->
-            <div id="slider-container" class="relative w-full bg-slate-900 aspect-video md:aspect-[16/9] overflow-hidden cursor-ew-resize select-none">
-                
-                <!-- 處理後的圖片 (底層) -->
-                <img id="processed-img" alt="Processed" class="absolute inset-0 w-full h-full object-contain" />
-                
-                <!-- 原始圖片 (上層，透過 clip-path 裁切來顯示一半) -->
-                <img id="original-img" alt="Original" class="absolute inset-0 w-full h-full object-contain" style="clip-path: inset(0 50% 0 0);" />
+            <p class="text-sm text-stone-500 mb-4">請輸入基地的基本條件、預估市場行情與財務要求，系統將自動反推合理的土地購入價格。</p>
 
-                <!-- 比較滑桿線與控制把手 -->
-                <div id="slider-line" class="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_rgba(0,0,0,0.5)] flex items-center justify-center pointer-events-none" style="left: 50%; transform: translateX(-50%); display: none;">
-                    <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-slate-200">
-                        <div class="flex gap-1">
-                            <div class="w-1 h-3 bg-slate-400 rounded-full"></div>
-                            <div class="w-1 h-3 bg-slate-400 rounded-full"></div>
+            <button type="button" onclick="resetDefaults()" class="w-full py-2 bg-stone-200 text-stone-600 rounded hover:bg-stone-300 transition text-sm font-medium mb-6">
+                ↺ 恢復預設值
+            </button>
+
+            <form id="calc-form" class="space-y-6 flex flex-col flex-grow">
+                <div>
+                    <div class="bg-stone-50 p-4 rounded-lg border border-stone-100 mb-6">
+                        <h3 class="text-sm font-bold text-stone-700 mb-3 flex items-center">📐 土地與建築規劃</h3>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-medium text-stone-600 mb-1">土地面積 (坪)</label>
+                                <input type="number" id="in-area" value="100" min="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right font-bold text-emerald-700">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">法定容積率 (%)</label>
+                                    <input type="number" id="in-far" value="300" min="0" step="10" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">銷坪係數 (倍)</label>
+                                    <input type="number" id="in-coef" value="1.6" step="0.025" min="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">法定建蔽率 (%)</label>
+                                    <input type="number" id="in-bcr" value="50" min="0" step="5" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">開挖率 (%)</label>
+                                    <input type="number" id="in-excavation" value="75" min="0" step="5" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">地下開挖層數 (層)</label>
+                                    <input type="number" id="in-floors" value="3" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">地下機電占比 (%)</label>
+                                    <input type="number" id="in-mech" value="20" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">容積獎勵 (%)</label>
+                                    <input type="number" id="in-bonus" value="0" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">容積移轉 (%)</label>
+                                    <input type="number" id="in-transfer" value="0" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-stone-50 p-4 rounded-lg border border-stone-100 mb-6">
+                        <h3 class="text-sm font-bold text-stone-700 mb-3 flex items-center">💰 市場行情與成本預估</h3>
+                        
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">預期房價 (萬元/坪)</label>
+                                    <input type="number" id="in-price" value="80" min="1" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right font-semibold text-emerald-700">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">車位售價 (萬元/個)</label>
+                                    <input type="number" id="in-park-price" value="250" min="0" step="10" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right font-semibold text-emerald-700">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-stone-600 mb-1">營造造價 (萬元/發包坪)</label>
+                                <input type="number" id="in-cost" value="20" min="1" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-stone-600 mb-1">容獎及容積移轉投入總價 (萬元)</label>
+                                <input type="number" id="in-bonus-cost" value="0" min="0" step="100" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-stone-50 p-4 rounded-lg border border-stone-100">
+                        <h3 class="text-sm font-bold text-stone-700 mb-3 flex items-center">📈 財務與利潤要求</h3>
+                        
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">預期獲利率 (%)</label>
+                                    <input type="number" id="in-profit" value="20" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">管銷費用率 (%)</label>
+                                    <input type="number" id="in-expense" value="12" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">自有資金報酬率 (%)</label>
+                                    <input type="number" id="in-equity-return" value="5" min="0" step="0.1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-stone-600 mb-1">銀行融資年利率 (%)</label>
+                                    <input type="number" id="in-loan-interest" value="3.5" min="0" step="0.1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-3 rounded border border-stone-200 shadow-inner">
+                                <label class="block text-xs font-medium text-stone-600 mb-2">資金結構 (自有 vs 融資)</label>
+                                <div class="flex justify-between text-xs font-bold text-stone-700 mb-1">
+                                    <span class="text-emerald-700">自有: <span id="lbl-equity">50</span>%</span>
+                                    <span class="text-stone-500">融資: <span id="lbl-loan">50</span>%</span>
+                                </div>
+                                <input type="range" id="in-equity-ratio" min="0" max="100" value="50" step="5" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer outline-none mb-3">
+                                
+                                <div class="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
+                                    <span class="text-xs font-medium text-stone-600">綜合資金成本率 (WACC)</span>
+                                    <span class="text-sm font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-100"><span id="lbl-wacc">4.25</span>%</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-stone-600 mb-1">預估開發期 (年)</label>
+                                <input type="number" id="in-years" value="3" min="0.5" step="0.5" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section class="lg:col-span-8 flex flex-col gap-5 h-full">
+            
+            <div class="glass-card rounded-xl p-5 border-t-4 border-emerald-600 grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                <div class="bg-emerald-50/60 p-4 rounded-lg border border-emerald-100 flex flex-col justify-start">
+                    <div class="flex justify-between items-start mb-1">
+                        <p class="text-[11px] text-emerald-700 font-bold tracking-wider">模組 A | 購地決策指標</p>
+                        <span class="text-emerald-600/70 text-sm">💰</span>
+                    </div>
+                    <p class="text-xs text-stone-500 mb-1">推估土地合理購入總價 (V)</p>
+                    <div class="flex items-baseline gap-1 mb-2">
+                        <span class="text-3xl font-bold text-emerald-700" id="out-total-price">0</span>
+                        <span class="text-sm text-emerald-600 font-medium">萬元</span>
+                    </div>
+                    <p class="text-xs text-stone-500 mb-0.5">推估土地單價</p>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-xl font-bold text-stone-800" id="out-unit-price">0</span>
+                        <span class="text-xs text-stone-500 font-medium">萬元 / 坪</span>
+                    </div>
+                </div>
+
+                <div class="bg-stone-50 p-4 rounded-lg border border-stone-200 flex flex-col justify-between">
+                    <div class="flex justify-between items-start mb-1">
+                        <p class="text-[11px] text-stone-500 font-bold tracking-wider">模組 B | 專案規模與實體</p>
+                        <span class="text-stone-400/80 text-sm">🏢</span>
+                    </div>
+                    <div class="flex justify-between items-baseline border-b border-stone-200 pb-1 mb-2">
+                        <span class="text-xs text-stone-500">預估總銷 (S)</span>
+                        <span class="font-bold text-stone-800 text-lg"><span id="out-total-sales">0</span> <span class="text-xs font-normal text-stone-500">萬</span></span>
+                    </div>
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">房屋銷坪</span>
+                            <span class="font-semibold text-stone-700"><span id="out-sale-ping">0</span> 坪</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">發包建坪</span>
+                            <span class="font-semibold text-stone-700"><span id="out-floor-area">0</span> 坪</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">車位規模</span>
+                            <span class="font-semibold text-stone-700"><span id="out-park-count">0</span>個 <span class="text-[10px] text-stone-400 font-normal">(<span id="out-park-revenue">0</span>萬)</span></span>
                         </div>
                     </div>
                 </div>
 
-                <!-- 標籤 (Before/After) -->
-                <div id="labels" style="display: none;">
-                    <div class="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm font-medium rounded backdrop-blur-sm pointer-events-none">原圖 (Before)</div>
-                    <div class="absolute top-4 right-4 px-3 py-1 bg-blue-600/80 text-white text-sm font-medium rounded backdrop-blur-sm pointer-events-none">最佳化後 (After)</div>
+                <div class="bg-orange-50/60 p-4 rounded-lg border border-orange-100 flex flex-col justify-between">
+                    <div class="flex justify-between items-start mb-1">
+                        <p class="text-[11px] text-orange-700 font-bold tracking-wider">模組 C | 資金與投資回報</p>
+                        <span class="text-orange-500/70 text-sm">📈</span>
+                    </div>
+                    <div class="space-y-1 relative z-10">
+                        <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
+                            <span class="text-xs text-stone-600 cursor-help" title="土地總價 + 營造管銷 + 利息總和">預估總投資額</span>
+                            <span class="font-bold text-stone-800"><span id="out-total-investment">0</span> <span class="text-[10px] text-stone-500 font-normal">萬</span></span>
+                        </div>
+                        <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
+                            <span class="text-xs text-stone-600 cursor-help" title="預估總投資額 × 自有資金比例">預估準備現金</span>
+                            <span class="font-bold text-orange-700"><span id="out-equity-cash">0</span> <span class="text-[10px] text-orange-600/70 font-normal">萬</span></span>
+                        </div>
+                        <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
+                            <span class="text-xs text-stone-600 cursor-help" title="開發商獲利絕對金額">預估獲利金額</span>
+                            <span class="font-bold text-orange-700"><span id="out-profit-amount">0</span> <span class="text-[10px] text-orange-600/70 font-normal">萬</span></span>
+                        </div>
+                        <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
+                            <span class="text-xs text-stone-600 cursor-help" title="預估獲利金額 ÷ 預估總投資額">全案 ROA</span>
+                            <span class="font-bold text-orange-700"><span id="out-roa">0</span> <span class="text-[10px] text-orange-600/70 font-normal">%</span></span>
+                        </div>
+                        <div class="flex justify-between items-center pt-0.5">
+                            <span class="text-xs text-stone-600 font-medium cursor-help" title="利潤絕對金額 ÷ 預估準備現金">專案 ROE</span>
+                            <span class="font-bold text-lg text-orange-600 bg-white px-2 py-0.5 rounded shadow-sm"><span id="out-roe">0</span>%</span>
+                        </div>
+                    </div>
                 </div>
+
             </div>
 
-            <!-- 操作按鈕區 -->
-            <div class="p-6 bg-slate-100 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200">
-                <div class="flex gap-3">
-                    <button id="reset-btn" class="px-4 py-2 flex items-center gap-2 text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition font-medium">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        重新上傳
-                    </button>
-                </div>
-
-                <div class="flex gap-3 ml-auto">
-                    <!-- 處理按鈕 -->
-                    <button id="process-btn" class="px-6 py-2.5 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 shadow-md transition font-medium">
-                        <i data-lucide="wand-2" class="w-5 h-5" id="process-icon"></i>
-                        <span id="process-text">一鍵行銷最佳化</span>
-                    </button>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div class="glass-card rounded-xl p-5 flex flex-col h-[360px]">
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <h3 class="text-base font-bold text-stone-800">🏗️ 建築量體剖面模擬</h3>
+                            <p class="text-[10px] text-stone-500">依據面積精算剔除地下室與陽台膨脹</p>
+                        </div>
+                        <div class="text-right text-xs">
+                            <span class="block text-emerald-700 font-bold" id="lbl-above-floors">地上 0 層</span>
+                            <span class="block text-stone-500 font-medium" id="lbl-below-floors">地下 0 層</span>
+                        </div>
+                    </div>
                     
-                    <!-- 下載按鈕 (初始隱藏) -->
-                    <button id="download-btn" class="hidden px-6 py-2.5 items-center gap-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-md transition font-medium">
-                        <i data-lucide="download" class="w-5 h-5"></i>
-                        下載高畫質照片
-                    </button>
+                    <div class="flex-grow w-full bg-stone-50 rounded border border-stone-200 relative overflow-hidden flex items-center justify-center p-2">
+                        <canvas id="massingCanvas" class="w-full h-full"></canvas>
+                    </div>
+
+                    <div class="mt-3 flex justify-between text-[10px] text-stone-500">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-emerald-500/50 inline-block rounded-sm"></span>建蔽率 <span id="lbl-sim-bcr">0</span>%</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-stone-400/50 inline-block rounded-sm"></span>開挖率 <span id="lbl-sim-exc">0</span>%</span>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-5 flex flex-col h-[360px]">
+                    <h3 class="text-base font-bold text-stone-800 mb-1">💰 開發價值瀑布圖 (價值拆解)</h3>
+                    <p class="text-[10px] text-stone-500 mb-3">總銷金額 (S) 向下扣減各項成本至土地價值 (V) 之過程</p>
+                    <div class="chart-container flex-grow relative">
+                        <canvas id="waterfallChart"></canvas>
+                    </div>
+                    <p class="text-[10px] text-stone-400 text-center mt-2">註：為符合折現邏輯，各區塊總和可能因現值計算產生微小尾數差</p>
                 </div>
             </div>
-        </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="glass-card rounded-xl p-5">
+                    <h3 class="text-sm font-bold text-stone-800 mb-1">📐 銷坪係數敏感度分析</h3>
+                    <p class="text-[10px] text-stone-500 mb-3">銷坪變動對「可購入土地單價」之影響</p>
+                    <div class="chart-container" style="height: 200px;">
+                        <canvas id="sensitivityChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-xl p-5">
+                    <h3 class="text-sm font-bold text-stone-800 mb-1">📉 預期獲利率 (R) 敏感度分析</h3>
+                    <p class="text-[10px] text-stone-500 mb-3">利潤讓步空間對「可購入土地單價」之競標優勢</p>
+                    <div class="chart-container" style="height: 200px;">
+                        <canvas id="profitSensitivityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-xl p-5">
+                <div class="flex justify-between items-end mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-stone-800 mb-1">售價與造價敏感度分析矩陣</h3>
+                        <p class="text-[11px] text-stone-500">推估「土地合理單價 (萬元/坪)」隨房價與造價雙邊變動之熱力圖</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar pb-2">
+                    <table class="w-full text-sm text-center border-collapse min-w-[600px]">
+                        <thead id="matrix-head" class="bg-stone-200 text-stone-700 font-medium text-xs">
+                        </thead>
+                        <tbody id="matrix-body" class="divide-y divide-stone-200 text-xs">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="lg:col-span-12 glass-card rounded-xl p-5 text-sm text-stone-600 leading-relaxed mt-2">
+            <h4 class="font-bold text-stone-800 mb-2 border-b border-stone-200 pb-1">📖 關於土地開發分析法（高階財務與量體推估版）</h4>
+            <p class="mb-2">導入加權平均資本成本 (WACC)、實際發包坪數邏輯與權益報酬分析後，土地推估價格之精確算式與財務指標如下：</p>
+            <div class="bg-stone-100 p-3 rounded font-mono text-center mb-3 text-stone-800 tracking-wider overflow-x-auto whitespace-nowrap">
+                V = { S / (1 + R) - (C + M) × [ 1 + (WACC × n/2) ] } / (1 + WACC × n)
+            </div>
+            <ul class="list-disc pl-5 space-y-1 text-xs md:grid md:grid-cols-3 md:gap-x-6">
+                <li><b>V (合理購地總價)</b>：開發商滿足預期利潤後，最高可支付之標的價格。</li>
+                <li><b>S (預估總銷金額)</b>：房屋總收入 + 車位總收入。銷坪已包含依法免計容積之面積膨脹。</li>
+                <li><b>WACC (綜合資金成本率)</b>：混合資金機會成本，(自有比例 × 報酬率) + (融資比例 × 利率)。</li>
+                <li><b>C (直接建造成本)</b>：預估發包坪數 × 營造單價。發包坪數 = 房屋總銷坪數 + (車位數 × 12坪)。</li>
+                <li><b>ROE (股東權益報酬率)</b>：專案利潤 ÷ 預估準備現金。衡量自有資金之投資效率。</li>
+                <li><b>R 與 M</b>：分別為適當之利潤率 (R) 與 規劃管理及廣告行銷費用 (M)。</li>
+            </ul>
+        </section>
+
     </main>
 
-    <!-- 用來進行影像處理的隱藏 Canvas -->
-    <canvas id="processing-canvas" class="hidden"></canvas>
+    <footer class="bg-stone-900 text-stone-400 py-6 px-4 text-center text-xs mt-8">
+        <div class="max-w-7xl mx-auto space-y-2">
+            <p class="font-medium text-stone-300">土地開發分析法 (WACC 資金成本與精確面積推估版)</p>
+            <p class="text-[10px] opacity-70 mt-1">免責聲明：本系統僅提供量化試算參考，實務開發需考量都市設計審議、稅賦及其他隱性成本。</p>
+        </div>
+    </footer>
 
-    <!-- Features Description -->
-    <section class="w-full max-w-5xl mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-slate-600">
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center gap-2">☀️ 智慧 HDR 陰影提亮</h3>
-            <p class="text-sm leading-relaxed">針對背光或室內暗角，使用非線性光度曲線(Luminance Curve)進行像素提亮，保留窗外高光細節不過曝。</p>
-        </div>
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center gap-2">📈 S曲線立體感增強</h3>
-            <p class="text-sm leading-relaxed">捨棄傳統粗暴的拉高對比，採用平滑的 Sigmoid S-Curve 函數，使照片具備立體感且過渡自然協調。</p>
-        </div>
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center gap-2">🎨 房產專屬色彩科學</h3>
-            <p class="text-sm leading-relaxed">內建灰世界(Gray World)白平衡校正，並微調至偏暖色調，同時智慧提升飽和度，打造溫馨透亮的空間感。</p>
-        </div>
-    </section>
-
-    <!-- 核心 JavaScript 邏輯 -->
     <script>
-        // 初始化 Lucide 圖示
-        lucide.createIcons();
+        // DOM Elements
+        const inputs = {
+            area: document.getElementById('in-area'),
+            far: document.getElementById('in-far'),
+            coef: document.getElementById('in-coef'),
+            bcr: document.getElementById('in-bcr'),
+            excavation: document.getElementById('in-excavation'),
+            floors: document.getElementById('in-floors'),
+            mech: document.getElementById('in-mech'),
+            bonus: document.getElementById('in-bonus'),
+            transfer: document.getElementById('in-transfer'),
+            price: document.getElementById('in-price'),
+            parkPrice: document.getElementById('in-park-price'),
+            cost: document.getElementById('in-cost'),
+            bonusCost: document.getElementById('in-bonus-cost'),
+            profit: document.getElementById('in-profit'),
+            expense: document.getElementById('in-expense'),
+            equityReturn: document.getElementById('in-equity-return'),
+            loanInterest: document.getElementById('in-loan-interest'),
+            equityRatio: document.getElementById('in-equity-ratio'),
+            years: document.getElementById('in-years')
+        };
 
-        // 取得 DOM 元素
-        const uploadInput = document.getElementById('image-upload');
-        const uploadSection = document.getElementById('upload-section');
-        const editorSection = document.getElementById('editor-section');
-        
-        const originalImg = document.getElementById('original-img');
-        const processedImg = document.getElementById('processed-img');
-        const sliderContainer = document.getElementById('slider-container');
-        const sliderLine = document.getElementById('slider-line');
-        const labels = document.getElementById('labels');
-        
-        const processBtn = document.getElementById('process-btn');
-        const processIcon = document.getElementById('process-icon');
-        const processText = document.getElementById('process-text');
-        const downloadBtn = document.getElementById('download-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        
-        const canvas = document.getElementById('processing-canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const outputs = {
+            totalPrice: document.getElementById('out-total-price'),
+            unitPrice: document.getElementById('out-unit-price'),
+            totalSales: document.getElementById('out-total-sales'),
+            salePing: document.getElementById('out-sale-ping'),
+            floorArea: document.getElementById('out-floor-area'), 
+            parkCount: document.getElementById('out-park-count'),
+            parkRevenue: document.getElementById('out-park-revenue'),
+            totalInvestment: document.getElementById('out-total-investment'),
+            equityCash: document.getElementById('out-equity-cash'),
+            profitAmount: document.getElementById('out-profit-amount'),
+            roa: document.getElementById('out-roa'),
+            roe: document.getElementById('out-roe'),
+            lblEquity: document.getElementById('lbl-equity'),
+            lblLoan: document.getElementById('lbl-loan'),
+            lblWacc: document.getElementById('lbl-wacc'),
+            lblAboveFloors: document.getElementById('lbl-above-floors'),
+            lblBelowFloors: document.getElementById('lbl-below-floors'),
+            lblSimBcr: document.getElementById('lbl-sim-bcr'),
+            lblSimExc: document.getElementById('lbl-sim-exc')
+        };
 
-        // 狀態變數
-        let originalDataUrl = null;
-        let processedDataUrl = null;
-        let isProcessed = false;
-        let exportFileName = 'optimized_architecture.jpg'; // 新增變數來儲存下載檔名
+        // Chart instances
+        let waterfallChartInst = null;
+        let sensitivityChartInst = null;
+        let profitSensitivityChartInst = null;
+        const massingCanvas = document.getElementById('massingCanvas');
+        let currentMassingData = null;
 
-        // 獨立出檔案處理邏輯，讓點擊和拖曳都能共用
-        const handleFileUpload = (file) => {
-            if (file && file.type.startsWith('image/')) {
-                // 處理檔名：在副檔名前加上 _optimized
-                const originalName = file.name || 'image.jpg';
-                const lastDotIndex = originalName.lastIndexOf('.');
-                if (lastDotIndex !== -1) {
-                    const name = originalName.substring(0, lastDotIndex);
-                    const ext = originalName.substring(lastDotIndex);
-                    exportFileName = `${name}_optimized${ext}`;
-                } else {
-                    exportFileName = `${originalName}_optimized.jpg`;
+        // Default values
+        const defaultValues = {
+            area: 100, far: 300, coef: 1.6, bcr: 50, excavation: 75, floors: 3, mech: 20, 
+            bonus: 0, transfer: 0, price: 80, parkPrice: 250, cost: 20, bonusCost: 0,
+            profit: 20, expense: 12, equityReturn: 5, loanInterest: 3.5, equityRatio: 50, years: 3
+        };
+
+        // Initialize Application
+        function init() {
+            let calcTimeout;
+            Object.values(inputs).forEach(input => {
+                input.addEventListener('input', (e) => {
+                    if (input === inputs.bcr) {
+                        const bcrVal = parseFloat(e.target.value) || 0;
+                        inputs.excavation.value = (bcrVal / 2) + 50;
+                    }
+                    
+                    clearTimeout(calcTimeout);
+                    calcTimeout = setTimeout(() => {
+                        updateDashboard();
+                    }, 50); 
+                });
+            });
+
+            const massingContainer = massingCanvas.parentElement;
+            const resizeObserver = new ResizeObserver(() => {
+                if (currentMassingData) {
+                    window.requestAnimationFrame(() => {
+                        drawMassing(currentMassingData);
+                    });
                 }
+            });
+            resizeObserver.observe(massingContainer);
 
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    originalDataUrl = event.target.result;
-                    
-                    // 重置 UI 狀態
-                    originalImg.src = originalDataUrl;
-                    processedImg.src = originalDataUrl; // 處理前，底圖先放原圖
-                    processedDataUrl = null;
-                    isProcessed = false;
-                    
-                    // 顯示/隱藏區塊
-                    uploadSection.classList.add('hidden');
-                    editorSection.classList.remove('hidden');
-                    processBtn.classList.remove('hidden');
-                    downloadBtn.classList.add('hidden');
-                    sliderLine.style.display = 'none';
-                    labels.style.display = 'none';
-                    
-                    // 重置滑桿位置
-                    updateSlider(50);
-                };
-                reader.readAsDataURL(file);
-            } else if (file) {
-                // 如果拖曳的不是圖片
-                alert('請上傳正確的圖片格式 (JPG, PNG 等)');
-            }
-        };
+            initCharts();
+            updateDashboard();
+        }
 
-        // 1. 處理圖片上傳 (點擊選擇檔案)
-        uploadInput.addEventListener('change', (e) => {
-            handleFileUpload(e.target.files[0]);
-        });
+        // Reset to default
+        function resetDefaults() {
+            Object.keys(defaultValues).forEach(key => {
+                inputs[key].value = defaultValues[key];
+            });
+            updateDashboard();
+        }
 
-        // 1-1. 處理圖片上傳 (拖曳檔案功能)
-        // 阻止瀏覽器預設行為 (避免直接打開圖片)
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadSection.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            }, false);
-        });
+        // Main Calculation Logic
+        function calculateCore(p_price, p_cost, p_coef, p_profit) {
+            const area = parseFloat(inputs.area.value) || 0;
+            const far = parseFloat(inputs.far.value) / 100 || 0;
+            const coef = p_coef !== undefined ? p_coef : (parseFloat(inputs.coef.value) || 0);
+            const bcr = parseFloat(inputs.bcr.value) / 100 || 0;
+            const excavation = parseFloat(inputs.excavation.value) / 100 || 0;
+            const floorsBelow = parseFloat(inputs.floors.value) || 0;
+            const mechRatio = parseFloat(inputs.mech.value) / 100 || 0;
+            const bonusRate = parseFloat(inputs.bonus.value) / 100 || 0;
+            const transferRate = parseFloat(inputs.transfer.value) / 100 || 0;
+            const price = p_price !== undefined ? p_price : (parseFloat(inputs.price.value) || 0);
+            const parkPrice = parseFloat(inputs.parkPrice.value) || 0;
+            const cost = p_cost !== undefined ? p_cost : (parseFloat(inputs.cost.value) || 0);
+            const bonusCost = parseFloat(inputs.bonusCost.value) || 0;
+            const profitRate = p_profit !== undefined ? p_profit : (parseFloat(inputs.profit.value) / 100 || 0);
+            const expenseRate = parseFloat(inputs.expense.value) / 100 || 0;
+            const equityReturnRate = parseFloat(inputs.equityReturn.value) / 100 || 0;
+            const loanInterestRate = parseFloat(inputs.loanInterest.value) / 100 || 0;
+            const equityRatio = parseFloat(inputs.equityRatio.value) / 100 || 0;
+            const years = parseFloat(inputs.years.value) || 0;
 
-        // 拖曳進入時的視覺回饋 (變換背景色與邊框)
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadSection.addEventListener(eventName, () => {
-                uploadSection.classList.add('bg-blue-100', 'border-blue-400');
-                uploadSection.classList.remove('bg-blue-50/50', 'border-blue-200');
-            }, false);
-        });
+            if (area <= 0 || far <= 0 || price <= 0 || bcr <= 0) return null;
 
-        // 拖曳離開或放下時恢復預設視覺
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadSection.addEventListener(eventName, () => {
-                uploadSection.classList.remove('bg-blue-100', 'border-blue-400');
-                uploadSection.classList.add('bg-blue-50/50', 'border-blue-200');
-            }, false);
-        });
+            // --- 1. 計算綜合資金年成本率 (WACC) ---
+            const loanRatio = 1 - equityRatio;
+            const wacc = (equityRatio * equityReturnRate) + (loanRatio * loanInterestRate);
 
-        // 處理拖曳放下事件，讀取檔案
-        uploadSection.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const file = dt.files[0];
-            handleFileUpload(file);
-        });
-
-        // 2. 處理返回/重置
-        resetBtn.addEventListener('click', () => {
-            uploadInput.value = ''; // 清除檔案
-            uploadSection.classList.remove('hidden');
-            editorSection.classList.add('hidden');
-            originalDataUrl = null;
-            processedDataUrl = null;
-        });
-
-        // 3. 核心演算法：一鍵最佳化
-        processBtn.addEventListener('click', () => {
-            if (!originalDataUrl) return;
-
-            // 變更按鈕為處理中狀態
-            processBtn.disabled = true;
-            processBtn.classList.add('opacity-70', 'cursor-not-allowed');
-            processIcon.setAttribute('data-lucide', 'loader-2');
-            processIcon.classList.add('animate-spin');
-            processText.innerText = 'AI 處理中...';
-            lucide.createIcons(); // 重新渲染圖示
-
-            // 使用 setTimeout 讓瀏覽器有時間更新 UI (顯示 loading 狀態)
-            setTimeout(() => {
-                const img = new Image();
-                img.onload = () => {
-                    // 設定 Canvas 尺寸與原圖相同
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    
-                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const data = imgData.data;
-
-                    // A. 計算全圖平均值 (用於灰世界白平衡)
-                    let rSum = 0, gSum = 0, bSum = 0;
-                    for (let i = 0; i < data.length; i += 4) {
-                        rSum += data[i]; gSum += data[i+1]; bSum += data[i+2];
-                    }
-                    const pixelCount = data.length / 4;
-                    const rAvg = rSum / pixelCount;
-                    const gAvg = gSum / pixelCount;
-                    const bAvg = bSum / pixelCount;
-                    const avgGray = (rAvg + gAvg + bAvg) / 3;
-
-                    // 白平衡乘數 (只套用 40% 的強度)
-                    const wbStrength = 0.4;
-                    const rWb = ((avgGray / rAvg) - 1) * wbStrength + 1;
-                    const gWb = ((avgGray / gAvg) - 1) * wbStrength + 1;
-                    const bWb = ((avgGray / bAvg) - 1) * wbStrength + 1;
-
-                    for (let i = 0; i < data.length; i += 4) {
-                        let r = data[i];
-                        let g = data[i+1];
-                        let b = data[i+2];
-
-                        // 1. 白平衡調整 & 微暖色調
-                        r *= rWb; g *= gWb; b *= bWb;
-                        r *= 1.02; b *= 0.98;
-
-                        // 計算亮度 (Luminance) 並限制範圍，避免白雲(高光)出現 NaN 變成黑色
-                        let lum = 0.299 * r + 0.587 * g + 0.114 * b;
-                        lum = Math.min(255, Math.max(0, lum));
-
-                        // 2. HDR 陰影提亮 (非線性) - 調降強度讓過渡更自然
-                        const shadowStrength = 0.6; 
-                        const shadowFactor = 1 + shadowStrength * Math.pow(1 - (lum / 255), 2.5);
-                        r *= shadowFactor;
-                        g *= shadowFactor;
-                        b *= shadowFactor;
-
-                        // 3. S-Curve 曲線對比度調整
-                        const applySCurve = (val) => {
-                            // 進入 S 曲線前，強制限制在 255 以內，防止數學曲線反轉導致高光變黑
-                            val = Math.min(255, Math.max(0, val));
-                            let norm = val / 255;
-                            let curved = norm < 0.5 ? 2 * norm * norm : 1 - 2 * Math.pow(1 - norm, 2);
-                            let blended = norm * 0.7 + curved * 0.3; // 強度從 0.35 降至 0.3
-                            return blended * 255;
-                        };
-                        r = applySCurve(r);
-                        g = applySCurve(g);
-                        b = applySCurve(b);
-
-                        // 4. 飽和度提升 - 稍微調降避免過度鮮豔
-                        const newLum = 0.299 * r + 0.587 * g + 0.114 * b;
-                        const satBoost = 1.20; 
-                        r = newLum + (r - newLum) * satBoost;
-                        g = newLum + (g - newLum) * satBoost;
-                        b = newLum + (b - newLum) * satBoost;
-
-                        // 寫回並限制在 0-255 範圍內
-                        data[i] = Math.min(255, Math.max(0, r));
-                        data[i+1] = Math.min(255, Math.max(0, g));
-                        data[i+2] = Math.min(255, Math.max(0, b));
-                    }
-
-                    // 將算好的資料放回 Canvas
-                    ctx.putImageData(imgData, 0, 0);
-                    processedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
-                    
-                    // 更新 UI 顯示結果
-                    processedImg.src = processedDataUrl;
-                    isProcessed = true;
-                    
-                    // 顯示滑桿與下載按鈕
-                    sliderLine.style.display = 'flex';
-                    labels.style.display = 'block';
-                    processBtn.classList.add('hidden');
-                    downloadBtn.classList.remove('hidden');
-                    downloadBtn.style.display = 'flex';
-                    
-                    // 恢復處理按鈕狀態 (隱藏前先復原，避免下次顯示異常)
-                    processBtn.disabled = false;
-                    processBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-                    processIcon.setAttribute('data-lucide', 'wand-2');
-                    processIcon.classList.remove('animate-spin');
-                    processText.innerText = '一鍵行銷最佳化';
-                    lucide.createIcons();
-
-                };
-                img.src = originalDataUrl;
-            }, 100);
-        });
-
-        // 4. 處理滑鼠/觸控拖曳比較滑桿
-        const updateSlider = (percent) => {
-            // clip-path: inset(top right bottom left)
-            originalImg.style.clipPath = `inset(0 ${100 - percent}% 0 0)`;
-            sliderLine.style.left = `${percent}%`;
-        };
-
-        const handleMove = (e) => {
-            if (!isProcessed) return;
+            // --- 2. 面積與車位運算 (精確分離法) ---
+            const basePing = area * far * coef;
+            const totalSalePing = basePing * (1 + bonusRate + transferRate);
             
-            // 處理滑鼠與觸控的座標差異
-            let clientX;
-            if (e.type.includes('touch')) {
-                clientX = e.touches[0].clientX;
-            } else {
-                clientX = e.clientX;
+            const basementArea = area * excavation * floorsBelow;
+            const mepArea = basementArea * mechRatio;
+            const parkArea = basementArea - mepArea;
+            const parkCount = Math.floor(parkArea / 12); 
+            
+            const aboveGroundSalesPing = totalSalePing - mepArea;
+            const structuralAboveGroundPing = aboveGroundSalesPing / 1.15;
+            const floorFootprint = area * bcr;
+            const floorsAbove = floorFootprint > 0 ? Math.max(0, structuralAboveGroundPing / floorFootprint) : 0;
+
+            // --- 3. 收入與成本 ---
+            const houseRevenue = totalSalePing * price;
+            const parkRevenue = parkCount * parkPrice;
+            const S = houseRevenue + parkRevenue;
+
+            const totalFloorArea = totalSalePing + (parkCount * 12);
+            const C = (totalFloorArea * cost) + bonusCost;
+            const M = S * expenseRate;
+
+            // --- 4. 土地開發分析法公式逆推 (WACC版) ---
+            const PV_Sales = S / (1 + profitRate); 
+            const profitAmount = S - PV_Sales;     
+            
+            const buildInterestAmount = (C + M) * (wacc * (years / 2));
+            
+            let V = (PV_Sales - (C + M) - buildInterestAmount) / (1 + wacc * years);
+            V = Math.max(0, V);
+
+            const landInterestAmount = V * (wacc * years);
+            const landUnitPrice = area > 0 ? (V / area) : 0;
+
+            // --- 5. 財務指標運算 ---
+            const totalInvestment = V + C + M + buildInterestAmount + landInterestAmount;
+            const requiredEquity = totalInvestment * equityRatio;
+            const roa = totalInvestment > 0 ? (profitAmount / totalInvestment) * 100 : 0;
+            const roe = requiredEquity > 0 ? (profitAmount / requiredEquity) * 100 : 0;
+
+            return {
+                area, bcr, excavation, totalSalePing, totalFloorArea, parkCount, parkRevenue, 
+                floorsAbove, floorsBelow,
+                S, C, M, profitAmount, landInterestAmount, buildInterestAmount, V, landUnitPrice,
+                totalInvestment, requiredEquity, roa, roe,
+                waccDisplay: (wacc * 100).toFixed(2),
+                equityDisplay: Math.round(equityRatio * 100),
+                loanDisplay: Math.round(loanRatio * 100)
+            };
+        }
+
+        function updateDashboard() {
+            const res = calculateCore();
+            if (!res) return;
+            currentMassingData = res;
+
+            // Update Input Labels
+            outputs.lblEquity.innerText = res.equityDisplay;
+            outputs.lblLoan.innerText = res.loanDisplay;
+            outputs.lblWacc.innerText = res.waccDisplay;
+
+            // Update Massing Labels
+            outputs.lblSimBcr.innerText = Math.round(res.bcr * 100);
+            outputs.lblSimExc.innerText = Math.round(res.excavation * 100);
+            outputs.lblAboveFloors.innerText = `地上約 ${res.floorsAbove.toFixed(1)} 層`;
+            outputs.lblBelowFloors.innerText = `地下 ${res.floorsBelow} 層`;
+
+            // Number Formatter
+            const fmt = (num) => Math.round(num).toLocaleString('en-US');
+            const fmtDec = (num) => Number(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+            // Module A: Land
+            outputs.totalPrice.innerText = fmt(res.V);
+            outputs.unitPrice.innerText = fmtDec(res.landUnitPrice);
+            
+            // Module B: Scale
+            outputs.totalSales.innerText = fmt(res.S);
+            outputs.salePing.innerText = fmtDec(res.totalSalePing);
+            outputs.floorArea.innerText = fmtDec(res.totalFloorArea);
+            outputs.parkCount.innerText = res.parkCount.toLocaleString('en-US');
+            outputs.parkRevenue.innerText = fmt(res.parkRevenue);
+            
+            // Module C: Financial Returns
+            outputs.totalInvestment.innerText = fmt(res.totalInvestment);
+            outputs.equityCash.innerText = fmt(res.requiredEquity);
+            outputs.profitAmount.innerText = fmt(res.profitAmount);
+            outputs.roa.innerText = res.roa > 0 ? res.roa.toFixed(1) : "0.0";
+            outputs.roe.innerText = res.roe > 0 ? res.roe.toFixed(1) : "0.0";
+
+            // Update Charts
+            updateWaterfallChart(res);
+            drawMassing(res);
+            updateSensitivityChart();
+            updateProfitSensitivityChart();
+            updateSensitivityMatrix();
+        }
+
+        // --- 動態繪製量體剖面圖 ---
+        function drawMassing(data) {
+            const canvas = massingCanvas;
+            const ctx = canvas.getContext('2d');
+            const parent = canvas.parentElement;
+            
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const W = canvas.width;
+            const H = canvas.height;
+
+            const totalFloors = data.floorsAbove + data.floorsBelow;
+            if(totalFloors <= 0) return;
+
+            const padding = 20; 
+            const drawH = H - (padding * 2);
+            const floorPx = drawH / (totalFloors + 0.5); 
+            const baseW = W * 0.8; 
+            const centerX = W / 2;
+
+            const buildW_above = baseW * data.bcr;
+            const buildW_below = baseW * data.excavation;
+            
+            const px_above = data.floorsAbove * floorPx;
+            const px_below = data.floorsBelow * floorPx;
+
+            const glY = H - padding - px_below;
+
+            // 1. 繪製輔助線
+            ctx.beginPath();
+            ctx.moveTo(10, glY);
+            ctx.lineTo(W - 10, glY);
+            ctx.strokeStyle = '#059669'; 
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.fillStyle = '#059669';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('GL', 10, glY - 4);
+
+            // 2. 繪製地下層
+            if (data.floorsBelow > 0) {
+                const bx = centerX - (buildW_below / 2);
+                ctx.fillStyle = 'rgba(168, 162, 158, 0.4)'; 
+                ctx.fillRect(bx, glY, buildW_below, px_below);
+                
+                ctx.strokeStyle = 'rgba(120, 113, 108, 0.5)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(bx, glY, buildW_below, px_below);
+
+                for(let i=1; i<=data.floorsBelow; i++) {
+                    const y = glY + (i * floorPx);
+                    ctx.beginPath();
+                    ctx.moveTo(bx, y);
+                    ctx.lineTo(bx + buildW_below, y);
+                    ctx.stroke();
+                }
             }
 
-            const rect = sliderContainer.getBoundingClientRect();
-            const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-            const percent = (x / rect.width) * 100;
-            updateSlider(percent);
-        };
+            // 3. 繪製地上層
+            if (data.floorsAbove > 0) {
+                const ax = centerX - (buildW_above / 2);
+                const aY = glY - px_above;
+                
+                ctx.fillStyle = 'rgba(5, 150, 105, 0.3)'; 
+                ctx.fillRect(ax, aY, buildW_above, px_above);
+                
+                ctx.strokeStyle = '#047857'; 
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(ax, aY, buildW_above, px_above);
 
-        // 綁定拖曳事件
-        sliderContainer.addEventListener('mousemove', handleMove);
-        sliderContainer.addEventListener('touchmove', handleMove);
+                const fullFloors = Math.floor(data.floorsAbove);
+                for(let i=1; i<fullFloors; i++) {
+                    const y = glY - (i * floorPx);
+                    ctx.beginPath();
+                    ctx.moveTo(ax, y);
+                    ctx.lineTo(ax + buildW_above, y);
+                    ctx.stroke();
+                }
+            }
+        }
 
-        // 5. 處理圖片下載
-        downloadBtn.addEventListener('click', () => {
-            if (!processedDataUrl) return;
-            const link = document.createElement('a');
-            link.download = exportFileName; // 使用動態產生的檔名
-            link.href = processedDataUrl;
-            link.click();
-        });
+        // --- 初始化 Chart.js 圖表 ---
+        function initCharts() {
+            Chart.defaults.font.family = "'Noto Sans TC', sans-serif";
+            Chart.defaults.color = '#78716c';
+            // ✅ 新增這行：強制關閉所有 Chart.js 的繪圖與更新動畫
+            Chart.defaults.animation = false; 
+
+            // 1. 價值瀑布圖
+            const ctx1 = document.getElementById('waterfallChart').getContext('2d');
+            waterfallChartInst = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['預估總銷', '開發利潤', '營造管銷', '資金利息', '土地價值'],
+                    datasets: [{
+                        label: '金額拆解',
+                        data: [],
+                        backgroundColor: ['#047857', '#fbbf24', '#94a3b8', '#fca5a5', '#059669'],
+                        borderRadius: 4,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.raw[1] - context.raw[0];
+                                    return Math.round(val).toLocaleString('en-US') + ' 萬元';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f5f5f4' } },
+                        x: { grid: { display: false }, ticks: { font: {size: 10} } }
+                    }
+                }
+            });
+
+            // 2. 銷坪係數折線圖
+            const ctx2 = document.getElementById('sensitivityChart').getContext('2d');
+            sensitivityChartInst = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '土地合理單價',
+                        data: [],
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#047857',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => `銷坪係數：${items[0].label} 倍`,
+                                label: (context) => `可買單價：${context.parsed.y.toFixed(2)} 萬/坪`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { title: { display: true, text: '土地單價 (萬元/坪)', font: {size: 10} }, grid: { color: '#f5f5f4' } },
+                        x: { title: { display: true, text: '銷坪係數 (倍)', font: {size: 10} }, grid: { display: false } }
+                    }
+                }
+            });
+
+            // 3. 獲利率敏感度折線圖
+            const ctx3 = document.getElementById('profitSensitivityChart').getContext('2d');
+            profitSensitivityChartInst = new Chart(ctx3, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '土地合理單價',
+                        data: [],
+                        borderColor: '#ea580c', 
+                        backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#c2410c',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => `要求獲利率：${items[0].label}`,
+                                label: (context) => `可買單價：${context.parsed.y.toFixed(2)} 萬/坪`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { title: { display: true, text: '土地單價 (萬元/坪)', font: {size: 10} }, grid: { color: '#f5f5f4' } },
+                        x: { title: { display: true, text: '獲利率 (%)', font: {size: 10} }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // --- 更新瀑布圖 ---
+        function updateWaterfallChart(res) {
+            if(!waterfallChartInst) return;
+            const S = res.S;
+            const P = res.profitAmount;
+            const CM = res.C + res.M;
+            const I = res.landInterestAmount + res.buildInterestAmount;
+            const V = res.V;
+
+            waterfallChartInst.data.datasets[0].data = [
+                [0, S],                             // 總銷
+                [S - P, S],                         // 利潤
+                [S - P - CM, S - P],                // 營造管銷
+                [V, V + I],                         // 資金利息
+                [0, V]                              // 土地價值
+            ];
+            waterfallChartInst.update();
+        }
+
+        // --- 更新銷坪敏感度圖 ---
+        function updateSensitivityChart() {
+            if(!sensitivityChartInst) return;
+
+            const baseCoef = parseFloat(inputs.coef.value) || 1.6;
+            const variations = [-0.05, -0.025, 0, 0.025, 0.05];
+            const labels = [];
+            const dataPoints = [];
+
+            variations.forEach(v => {
+                let testCoef = baseCoef + v;
+                if (testCoef < 1) testCoef = 1;
+
+                const res = calculateCore(undefined, undefined, testCoef);
+                labels.push(testCoef.toFixed(3));
+                dataPoints.push(res ? res.landUnitPrice : 0);
+            });
+
+            sensitivityChartInst.data.labels = labels;
+            sensitivityChartInst.data.datasets[0].data = dataPoints;
+            sensitivityChartInst.update();
+        }
+
+        // --- 更新獲利率敏感度圖 ---
+        function updateProfitSensitivityChart() {
+            if(!profitSensitivityChartInst) return;
+
+            const baseProfit = parseFloat(inputs.profit.value) / 100 || 0;
+            const variations = [-0.04, -0.02, 0, 0.02, 0.04];
+            const labels = [];
+            const dataPoints = [];
+
+            variations.forEach(v => {
+                let testProfit = baseProfit + v;
+                if (testProfit < 0) testProfit = 0;
+                
+                const res = calculateCore(undefined, undefined, undefined, testProfit);
+                labels.push((testProfit * 100).toFixed(1) + '%');
+                dataPoints.push(res ? res.landUnitPrice : 0);
+            });
+
+            profitSensitivityChartInst.data.labels = labels;
+            profitSensitivityChartInst.data.datasets[0].data = dataPoints;
+            profitSensitivityChartInst.update();
+        }
+
+        // --- 更新雙變數熱力矩陣 ---
+        function updateSensitivityMatrix() {
+            const currentPrice = parseFloat(inputs.price.value) || 0;
+            const currentCost = parseFloat(inputs.cost.value) || 0;
+            if (currentPrice <= 0 || currentCost <= 0) return;
+
+            const variations = [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3];
+            const head = document.getElementById('matrix-head');
+            const body = document.getElementById('matrix-body');
+            
+            const matrixData = [];
+            let maxPrice = -Infinity;
+            let minPrice = Infinity;
+
+            for (let r = 0; r < variations.length; r++) {
+                const vc = variations[r];
+                const testCost = currentCost * (1 + vc);
+                const row = [];
+                for (let c = 0; c < variations.length; c++) {
+                    const vp = variations[c];
+                    const testPrice = currentPrice * (1 + vp);
+                    const res = calculateCore(testPrice, testCost);
+                    const landPrice = res ? res.landUnitPrice : 0;
+                    row.push({ vp, vc, price: landPrice });
+                    
+                    if (landPrice > maxPrice) maxPrice = landPrice;
+                    if (landPrice < minPrice) minPrice = landPrice;
+                }
+                matrixData.push(row);
+            }
+
+            let headHTML = '<tr><th class="p-3 border border-stone-300 bg-stone-200 whitespace-nowrap text-left w-24">造價 \\ 房價</th>';
+            variations.forEach(vp => {
+                const priceLabel = vp === 0 ? '基準' : (vp > 0 ? `+${Math.round(vp*100)}%` : `${Math.round(vp*100)}%`);
+                const val = (currentPrice * (1 + vp)).toFixed(1);
+                headHTML += `<th class="p-2 border border-stone-300 whitespace-nowrap">${priceLabel}<br><span class="text-[10px] text-stone-500 font-normal">(${val}萬)</span></th>`;
+            });
+            headHTML += '</tr>';
+            head.innerHTML = headHTML;
+
+            let bodyHTML = '';
+            for (let r = 0; r < variations.length; r++) {
+                const vc = variations[r];
+                const costLabel = vc === 0 ? '基準' : (vc > 0 ? `+${Math.round(vc*100)}%` : `${Math.round(vc*100)}%`);
+                const costVal = (currentCost * (1 + vc)).toFixed(1);
+                bodyHTML += `<tr><th class="p-2 border border-stone-300 bg-stone-100 font-medium whitespace-nowrap text-left">${costLabel} <br><span class="text-[10px] text-stone-500 font-normal">(${costVal}萬)</span></th>`;
+                
+                for (let c = 0; c < variations.length; c++) {
+                    const cell = matrixData[r][c];
+                    const val = cell.price;
+                    const displayPrice = val > 0 ? val.toFixed(2) : '0.00';
+                    
+                    let ratio = 0;
+                    if (val > 0) {
+                        ratio = (maxPrice === minPrice) ? 0.5 : (val - minPrice) / (maxPrice - minPrice);
+                    }
+
+                    const alpha = val > 0 ? 0.05 + (ratio * 0.75) : 0.02; 
+                    const bgColor = `rgba(5, 150, 105, ${alpha})`;
+                    const textColorClass = ratio > 0.5 ? 'text-white font-medium' : 'text-stone-700';
+                    
+                    let cellClass = `p-2 border border-stone-200 transition duration-150 ${textColorClass}`;
+                    if (cell.vp === 0 && cell.vc === 0) {
+                        cellClass += " border-[2px] border-stone-800 font-bold relative z-10";
+                    } else {
+                        cellClass += " hover:opacity-80";
+                    }
+                    
+                    bodyHTML += `<td class="${cellClass}" style="background-color: ${bgColor};">${displayPrice}</td>`;
+                }
+                bodyHTML += '</tr>';
+            }
+            body.innerHTML = bodyHTML;
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>

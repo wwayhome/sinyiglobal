@@ -10,10 +10,9 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-5YQY4RT9H2');
     </script>
-
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -90,11 +89,20 @@
     <main class="flex-grow max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4 items-stretch">
         
         <section class="lg:col-span-4 glass-card rounded-xl p-5 custom-scrollbar flex flex-col h-full">
-            <h2 class="text-lg font-bold text-stone-800 mb-4 border-b border-stone-200 pb-2">📊 參數設定</h2>
             
-            <p class="text-sm text-stone-500 mb-4">請輸入基地的基本條件、預估市場行情與財務要求，系統將自動反推合理的土地購入價格。</p>
+            <div class="flex justify-between items-end mb-4 border-b border-stone-200 pb-2">
+                <h2 class="text-lg font-bold text-stone-800">📊 參數設定</h2>
+            </div>
+            
+            <p class="text-sm text-stone-500 mb-4">請選擇評估模式，並輸入基地的基本條件與財務要求。</p>
 
-            <button type="button" onclick="resetDefaults()" class="w-full py-2 bg-stone-200 text-stone-600 rounded hover:bg-stone-300 transition text-sm font-medium mb-6">
+            <!-- 模式切換開關 (雙軌制) -->
+            <div class="flex bg-stone-200 p-1 rounded-lg mb-4 shadow-inner">
+                <button type="button" id="btn-mode-buy" onclick="setMode('buy')" class="flex-1 py-1.5 text-sm font-bold rounded-md bg-emerald-600 text-white shadow-sm transition">購買土地</button>
+                <button type="button" id="btn-mode-jv" onclick="setMode('jv')" class="flex-1 py-1.5 text-sm font-bold rounded-md text-stone-500 hover:text-stone-700 transition">協議合建</button>
+            </div>
+
+            <button type="button" onclick="resetDefaults()" class="w-full py-2 bg-stone-100 border border-stone-200 text-stone-600 rounded hover:bg-stone-200 transition text-sm font-medium mb-6">
                 ↺ 恢復預設值
             </button>
 
@@ -115,7 +123,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-stone-600 mb-1">銷坪係數 (倍)</label>
-                                    <input type="number" id="in-coef" value="1.6" step="0.025" min="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                    <input type="number" id="in-coef" value="1.55" step="0.025" min="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-3">
@@ -154,7 +162,16 @@
                     <div class="bg-stone-50 p-4 rounded-lg border border-stone-100 mb-6">
                         <h3 class="text-sm font-bold text-stone-700 mb-3 flex items-center">💰 市場行情與成本預估</h3>
                         
-                        <div class="space-y-3">
+                        <div class="space-y-4">
+                            <div class="col-span-2">
+                                <label class="block text-xs font-medium text-stone-600 mb-1">標的縣市 (公報造價參考基準)</label>
+                                <select id="in-city" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition bg-white text-stone-700">
+                                    <option value="台北市" selected>台北市</option>
+                                    <option value="新北市">新北市</option>
+                                    <option value="桃園市">桃園市</option>
+                                    <option value="台中市">台中市</option>
+                                </select>
+                            </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-stone-600 mb-1">預期房價 (萬元/坪)</label>
@@ -167,7 +184,10 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-stone-600 mb-1">營造造價 (萬元/發包坪)</label>
-                                <input type="number" id="in-cost" value="20" min="1" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                <input type="number" id="in-cost" value="20" min="1" step="0.1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                <!-- 造價智慧提示區塊 -->
+                                <div id="cost-hint-container" class="mt-2 min-h-[28px] transition-all duration-300">
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-stone-600 mb-1">容獎及容積移轉投入總價 (萬元)</label>
@@ -180,21 +200,39 @@
                         <h3 class="text-sm font-bold text-stone-700 mb-3 flex items-center">📈 財務與利潤要求</h3>
                         
                         <div class="space-y-4">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-stone-600 mb-1">預期獲利率 (%)</label>
-                                    <input type="number" id="in-profit" value="20" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                            <div>
+                                <label id="lbl-profit-rate" class="block text-xs font-medium text-stone-600 mb-1 transition-colors duration-300" title="全案總銷金額之目標利潤率">預期獲利率 (佔總銷 %)</label>
+                                <input type="number" id="in-profit" value="15" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                            </div>
+
+                            <div class="bg-white p-3 rounded border border-stone-200 shadow-inner">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="block text-xs font-bold text-stone-700">各項費用率 (%)</label>
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-stone-600 mb-1">管銷費用率 (%)</label>
-                                    <input type="number" id="in-expense" value="12" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[10px] text-stone-500 mb-1" title="基數為直接建造成本">規劃設計費 (成本計)</label>
+                                        <input type="number" id="in-exp-design" value="3" min="0" step="0.1" class="w-full p-1.5 text-sm border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-stone-500 mb-1" title="基數為預估總銷金額">廣告銷售費 (總銷計)</label>
+                                        <input type="number" id="in-exp-ad" value="5" min="0" step="0.1" class="w-full p-1.5 text-sm border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-stone-500 mb-1" title="基數為預估總銷金額">管理費 (總銷計)</label>
+                                        <input type="number" id="in-exp-mgt" value="2" min="0" step="0.1" class="w-full p-1.5 text-sm border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-stone-500 mb-1" title="基數為預估總銷金額">稅捐 (總銷計)</label>
+                                        <input type="number" id="in-exp-tax" value="1" min="0" step="0.1" class="w-full p-1.5 text-sm border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                    </div>
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-stone-600 mb-1">自有資金報酬率 (%)</label>
-                                    <input type="number" id="in-equity-return" value="5" min="0" step="0.1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                    <input type="number" id="in-equity-return" value="1.6" min="0" step="0.1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-stone-600 mb-1">銀行融資年利率 (%)</label>
@@ -219,6 +257,9 @@
                             <div>
                                 <label class="block text-xs font-medium text-stone-600 mb-1">預估開發期 (年)</label>
                                 <input type="number" id="in-years" value="3" min="0.5" step="0.5" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right">
+                                <!-- 工期智慧提示區塊 -->
+                                <div id="schedule-hint-container" class="mt-2 min-h-[28px] transition-all duration-300">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -228,9 +269,11 @@
 
         <section class="lg:col-span-8 flex flex-col gap-5 h-full">
             
-            <div class="glass-card rounded-xl p-5 border-t-4 border-emerald-600 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- 模組指標區 (改為 2x2 排列) -->
+            <div class="glass-card rounded-xl p-5 border-t-4 border-emerald-600 grid grid-cols-1 md:grid-cols-2 gap-5 transition-colors duration-300" id="indicator-container">
                 
-                <div class="bg-emerald-50/60 p-4 rounded-lg border border-emerald-100 flex flex-col justify-start">
+                <!-- 模組 A | 購地決策 -->
+                <div id="mod-a" class="bg-emerald-50/60 p-4 rounded-lg border border-emerald-100 flex flex-col justify-start">
                     <div class="flex justify-between items-start mb-1">
                         <p class="text-[11px] text-emerald-700 font-bold tracking-wider">模組 A | 購地決策指標</p>
                         <span class="text-emerald-600/70 text-sm">💰</span>
@@ -247,31 +290,104 @@
                     </div>
                 </div>
 
-                <div class="bg-stone-50 p-4 rounded-lg border border-stone-200 flex flex-col justify-between">
+                <!-- 模組 A-2 | 合建決策 (預設隱藏) -->
+                <div id="mod-a2" class="bg-blue-50/60 p-4 rounded-lg border border-blue-100 flex-col justify-start hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[11px] text-blue-700 font-bold tracking-wider">模組 A-2 | 合建決策指標</p>
+                        <span class="text-blue-500/70 text-sm">🤝</span>
+                    </div>
+                    <div class="relative z-10 overflow-hidden rounded border border-blue-200/60 bg-white/50 shadow-sm">
+                        <table class="w-full text-center text-xs">
+                            <thead class="bg-blue-100/50 text-blue-800 font-medium">
+                                <tr>
+                                    <th class="py-1.5 px-2 font-medium border-b border-r border-blue-200/50 text-left">比較項目</th>
+                                    <th class="py-1.5 px-2 font-bold border-b border-r border-blue-200/50">地主</th>
+                                    <th class="py-1.5 px-2 font-bold border-b border-blue-200/50">建商</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-blue-200/50 text-stone-700">
+                                <tr>
+                                    <td class="py-1.5 px-2 text-left border-r border-blue-200/50 text-stone-600 cursor-help" title="採用建商成本加成推算分回價值">分回比例</td>
+                                    <td class="py-1.5 px-2 border-r border-blue-200/50 font-bold text-blue-800"><span id="out-ratio-landowner">0</span>%</td>
+                                    <td class="py-1.5 px-2 font-bold text-blue-800"><span id="out-ratio-dev">0</span>%</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-1.5 px-2 text-left border-r border-blue-200/50 text-stone-600">分回房屋</td>
+                                    <td class="py-1.5 px-2 border-r border-blue-200/50 font-semibold text-stone-800"><span id="out-ping-landowner">0</span> <span class="text-[10px] text-stone-400 font-normal">坪</span></td>
+                                    <td class="py-1.5 px-2 font-semibold text-stone-800"><span id="out-ping-dev">0</span> <span class="text-[10px] text-stone-400 font-normal">坪</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="py-1.5 px-2 text-left border-r border-blue-200/50 text-stone-600">車位分配</td>
+                                    <td class="py-1.5 px-2 border-r border-blue-200/50 font-semibold text-stone-800"><span id="out-park-landowner">0</span> <span class="text-[10px] text-stone-400 font-normal">個</span></td>
+                                    <td class="py-1.5 px-2 font-semibold text-stone-800"><span id="out-park-dev">0</span> <span class="text-[10px] text-stone-400 font-normal">個</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 模組 B-1 | 專案總銷與規模 -->
+                <div class="bg-purple-50/60 p-4 rounded-lg border border-purple-100 flex flex-col justify-start">
                     <div class="flex justify-between items-start mb-1">
-                        <p class="text-[11px] text-stone-500 font-bold tracking-wider">模組 B | 專案規模與實體</p>
-                        <span class="text-stone-400/80 text-sm">🏢</span>
+                        <p class="text-[11px] text-purple-700 font-bold tracking-wider">模組 B-1 | 專案總銷與規模</p>
+                        <span class="text-purple-500/70 text-sm">🏢</span>
                     </div>
-                    <div class="flex justify-between items-baseline border-b border-stone-200 pb-1 mb-2">
-                        <span class="text-xs text-stone-500">預估總銷 (S)</span>
-                        <span class="font-bold text-stone-800 text-lg"><span id="out-total-sales">0</span> <span class="text-xs font-normal text-stone-500">萬</span></span>
+                    <p class="text-xs text-stone-500 mb-1">預估總銷 (S)</p>
+                    <div class="flex items-baseline gap-1 mb-2">
+                        <span class="text-3xl font-bold text-purple-700" id="out-total-sales">0</span>
+                        <span class="text-sm text-purple-600 font-medium">萬元</span>
                     </div>
-                    <div class="space-y-1.5">
+                    <div class="space-y-1.5 mt-2 border-t border-purple-200/50 pt-2">
                         <div class="flex justify-between text-xs">
-                            <span class="text-stone-500">房屋銷坪</span>
-                            <span class="font-semibold text-stone-700"><span id="out-sale-ping">0</span> 坪</span>
+                            <span class="text-stone-500">房屋總銷 <span class="text-[10px] text-stone-400">(<span id="out-sale-ping">0</span> 坪)</span></span>
+                            <span class="font-semibold text-stone-700"><span id="out-house-revenue">0</span> 萬</span>
                         </div>
                         <div class="flex justify-between text-xs">
-                            <span class="text-stone-500">發包建坪</span>
-                            <span class="font-semibold text-stone-700"><span id="out-floor-area">0</span> 坪</span>
-                        </div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-stone-500">車位規模</span>
-                            <span class="font-semibold text-stone-700"><span id="out-park-count">0</span>個 <span class="text-[10px] text-stone-400 font-normal">(<span id="out-park-revenue">0</span>萬)</span></span>
+                            <span class="text-stone-500">車位總銷 <span class="text-[10px] text-stone-400">(<span id="out-park-count">0</span> 個)</span></span>
+                            <span class="font-semibold text-stone-700"><span id="out-park-revenue">0</span> 萬</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- 模組 B-2 | 興建面積與開發成本 -->
+                <div class="bg-stone-50 p-4 rounded-lg border border-stone-200 flex flex-col justify-start">
+                    <div class="flex justify-between items-start mb-1">
+                        <p class="text-[11px] text-stone-500 font-bold tracking-wider">模組 B-2 | 興建面積與開發成本</p>
+                        <span class="text-stone-400/80 text-sm">🧾</span>
+                    </div>
+                    <div class="flex justify-between items-baseline mb-1 mt-1">
+                        <span class="text-xs text-stone-500">發包總建坪</span>
+                        <span class="font-bold text-stone-700 text-lg"><span id="out-floor-area">0</span> <span class="text-xs font-normal text-stone-500">坪</span></span>
+                    </div>
+                    <div class="flex justify-between items-baseline border-b border-stone-200 pb-1 mb-2">
+                        <span class="text-xs text-stone-500">開發總成本</span>
+                        <span class="font-bold text-stone-800 text-lg"><span id="out-total-dev-cost">0</span> <span class="text-xs font-normal text-stone-500">萬</span></span>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">營造成本 (C)</span>
+                            <span class="font-semibold text-stone-600"><span id="out-c">0</span> 萬</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">規劃設計費</span>
+                            <span class="font-semibold text-stone-600"><span id="out-design-fee">0</span> 萬</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">廣告銷售費</span>
+                            <span class="font-semibold text-stone-600"><span id="out-ad-fee">0</span> 萬</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">管理與稅捐</span>
+                            <span class="font-semibold text-stone-600"><span id="out-mgt-tax-fee">0</span> 萬</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-stone-500">建造期利息</span>
+                            <span class="font-semibold text-stone-600"><span id="out-build-interest">0</span> 萬</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模組 C | 資金回報 -->
                 <div class="bg-orange-50/60 p-4 rounded-lg border border-orange-100 flex flex-col justify-between">
                     <div class="flex justify-between items-start mb-1">
                         <p class="text-[11px] text-orange-700 font-bold tracking-wider">模組 C | 資金與投資回報</p>
@@ -279,24 +395,24 @@
                     </div>
                     <div class="space-y-1 relative z-10">
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="土地總價 + 營造管銷 + 利息總和">預估總投資額</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="建商視角之總投入資金 (買斷含土地，合建僅含營造管銷)">建商總投資額</span>
                             <span class="font-bold text-stone-800"><span id="out-total-investment">0</span> <span class="text-[10px] text-stone-500 font-normal">萬</span></span>
                         </div>
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="預估總投資額 × 自有資金比例">預估準備現金</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="建商總投資額 × 自有資金比例">預估準備現金</span>
                             <span class="font-bold text-orange-700"><span id="out-equity-cash">0</span> <span class="text-[10px] text-orange-600/70 font-normal">萬</span></span>
                         </div>
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="開發商獲利絕對金額">預估獲利金額</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="建商獲利絕對金額">預估獲利金額</span>
                             <span class="font-bold text-orange-700"><span id="out-profit-amount">0</span> <span class="text-[10px] text-orange-600/70 font-normal">萬</span></span>
                         </div>
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="預估獲利金額 ÷ 預估總投資額">全案 ROA</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="預估獲利金額 ÷ 建商總投資額">專案 ROA</span>
                             <span class="font-bold text-orange-700"><span id="out-roa">0</span> <span class="text-[10px] text-orange-600/70 font-normal">%</span></span>
                         </div>
-                        <div class="flex justify-between items-center pt-0.5">
-                            <span class="text-xs text-stone-600 font-medium cursor-help" title="利潤絕對金額 ÷ 預估準備現金">專案 ROE</span>
-                            <span class="font-bold text-lg text-orange-600 bg-white px-2 py-0.5 rounded shadow-sm"><span id="out-roe">0</span>%</span>
+                        <div class="flex justify-between items-baseline pt-1">
+                            <span class="text-xs text-stone-600 cursor-help" title="利潤絕對金額 ÷ 預估準備現金">專案 ROE</span>
+                            <span class="font-bold text-orange-700"><span id="out-roe">0</span> <span class="text-[10px] text-orange-600/70 font-normal">%</span></span>
                         </div>
                     </div>
                 </div>
@@ -319,7 +435,6 @@
                     <div class="flex-grow w-full bg-stone-50 rounded border border-stone-200 relative overflow-hidden flex items-center justify-center p-2">
                         <canvas id="massingCanvas" class="w-full h-full"></canvas>
                     </div>
-
                     <div class="mt-3 flex justify-between text-[10px] text-stone-500">
                         <span class="flex items-center gap-1"><span class="w-3 h-3 bg-emerald-500/50 inline-block rounded-sm"></span>建蔽率 <span id="lbl-sim-bcr">0</span>%</span>
                         <span class="flex items-center gap-1"><span class="w-3 h-3 bg-stone-400/50 inline-block rounded-sm"></span>開挖率 <span id="lbl-sim-exc">0</span>%</span>
@@ -339,15 +454,15 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="glass-card rounded-xl p-5">
                     <h3 class="text-sm font-bold text-stone-800 mb-1">📐 銷坪係數敏感度分析</h3>
-                    <p class="text-[10px] text-stone-500 mb-3">銷坪變動對「可購入土地單價」之影響</p>
+                    <p id="desc-sens-coef" class="text-[10px] text-stone-500 mb-3">銷坪變動對「可購入土地單價」之影響</p>
                     <div class="chart-container" style="height: 200px;">
                         <canvas id="sensitivityChart"></canvas>
                     </div>
                 </div>
                 
                 <div class="glass-card rounded-xl p-5">
-                    <h3 class="text-sm font-bold text-stone-800 mb-1">📉 預期獲利率 (R) 敏感度分析</h3>
-                    <p class="text-[10px] text-stone-500 mb-3">利潤讓步空間對「可購入土地單價」之競標優勢</p>
+                    <h3 class="text-sm font-bold text-stone-800 mb-1">📉 獲利率敏感度分析</h3>
+                    <p id="desc-sens-profit" class="text-[10px] text-stone-500 mb-3">利潤讓步空間對「可購入土地單價」之競標優勢</p>
                     <div class="chart-container" style="height: 200px;">
                         <canvas id="profitSensitivityChart"></canvas>
                     </div>
@@ -358,7 +473,12 @@
                 <div class="flex justify-between items-end mb-4">
                     <div>
                         <h3 class="text-base font-bold text-stone-800 mb-1">售價與造價敏感度分析矩陣</h3>
-                        <p class="text-[11px] text-stone-500">推估「土地合理單價 (萬元/坪)」隨房價與造價雙邊變動之熱力圖</p>
+                        <p id="desc-sens-matrix" class="text-[11px] text-stone-500">推估「土地合理單價 (萬元/坪)」隨房價與造價雙邊變動之熱力圖</p>
+                    </div>
+                    <!-- 單價/總價 切換開關 (僅買斷模式顯示) -->
+                    <div id="matrix-toggle-container" class="flex bg-stone-200 p-0.5 rounded-md shadow-inner text-[10px] ml-2 shrink-0">
+                        <button type="button" id="btn-matrix-unit" onclick="setMatrixMode('unit')" class="px-2 py-1 font-bold rounded bg-white text-emerald-700 shadow-sm transition">單價</button>
+                        <button type="button" id="btn-matrix-total" onclick="setMatrixMode('total')" class="px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition">總價</button>
                     </div>
                 </div>
                 <div class="overflow-x-auto custom-scrollbar pb-2">
@@ -371,21 +491,59 @@
                 </div>
             </div>
 
+            <!-- 新增：專案標準工期推估 (橫向堆疊長條圖) -->
+            <div class="glass-card rounded-xl p-5">
+                <div class="mb-6">
+                    <h3 class="text-base font-bold text-stone-800 mb-1">🕒 專案標準工期推估</h3>
+                    <p class="text-[11px] text-stone-500">依據都市更新事業及權利變換計畫提列基準計算</p>
+                </div>
+                
+                <div class="px-4">
+                    <!-- 年份座標軸 -->
+                    <div id="schedule-axis" class="relative w-full h-6 border-b border-stone-300 mb-1">
+                        <!-- 由 JS 動態生成座標刻度 -->
+                    </div>
+                    
+                    <!-- 堆疊長條圖 (甘特圖) -->
+                    <div id="schedule-bar-container" class="flex w-full h-8 rounded-md overflow-hidden shadow-sm border border-stone-200 bg-stone-100 relative">
+                        <div id="bar-prep" class="bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center text-white text-[10px] font-bold" title="前置期"></div>
+                        <div id="bar-below" class="bg-stone-400 hover:bg-stone-500 transition-colors flex items-center justify-center text-white text-[10px] font-bold" title="地下層施工"></div>
+                        <div id="bar-above" class="bg-emerald-500 hover:bg-emerald-600 transition-colors flex items-center justify-center text-white text-[10px] font-bold" title="地上層施工"></div>
+                        <div id="bar-reg" class="bg-blue-400 hover:bg-blue-500 transition-colors flex items-center justify-center text-white text-[10px] font-bold" title="產權登記期"></div>
+                    </div>
+                </div>
+                
+                <!-- 階段明細圖例 -->
+                <div id="schedule-legend" class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5 px-2 text-xs">
+                    <!-- 由 JS 動態生成圖例 -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- 新增：詳細計算過程展開區塊 -->
+        <section class="lg:col-span-12 glass-card rounded-xl p-5 mt-2">
+            <button id="toggle-calc-log" class="w-full flex justify-between items-center text-left focus:outline-none group">
+                <h4 class="font-bold text-stone-800 text-base group-hover:text-emerald-700 transition-colors">🧮 展開詳細計算過程 (白盒檢核)</h4>
+                <span id="toggle-icon" class="text-stone-400 bg-stone-100 px-3 py-1 rounded-full text-xs font-mono transition-transform duration-300">▼ 展開</span>
+            </button>
+            <div id="calc-log-content" class="hidden mt-5 text-sm text-stone-600 space-y-4 font-mono border-t border-stone-200 pt-4">
+                <!-- Javascript will inject log here -->
+            </div>
         </section>
 
         <section class="lg:col-span-12 glass-card rounded-xl p-5 text-sm text-stone-600 leading-relaxed mt-2">
-            <h4 class="font-bold text-stone-800 mb-2 border-b border-stone-200 pb-1">📖 關於土地開發分析法（高階財務與量體推估版）</h4>
-            <p class="mb-2">導入加權平均資本成本 (WACC)、實際發包坪數邏輯與權益報酬分析後，土地推估價格之精確算式與財務指標如下：</p>
+            <h4 class="font-bold text-stone-800 mb-2 border-b border-stone-200 pb-1">📖 關於演算法雙軌制（買斷 vs 協議合建）</h4>
+            <p class="mb-2">本系統支援不動產估價技術規則之「土地開發分析法」與業界實務之「成本加成等價交換法」。</p>
             <div class="bg-stone-100 p-3 rounded font-mono text-center mb-3 text-stone-800 tracking-wider overflow-x-auto whitespace-nowrap">
-                V = { S / (1 + R) - (C + M) × [ 1 + (WACC × n/2) ] } / (1 + WACC × n)
+                買斷模式: V = { S / (1 + R) - (C + M) × [ 1 + (WACC × n/2) ] } / (1 + WACC × n)<br>
+                合建模式: Dev_Value = (C + M + Build_Interest) × (1 + Cost_ROI)
             </div>
-            <ul class="list-disc pl-5 space-y-1 text-xs md:grid md:grid-cols-3 md:gap-x-6">
-                <li><b>V (合理購地總價)</b>：開發商滿足預期利潤後，最高可支付之標的價格。</li>
-                <li><b>S (預估總銷金額)</b>：房屋總收入 + 車位總收入。銷坪已包含依法免計容積之面積膨脹。</li>
+            <ul class="list-disc pl-5 space-y-1 text-xs md:grid md:grid-cols-2 md:gap-x-6">
+                <li><b>買斷模式 (算底價)</b>：利潤目標為全案總銷之 X%。需扣除購地之土地融資利息，對地主條件較為嚴苛。</li>
+                <li><b>合建模式 (算比例)</b>：利潤目標切換為「建商投入成本之加成報酬 (Cost ROI)」。無土地融資利息扣減。</li>
                 <li><b>WACC (綜合資金成本率)</b>：混合資金機會成本，(自有比例 × 報酬率) + (融資比例 × 利率)。</li>
-                <li><b>C (直接建造成本)</b>：預估發包坪數 × 營造單價。發包坪數 = 房屋總銷坪數 + (車位數 × 12坪)。</li>
-                <li><b>ROE (股東權益報酬率)</b>：專案利潤 ÷ 預估準備現金。衡量自有資金之投資效率。</li>
-                <li><b>R 與 M</b>：分別為適當之利潤率 (R) 與 規劃管理及廣告行銷費用 (M)。</li>
+                <li><b>等價交換法</b>：依據合建模式推算出之建商應分回價值 (Dev_Value)，與剩餘之土地價值 (V) 進行比例分配。</li>
             </ul>
         </section>
 
@@ -393,14 +551,118 @@
 
     <footer class="bg-stone-900 text-stone-400 py-6 px-4 text-center text-xs mt-8">
         <div class="max-w-7xl mx-auto space-y-2">
-            <p class="font-medium text-stone-300">土地開發分析法 (WACC 資金成本與精確面積推估版)</p>
+            <p class="font-medium text-stone-300">土地開發分析法 (雙軌演算法與量體推估版)</p>
             <p class="text-[10px] opacity-70 mt-1">免責聲明：本系統僅提供量化試算參考，實務開發需考量都市設計審議、稅賦及其他隱性成本。</p>
         </div>
     </footer>
 
     <script>
+        // === 估價公報標準造價資料庫 ===
+        const STANDARD_DATA = {
+          "台北市": {
+            brackets: [
+              { label: "未達75萬", min: 0, max: 750000 },
+              { label: "75萬-100萬", min: 750000, max: 1000000 },
+              { label: "100萬-125萬", min: 1000000, max: 1250000 },
+              { label: "125萬-150萬", min: 1250000, max: 1500000 },
+              { label: "150萬-180萬", min: 1500000, max: 1800000 },
+              { label: "180萬-210萬", min: 1800000, max: 2100000 },
+              { label: "210萬以上", min: 2100000, max: Infinity }
+            ],
+            floors: [
+              { label: "1-3F", min: 1, max: 3, values: ["97,000 ~ 124,000", "113,000 ~ 150,000", "133,000 ~ 180,000", "158,000 ~ 217,000", "189,000 ~ 263,000", "222,000 ~ 293,000", "256,000 ~ 330,000"] },
+              { label: "4-5F", min: 4, max: 5, values: ["102,000 ~ 127,000", "118,000 ~ 154,000", "138,000 ~ 184,000", "162,000 ~ 221,000", "194,000 ~ 265,000", "225,000 ~ 295,000", "260,000 ~ 332,000"] },
+              { label: "6-8F", min: 6, max: 8, values: ["122,000 ~ 150,000", "137,000 ~ 176,000", "157,000 ~ 206,000", "181,000 ~ 242,000", "212,000 ~ 287,000", "244,000 ~ 317,000", "278,000 ~ 354,000"] },
+              { label: "9-10F", min: 9, max: 10, values: ["127,000 ~ 154,000", "141,000 ~ 179,000", "161,000 ~ 209,000", "186,000 ~ 245,000", "216,000 ~ 289,000", "248,000 ~ 318,000", "282,000 ~ 355,000"] },
+              { label: "11-13F", min: 11, max: 13, values: ["138,000 ~ 168,000", "152,000 ~ 193,000", "172,000 ~ 222,000", "196,000 ~ 258,000", "226,000 ~ 302,000", "258,000 ~ 331,000", "291,000 ~ 367,000"] },
+              { label: "14-15F", min: 14, max: 15, values: ["142,000 ~ 170,000", "157,000 ~ 196,000", "176,000 ~ 224,000", "200,000 ~ 260,000", "230,000 ~ 304,000", "261,000 ~ 332,000", "295,000 ~ 368,000"] },
+              { label: "16-18F", min: 16, max: 18, values: ["157,000 ~ 188,000", "171,000 ~ 214,000", "190,000 ~ 242,000", "215,000 ~ 277,000", "244,000 ~ 320,000", "274,000 ~ 349,000", "308,000 ~ 385,000"] },
+              { label: "19-20F", min: 19, max: 20, values: ["160,000 ~ 191,000", "175,000 ~ 216,000", "195,000 ~ 245,000", "218,000 ~ 280,000", "248,000 ~ 322,000", "278,000 ~ 350,000", "311,000 ~ 386,000"] },
+              { label: "21-25F", min: 21, max: 25, values: ["164,000 ~ 200,000", "177,000 ~ 224,000", "197,000 ~ 253,000", "221,000 ~ 288,000", "249,000 ~ 330,000", "279,000 ~ 358,000", "311,000 ~ 394,000"] },
+              { label: "26-30F", min: 26, max: 30, values: ["189,000 ~ 228,000", "203,000 ~ 253,000", "222,000 ~ 281,000", "245,000 ~ 316,000", "274,000 ~ 358,000", "304,000 ~ 385,000", "336,000 ~ 420,000"] },
+              { label: "31-35F", min: 31, max: 35, values: ["-", "211,000 ~ 260,000", "230,000 ~ 288,000", "252,000 ~ 323,000", "281,000 ~ 365,000", "310,000 ~ 392,000", "343,000 ~ 426,000"] },
+              { label: "36-40F", min: 36, max: 40, values: ["-", "217,000 ~ 269,000", "236,000 ~ 296,000", "259,000 ~ 330,000", "288,000 ~ 372,000", "317,000 ~ 398,000", "348,000 ~ 433,000"] }
+            ]
+          },
+          "新北市": {
+            brackets: [
+              { label: "未達20萬", min: 0, max: 200000 },
+              { label: "20萬-30萬", min: 200000, max: 300000 },
+              { label: "30萬-50萬", min: 300000, max: 500000 },
+              { label: "50萬-75萬", min: 500000, max: 750000 },
+              { label: "75萬-100萬", min: 750000, max: 1000000 },
+              { label: "100萬以上", min: 1000000, max: Infinity }
+            ],
+            floors: [
+              { label: "1-3F", min: 1, max: 3, values: ["72,800 ~ 93,600", "75,100 ~ 92,000", "78,400 ~ 116,000", "98,000 ~ 120,000", "111,000 ~ 138,000", "129,000 ~ 164,000"] },
+              { label: "4-5F", min: 4, max: 5, values: ["77,300 ~ 98,400", "79,600 ~ 96,600", "82,900 ~ 121,000", "102,000 ~ 125,000", "115,000 ~ 143,000", "133,000 ~ 169,000"] },
+              { label: "6-8F", min: 6, max: 8, values: ["95,200 ~ 118,000", "97,500 ~ 115,000", "106,000 ~ 139,000", "120,000 ~ 143,000", "133,000 ~ 161,000", "151,000 ~ 187,000"] },
+              { label: "9-10F", min: 9, max: 10, values: ["100,000 ~ 123,000", "102,000 ~ 120,000", "111,000 ~ 144,000", "125,000 ~ 148,000", "138,000 ~ 166,000", "156,000 ~ 192,000"] },
+              { label: "11-13F", min: 11, max: 13, values: ["111,000 ~ 135,000", "114,000 ~ 132,000", "122,000 ~ 155,000", "136,000 ~ 160,000", "149,000 ~ 177,000", "167,000 ~ 203,000"] },
+              { label: "14-15F", min: 14, max: 15, values: ["116,000 ~ 140,000", "118,000 ~ 136,000", "126,000 ~ 160,000", "140,000 ~ 164,000", "153,000 ~ 182,000", "171,000 ~ 208,000"] },
+              { label: "16-18F", min: 16, max: 18, values: ["130,000 ~ 155,000", "133,000 ~ 151,000", "141,000 ~ 175,000", "155,000 ~ 179,000", "168,000 ~ 197,000", "186,000 ~ 223,000"] },
+              { label: "19-20F", min: 19, max: 20, values: ["135,000 ~ 160,000", "137,000 ~ 156,000", "145,000 ~ 179,000", "159,000 ~ 184,000", "172,000 ~ 201,000", "190,000 ~ 227,000"] },
+              { label: "21-25F", min: 21, max: 25, values: ["140,000 ~ 166,000", "143,000 ~ 161,000", "151,000 ~ 185,000", "165,000 ~ 189,000", "178,000 ~ 207,000", "196,000 ~ 233,000"] },
+              { label: "26-30F", min: 26, max: 30, values: ["164,000 ~ 191,000", "166,000 ~ 186,000", "175,000 ~ 209,000", "188,000 ~ 214,000", "202,000 ~ 231,000", "220,000 ~ 257,000"] },
+              { label: "31-35F", min: 31, max: 35, values: ["-", "174,000 ~ 194,000", "182,000 ~ 217,000", "196,000 ~ 222,000", "209,000 ~ 242,000", "227,000 ~ 268,000"] },
+              { label: "36-40F", min: 36, max: 40, values: ["-", "182,000 ~ 202,000", "190,000 ~ 225,000", "204,000 ~ 230,000", "217,000 ~ 249,000", "235,000 ~ 275,000"] }
+            ]
+          },
+          "桃園市": {
+            brackets: [
+              { label: "未達20萬", min: 0, max: 200000 },
+              { label: "20萬-30萬", min: 200000, max: 300000 },
+              { label: "30萬-40萬", min: 300000, max: 400000 },
+              { label: "40萬-50萬", min: 400000, max: 500000 },
+              { label: "50萬-70萬", min: 500000, max: 700000 },
+              { label: "70萬以上", min: 700000, max: Infinity }
+            ],
+            floors: [
+              { label: "1-3F", min: 1, max: 3, values: ["75,100 ~ 107,000", "82,700 ~ 108,000", "91,000 ~ 119,000", "100,000 ~ 131,000", "110,000 ~ 144,000", "121,000 ~ 158,000"] },
+              { label: "4-5F", min: 4, max: 5, values: ["77,100 ~ 107,000", "84,900 ~ 108,000", "93,400 ~ 119,000", "103,000 ~ 131,000", "113,000 ~ 144,000", "124,000 ~ 158,000"] },
+              { label: "6-8F", min: 6, max: 8, values: ["78,600 ~ 113,000", "87,900 ~ 115,000", "96,900 ~ 124,000", "107,000 ~ 136,000", "117,000 ~ 149,000", "129,000 ~ 164,000"] },
+              { label: "9-10F", min: 9, max: 10, values: ["81,900 ~ 119,000", "91,900 ~ 122,000", "101,000 ~ 134,000", "111,000 ~ 148,000", "122,000 ~ 163,000", "134,000 ~ 180,000"] },
+              { label: "11-13F", min: 11, max: 13, values: ["85,900 ~ 126,000", "96,500 ~ 128,000", "106,000 ~ 142,000", "117,000 ~ 157,000", "128,000 ~ 172,000", "141,000 ~ 189,000"] },
+              { label: "14-15F", min: 14, max: 15, values: ["92,000 ~ 131,000", "104,000 ~ 139,000", "114,000 ~ 154,000", "125,000 ~ 168,000", "138,000 ~ 186,000", "151,000 ~ 205,000"] },
+              { label: "16-18F", min: 16, max: 18, values: ["95,700 ~ 139,000", "108,000 ~ 145,000", "118,000 ~ 160,000", "130,000 ~ 176,000", "143,000 ~ 194,000", "158,000 ~ 214,000"] },
+              { label: "19-20F", min: 19, max: 20, values: ["102,000 ~ 144,000", "114,000 ~ 155,000", "126,000 ~ 172,000", "140,000 ~ 188,000", "153,000 ~ 206,000", "168,000 ~ 227,000"] },
+              { label: "21-25F", min: 21, max: 25, values: ["105,000 ~ 156,000", "119,000 ~ 162,000", "131,000 ~ 178,000", "143,000 ~ 196,000", "158,000 ~ 216,000", "174,000 ~ 238,000"] },
+              { label: "26-30F", min: 26, max: 30, values: ["-", "131,000 ~ 179,000", "144,000 ~ 196,000", "158,000 ~ 217,000", "174,000 ~ 239,000", "191,000 ~ 263,000"] },
+              { label: "31-35F", min: 31, max: 35, values: ["-", "142,000 ~ 196,000", "157,000 ~ 216,000", "172,000 ~ 238,000", "189,000 ~ 260,000", "208,000 ~ 286,000"] },
+              { label: "36-40F", min: 36, max: 40, values: ["-", "155,000 ~ 215,000", "171,000 ~ 236,000", "187,000 ~ 260,000", "208,000 ~ 286,000", "228,000 ~ 314,000"] }
+            ]
+          },
+          "台中市": {
+            brackets: [
+              { label: "未達20萬", min: 0, max: 200000 },
+              { label: "20萬-25萬", min: 200000, max: 250000 },
+              { label: "25萬-30萬", min: 250000, max: 300000 },
+              { label: "30萬-40萬", min: 300000, max: 400000 },
+              { label: "40萬-50萬", min: 400000, max: 500000 },
+              { label: "50萬-75萬", min: 500000, max: 750000 },
+              { label: "75萬-90萬", min: 750000, max: 900000 },
+              { label: "90萬以上", min: 900000, max: Infinity }
+            ],
+            floors: [
+              { label: "1-3F", min: 1, max: 3, values: ["68,900 ~ 88,500", "70,200 ~ 103,000", "77,300 ~ 107,000", "85,100 ~ 121,000", "93,500 ~ 134,000", "103,000 ~ 148,000", "109,000 ~ 158,000", "125,000 ~ 164,000"] },
+              { label: "4-5F", min: 4, max: 5, values: ["70,200 ~ 90,100", "71,600 ~ 105,000", "78,900 ~ 109,000", "86,800 ~ 124,000", "95,400 ~ 137,000", "105,000 ~ 150,000", "111,000 ~ 160,000", "132,000 ~ 176,000"] },
+              { label: "6-8F", min: 6, max: 8, values: ["74,800 ~ 99,300", "76,600 ~ 113,000", "84,600 ~ 121,000", "93,100 ~ 137,000", "103,000 ~ 151,000", "110,000 ~ 167,000", "116,000 ~ 177,000", "143,000 ~ 198,000"] },
+              { label: "9-10F", min: 9, max: 10, values: ["80,900 ~ 104,000", "84,000 ~ 119,000", "92,900 ~ 128,000", "102,000 ~ 146,000", "111,000 ~ 161,000", "122,000 ~ 179,000", "128,000 ~ 189,000", "152,000 ~ 210,000"] },
+              { label: "11-13F", min: 11, max: 13, values: ["82,800 ~ 109,000", "86,200 ~ 126,000", "95,300 ~ 134,000", "105,000 ~ 152,000", "114,000 ~ 169,000", "126,000 ~ 186,000", "132,000 ~ 196,000", "160,000 ~ 218,000"] },
+              { label: "14-15F", min: 14, max: 15, values: ["89,100 ~ 114,000", "93,200 ~ 131,000", "103,000 ~ 143,000", "114,000 ~ 162,000", "124,000 ~ 178,000", "136,000 ~ 197,000", "142,000 ~ 207,000", "169,000 ~ 229,000"] },
+              { label: "16-18F", min: 16, max: 18, values: ["-", "98,000 ~ 142,000", "108,000 ~ 152,000", "121,000 ~ 172,000", "132,000 ~ 190,000", "143,000 ~ 210,000", "149,000 ~ 220,000", "177,000 ~ 242,000"] },
+              { label: "19-20F", min: 19, max: 20, values: ["-", "101,000 ~ 143,000", "122,000 ~ 155,000", "128,000 ~ 175,000", "139,000 ~ 194,000", "150,000 ~ 214,000", "156,000 ~ 224,000", "184,000 ~ 245,000"] },
+              { label: "21-25F", min: 21, max: 25, values: ["-", "106,000 ~ 156,000", "129,000 ~ 169,000", "136,000 ~ 192,000", "146,000 ~ 211,000", "157,000 ~ 233,000", "163,000 ~ 243,000", "191,000 ~ 265,000"] },
+              { label: "26-30F", min: 26, max: 30, values: ["-", "111,000 ~ 170,000", "147,000 ~ 187,000", "153,000 ~ 212,000", "164,000 ~ 234,000", "178,000 ~ 258,000", "184,000 ~ 268,000", "212,000 ~ 290,000"] },
+              { label: "31-35F", min: 31, max: 35, values: ["-", "-", "162,000 ~ 205,000", "169,000 ~ 234,000", "181,000 ~ 257,000", "195,000 ~ 283,000", "201,000 ~ 293,000", "230,000 ~ 316,000"] },
+              { label: "36-40F", min: 36, max: 40, values: ["-", "-", "166,000 ~ 226,000", "166,000 ~ 257,000", "199,000 ~ 282,000", "214,000 ~ 312,000", "220,000 ~ 322,000", "250,000 ~ 347,000"] }
+            ]
+          }
+        };
+
         // DOM Elements
         const inputs = {
+            city: document.getElementById('in-city'),
             area: document.getElementById('in-area'),
             far: document.getElementById('in-far'),
             coef: document.getElementById('in-coef'),
@@ -415,7 +677,10 @@
             cost: document.getElementById('in-cost'),
             bonusCost: document.getElementById('in-bonus-cost'),
             profit: document.getElementById('in-profit'),
-            expense: document.getElementById('in-expense'),
+            expDesign: document.getElementById('in-exp-design'),
+            expAd: document.getElementById('in-exp-ad'),
+            expMgt: document.getElementById('in-exp-mgt'),
+            expTax: document.getElementById('in-exp-tax'),
             equityReturn: document.getElementById('in-equity-return'),
             loanInterest: document.getElementById('in-loan-interest'),
             equityRatio: document.getElementById('in-equity-ratio'),
@@ -426,10 +691,17 @@
             totalPrice: document.getElementById('out-total-price'),
             unitPrice: document.getElementById('out-unit-price'),
             totalSales: document.getElementById('out-total-sales'),
+            houseRevenue: document.getElementById('out-house-revenue'),
             salePing: document.getElementById('out-sale-ping'),
             floorArea: document.getElementById('out-floor-area'), 
             parkCount: document.getElementById('out-park-count'),
             parkRevenue: document.getElementById('out-park-revenue'),
+            totalDevCost: document.getElementById('out-total-dev-cost'),
+            outC: document.getElementById('out-c'),
+            outDesignFee: document.getElementById('out-design-fee'),
+            outAdFee: document.getElementById('out-ad-fee'),
+            outMgtTaxFee: document.getElementById('out-mgt-tax-fee'),
+            outBuildInterest: document.getElementById('out-build-interest'),
             totalInvestment: document.getElementById('out-total-investment'),
             equityCash: document.getElementById('out-equity-cash'),
             profitAmount: document.getElementById('out-profit-amount'),
@@ -441,8 +713,21 @@
             lblAboveFloors: document.getElementById('lbl-above-floors'),
             lblBelowFloors: document.getElementById('lbl-below-floors'),
             lblSimBcr: document.getElementById('lbl-sim-bcr'),
-            lblSimExc: document.getElementById('lbl-sim-exc')
+            lblSimExc: document.getElementById('lbl-sim-exc'),
+            // A-2 模組輸出欄位
+            ratioLandowner: document.getElementById('out-ratio-landowner'),
+            ratioDev: document.getElementById('out-ratio-dev'),
+            pingLandowner: document.getElementById('out-ping-landowner'),
+            pingDev: document.getElementById('out-ping-dev'),
+            parkLandowner: document.getElementById('out-park-landowner'),
+            parkDev: document.getElementById('out-park-dev')
         };
+
+        // 系統狀態變數
+        let currentMode = 'buy'; // 'buy' 或 'jv'
+        let savedBuyProfit = 15;
+        let savedJvProfit = 20;
+        let matrixDisplayMode = 'unit'; // 'unit' 或 'total' (新增矩陣顯示模式變數)
 
         // Chart instances
         let waterfallChartInst = null;
@@ -453,10 +738,103 @@
 
         // Default values
         const defaultValues = {
-            area: 100, far: 300, coef: 1.6, bcr: 50, excavation: 75, floors: 3, mech: 20, 
+            city: "台北市", area: 100, far: 300, coef: 1.55, bcr: 50, excavation: 75, floors: 3, mech: 20, 
             bonus: 0, transfer: 0, price: 80, parkPrice: 250, cost: 20, bonusCost: 0,
-            profit: 20, expense: 12, equityReturn: 5, loanInterest: 3.5, equityRatio: 50, years: 3
+            profit: 15, expDesign: 3, expAd: 5, expMgt: 2, expTax: 1, equityReturn: 1.6, loanInterest: 3.5, equityRatio: 50, years: 3
         };
+
+        // 模式切換邏輯
+        function setMode(mode) {
+            currentMode = mode;
+            const btnBuy = document.getElementById('btn-mode-buy');
+            const btnJv = document.getElementById('btn-mode-jv');
+            const lblProfit = document.getElementById('lbl-profit-rate');
+            const indicatorContainer = document.getElementById('indicator-container');
+            const modA = document.getElementById('mod-a');
+            const modA2 = document.getElementById('mod-a2');
+            const matrixToggle = document.getElementById('matrix-toggle-container');
+            
+            // 圖表說明文字元素
+            const descSensCoef = document.getElementById('desc-sens-coef');
+            const descSensProfit = document.getElementById('desc-sens-profit');
+            const descSensMatrix = document.getElementById('desc-sens-matrix');
+            
+            if(mode === 'buy') {
+                // UI 切換
+                btnBuy.className = "flex-1 py-1.5 text-sm font-bold rounded-md bg-emerald-600 text-white shadow-sm transition";
+                btnJv.className = "flex-1 py-1.5 text-sm font-bold rounded-md text-stone-500 hover:text-stone-700 transition";
+                lblProfit.innerText = "預期獲利率 (佔總銷 %)";
+                lblProfit.title = "全案總銷金額之目標利潤率";
+                indicatorContainer.className = "glass-card rounded-xl p-5 border-t-4 border-emerald-600 grid grid-cols-1 md:grid-cols-2 gap-5 transition-colors duration-300";
+                
+                // 圖表文字更新
+                if(descSensCoef) descSensCoef.innerText = '銷坪變動對「可購入土地單價」之影響';
+                if(descSensProfit) descSensProfit.innerText = '利潤讓步空間對「可購入土地單價」之競標優勢';
+                if(descSensMatrix) {
+                    descSensMatrix.innerText = matrixDisplayMode === 'unit' 
+                        ? '推估「土地合理單價 (萬元/坪)」隨房價與造價雙邊變動之熱力圖'
+                        : '推估「土地合理總價 (萬元)」隨房價與造價雙邊變動之熱力圖';
+                }
+
+                // 顯示模組 A，隱藏模組 A-2
+                modA.classList.remove('hidden');
+                modA.classList.add('flex');
+                modA2.classList.remove('flex');
+                modA2.classList.add('hidden');
+                
+                // 顯示單總價切換開關
+                if (matrixToggle) matrixToggle.style.display = 'flex';
+
+                // 儲存 JV 利潤率並恢復 Buy 利潤率
+                savedJvProfit = parseFloat(inputs.profit.value) || 20;
+                inputs.profit.value = savedBuyProfit;
+            } else {
+                // UI 切換
+                btnJv.className = "flex-1 py-1.5 text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition";
+                btnBuy.className = "flex-1 py-1.5 text-sm font-bold rounded-md text-stone-500 hover:text-stone-700 transition";
+                lblProfit.innerText = "建商成本要求報酬率 (Cost ROI %)";
+                lblProfit.title = "建商投入總成本之要求加成比例";
+                indicatorContainer.className = "glass-card rounded-xl p-5 border-t-4 border-blue-600 grid grid-cols-1 md:grid-cols-2 gap-5 transition-colors duration-300";
+                
+                // 圖表文字更新
+                if(descSensCoef) descSensCoef.innerText = '銷坪變動對「建商分回比例 (%)」之影響';
+                if(descSensProfit) descSensProfit.innerText = '利潤要求變動對「建商分回比例 (%)」之影響';
+                if(descSensMatrix) descSensMatrix.innerText = '推估「建商分回比例 (%)」隨房價與造價雙邊變動之熱力圖';
+
+                // 隱藏模組 A，顯示模組 A-2
+                modA.classList.remove('flex');
+                modA.classList.add('hidden');
+                modA2.classList.remove('hidden');
+                modA2.classList.add('flex');
+                
+                // 隱藏單總價切換開關
+                if (matrixToggle) matrixToggle.style.display = 'none';
+
+                // 儲存 Buy 利潤率並恢復 JV 利潤率
+                savedBuyProfit = parseFloat(inputs.profit.value) || 15;
+                inputs.profit.value = savedJvProfit;
+            }
+            updateDashboard();
+        }
+
+        // 新增：矩陣單總價切換邏輯
+        window.setMatrixMode = function(mode) {
+            matrixDisplayMode = mode;
+            const btnUnit = document.getElementById('btn-matrix-unit');
+            const btnTotal = document.getElementById('btn-matrix-total');
+            const desc = document.getElementById('desc-sens-matrix');
+            
+            if (mode === 'unit') {
+                btnUnit.className = "px-2 py-1 font-bold rounded bg-white text-emerald-700 shadow-sm transition";
+                btnTotal.className = "px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition";
+                if(currentMode === 'buy' && desc) desc.innerText = '推估「土地合理單價 (萬元/坪)」隨房價與造價雙邊變動之熱力圖';
+            } else {
+                btnTotal.className = "px-2 py-1 font-bold rounded bg-white text-emerald-700 shadow-sm transition";
+                btnUnit.className = "px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition";
+                if(currentMode === 'buy' && desc) desc.innerText = '推估「土地合理總價 (萬元)」隨房價與造價雙邊變動之熱力圖';
+            }
+            updateSensitivityMatrix();
+        }
 
         // Initialize Application
         function init() {
@@ -485,6 +863,17 @@
             });
             resizeObserver.observe(massingContainer);
 
+            // 展開計算詳細日誌的事件監聽
+            const toggleBtn = document.getElementById('toggle-calc-log');
+            const logContent = document.getElementById('calc-log-content');
+            const toggleIcon = document.getElementById('toggle-icon');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', () => {
+                    logContent.classList.toggle('hidden');
+                    toggleIcon.innerText = logContent.classList.contains('hidden') ? '▼ 展開' : '▲ 收起';
+                });
+            }
+
             initCharts();
             updateDashboard();
         }
@@ -494,7 +883,9 @@
             Object.keys(defaultValues).forEach(key => {
                 inputs[key].value = defaultValues[key];
             });
-            updateDashboard();
+            savedBuyProfit = 15;
+            savedJvProfit = 20;
+            setMode('buy'); // 預設回到買斷模式
         }
 
         // Main Calculation Logic
@@ -513,7 +904,12 @@
             const cost = p_cost !== undefined ? p_cost : (parseFloat(inputs.cost.value) || 0);
             const bonusCost = parseFloat(inputs.bonusCost.value) || 0;
             const profitRate = p_profit !== undefined ? p_profit : (parseFloat(inputs.profit.value) / 100 || 0);
-            const expenseRate = parseFloat(inputs.expense.value) / 100 || 0;
+            
+            const expDesignRate = parseFloat(inputs.expDesign.value) / 100 || 0;
+            const expAdRate = parseFloat(inputs.expAd.value) / 100 || 0;
+            const expMgtRate = parseFloat(inputs.expMgt.value) / 100 || 0;
+            const expTaxRate = parseFloat(inputs.expTax.value) / 100 || 0;
+
             const equityReturnRate = parseFloat(inputs.equityReturn.value) / 100 || 0;
             const loanInterestRate = parseFloat(inputs.loanInterest.value) / 100 || 0;
             const equityRatio = parseFloat(inputs.equityRatio.value) / 100 || 0;
@@ -535,47 +931,304 @@
             const parkCount = Math.floor(parkArea / 12); 
             
             const aboveGroundSalesPing = totalSalePing - mepArea;
-            const structuralAboveGroundPing = aboveGroundSalesPing / 1.15;
+            const structuralAboveGroundPing = aboveGroundSalesPing;
             const floorFootprint = area * bcr;
             const floorsAbove = floorFootprint > 0 ? Math.max(0, structuralAboveGroundPing / floorFootprint) : 0;
 
-            // --- 3. 收入與成本 ---
+            // --- 3. 收入與基礎成本 ---
             const houseRevenue = totalSalePing * price;
             const parkRevenue = parkCount * parkPrice;
             const S = houseRevenue + parkRevenue;
 
             const totalFloorArea = totalSalePing + (parkCount * 12);
             const C = (totalFloorArea * cost) + bonusCost;
-            const M = S * expenseRate;
-
-            // --- 4. 土地開發分析法公式逆推 (WACC版) ---
-            const PV_Sales = S / (1 + profitRate); 
-            const profitAmount = S - PV_Sales;     
             
-            const buildInterestAmount = (C + M) * (wacc * (years / 2));
+            const designFeeAmount = C * expDesignRate;
+            const otherExpenseRate = expAdRate + expMgtRate + expTaxRate;
             
-            let V = (PV_Sales - (C + M) - buildInterestAmount) / (1 + wacc * years);
-            V = Math.max(0, V);
+            let M = 0, buildInterestAmount = 0, devContribution = 0;
+            let V = 0, profitAmount = 0, landInterestAmount = 0;
+            let devRatio = 0, landownerRatio = 0;
+            let devValue = 0, landownerValue = 0;
+            let otherExpenseAmount = 0, adFeeAmount = 0, mgtTaxFeeAmount = 0;
 
-            const landInterestAmount = V * (wacc * years);
+            const halfInterestRate = wacc * (years / 2);
+
+            // --- 4. 演算法雙軌制 ---
+            if (currentMode === 'buy') {
+                // 【買斷模式】：總銷固定利潤法
+                otherExpenseAmount = S * otherExpenseRate;
+                adFeeAmount = S * expAdRate;
+                mgtTaxFeeAmount = S * (expMgtRate + expTaxRate);
+
+                M = designFeeAmount + otherExpenseAmount;
+                buildInterestAmount = (C + M) * halfInterestRate;
+                devContribution = C + M + buildInterestAmount;
+
+                const PV_Sales = S / (1 + profitRate); 
+                profitAmount = S - PV_Sales; 
+                    
+                V = (PV_Sales - devContribution) / (1 + wacc * years);
+                V = Math.max(0, V);
+
+                landInterestAmount = V * (wacc * years);
+                
+                // 買斷模式的等價交換比例（系統底層備用，前台隱藏）
+                const totalContribution = devContribution + V;
+                if (totalContribution > 0) {
+                    devRatio = devContribution / totalContribution;
+                    landownerRatio = V / totalContribution;
+                }
+            } else {
+                // 【合建模式】：建商成本加成法 (Cost Plus)
+                const K = (1 + halfInterestRate) * (1 + profitRate);
+                const denominator = 1 - (otherExpenseRate * K);
+                
+                let DevS = 0;
+                if (denominator > 0) {
+                    DevS = ((C + designFeeAmount) * K) / denominator;
+                } else {
+                    DevS = S; // 避免要求過高導致分母為負的防呆
+                }
+
+                // 確保建商分回不超過總案量
+                if (DevS > S) DevS = S;
+
+                devValue = DevS;
+                otherExpenseAmount = devValue * otherExpenseRate; // 建商只收取代銷自己份額的費用
+                adFeeAmount = devValue * expAdRate;
+                mgtTaxFeeAmount = devValue * (expMgtRate + expTaxRate);
+
+                M = designFeeAmount + otherExpenseAmount;
+                buildInterestAmount = (C + M) * halfInterestRate;
+                devContribution = C + M + buildInterestAmount;
+                
+                profitAmount = devValue - devContribution; 
+                
+                landownerValue = S - devValue;
+                V = Math.max(0, landownerValue);             // 土地貢獻等同於地主分配價值
+                landInterestAmount = 0;                      // 地主出地，無須扣除土融利息
+                
+                if (S > 0) {
+                    devRatio = devValue / S;
+                    landownerRatio = landownerValue / S;
+                }
+            }
+
             const landUnitPrice = area > 0 ? (V / area) : 0;
 
             // --- 5. 財務指標運算 ---
-            const totalInvestment = V + C + M + buildInterestAmount + landInterestAmount;
-            const requiredEquity = totalInvestment * equityRatio;
-            const roa = totalInvestment > 0 ? (profitAmount / totalInvestment) * 100 : 0;
+            let devTotalInvestment = 0;
+            if (currentMode === 'buy') {
+                devTotalInvestment = V + C + M + buildInterestAmount + landInterestAmount;
+            } else {
+                devTotalInvestment = devContribution; // 建商在合建中的實際投入 (C + M + 利息)
+            }
+            
+            const requiredEquity = devTotalInvestment * equityRatio;
+            const roa = devTotalInvestment > 0 ? (profitAmount / devTotalInvestment) * 100 : 0;
             const roe = requiredEquity > 0 ? (profitAmount / requiredEquity) * 100 : 0;
+
+            // 依據比例拆分坪數與車位
+            const devPing = totalSalePing * devRatio;
+            const landownerPing = totalSalePing * landownerRatio;
+            const landownerParkDisplay = Math.round(parkCount * landownerRatio);
+            const devParkDisplay = parkCount - landownerParkDisplay;
 
             return {
                 area, bcr, excavation, totalSalePing, totalFloorArea, parkCount, parkRevenue, 
                 floorsAbove, floorsBelow,
                 S, C, M, profitAmount, landInterestAmount, buildInterestAmount, V, landUnitPrice,
-                totalInvestment, requiredEquity, roa, roe,
+                devTotalInvestment, requiredEquity, roa, roe,
                 waccDisplay: (wacc * 100).toFixed(2),
                 equityDisplay: Math.round(equityRatio * 100),
-                loanDisplay: Math.round(loanRatio * 100)
+                loanDisplay: Math.round(loanRatio * 100),
+                expDesignDisplay: (expDesignRate * 100).toFixed(1),
+                otherExpenseDisplay: (otherExpenseRate * 100).toFixed(1),
+                houseRevenue,
+                designFeeAmount,
+                otherExpenseAmount,
+                adFeeAmount,
+                mgtTaxFeeAmount,
+                // 雙軌制專屬輸出
+                devContribution, devValue, landownerValue,
+                // 合建輸出資料
+                devRatio, landownerRatio, devPing, landownerPing, devParkDisplay, landownerParkDisplay,
+                // 供計算日誌使用的原始參數
+                price, cost, profitRate, years, wacc, parkPrice, bonusCost
             };
         }
+
+        // --- 智慧造價提示更新邏輯 ---
+        function updateCostHint(city, priceInTenK, calculatedFloor) {
+            const container = document.getElementById('cost-hint-container');
+            if (!priceInTenK || !calculatedFloor || isNaN(priceInTenK) || isNaN(calculatedFloor) || calculatedFloor < 1) {
+                container.innerHTML = `<span class="text-[10px] text-stone-400">系統正在計算對應樓層與造價...</span>`;
+                return;
+            }
+
+            const numPrice = priceInTenK * 10000;
+            const numFloor = Math.round(calculatedFloor);
+
+            if (numFloor > 40) {
+                container.innerHTML = `<div class="text-[11px] text-orange-700 bg-orange-50 border border-orange-200 p-1.5 rounded flex items-start gap-1"><span class="mt-0.5">⚠️</span> <span>地上 ${numFloor} 層已超出標準表最大支援範圍 (40F)，請自行評估造價。</span></div>`;
+                return;
+            }
+
+            const cityData = STANDARD_DATA[city];
+            if(!cityData) return;
+
+            let priceBracketIndex = -1;
+            let priceLabel = "";
+            for (let i = 0; i < cityData.brackets.length; i++) {
+                if (numPrice >= cityData.brackets[i].min && numPrice < cityData.brackets[i].max) {
+                    priceBracketIndex = i;
+                    priceLabel = cityData.brackets[i].label;
+                    break;
+                }
+            }
+
+            let floorData = null;
+            for (let i = 0; i < cityData.floors.length; i++) {
+                if (numFloor >= cityData.floors[i].min && numFloor <= cityData.floors[i].max) {
+                    floorData = cityData.floors[i];
+                    break;
+                }
+            }
+
+            if (priceBracketIndex !== -1 && floorData) {
+                const rawValue = floorData.values[priceBracketIndex];
+                if (rawValue === "-" || !rawValue) {
+                    container.innerHTML = `<div class="text-[11px] text-orange-700 bg-orange-50 border border-orange-200 p-1.5 rounded flex items-start gap-1"><span class="mt-0.5">⚠️</span> <span>此條件 (${priceLabel}, ${floorData.label}) 尚無公報建議造價，請手動輸入。</span></div>`;
+                    return;
+                }
+
+                const parts = rawValue.split(" ~ ");
+                if (parts.length === 2) {
+                    const lowerNum = parseInt(parts[0].replace(/,/g, ""), 10);
+                    const upperNum = parseInt(parts[1].replace(/,/g, ""), 10);
+                    const avgNum = (lowerNum + upperNum) / 2;
+                    
+                    const lowerCost = (lowerNum / 10000).toFixed(1);
+                    const upperCost = (upperNum / 10000).toFixed(1);
+                    const avgCost = (avgNum / 10000).toFixed(1);
+
+                    container.innerHTML = `
+                        <div class="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-100 p-2 rounded shadow-sm flex flex-col gap-2 mt-1">
+                            <span class="flex items-center gap-1 font-medium">
+                                💡 依據地上 ${numFloor} 層公報造價參考：
+                            </span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="bg-white border border-emerald-200 rounded p-1.5 flex flex-col items-center text-center">
+                                    <span class="text-stone-500 text-[10px] mb-0.5">下限</span>
+                                    <strong class="text-emerald-700 text-xs mb-1.5">${lowerCost} <span class="font-normal text-[10px]">萬</span></strong>
+                                    <button type="button" onclick="applySuggestedCost(${lowerCost})" class="w-full bg-stone-100 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-0.5 rounded transition font-medium text-[10px]">帶入</button>
+                                </div>
+                                <div class="bg-white border border-emerald-200 rounded p-1.5 flex flex-col items-center text-center">
+                                    <span class="text-stone-500 text-[10px] mb-0.5">平均值</span>
+                                    <strong class="text-emerald-700 text-xs mb-1.5">${avgCost} <span class="font-normal text-[10px]">萬</span></strong>
+                                    <button type="button" onclick="applySuggestedCost(${avgCost})" class="w-full bg-stone-100 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-0.5 rounded transition font-medium text-[10px]">帶入</button>
+                                </div>
+                                <div class="bg-white border border-emerald-200 rounded p-1.5 flex flex-col items-center text-center">
+                                    <span class="text-stone-500 text-[10px] mb-0.5">上限</span>
+                                    <strong class="text-emerald-700 text-xs mb-1.5">${upperCost} <span class="font-normal text-[10px]">萬</span></strong>
+                                    <button type="button" onclick="applySuggestedCost(${upperCost})" class="w-full bg-stone-100 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-0.5 rounded transition font-medium text-[10px]">帶入</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                 container.innerHTML = `<span class="text-[10px] text-stone-400">無法比對造價標準表。</span>`;
+            }
+        }
+
+        // 一鍵帶入造價
+        window.applySuggestedCost = function(val) {
+            inputs.cost.value = val;
+            updateDashboard(); // 重新觸發所有計算
+        };
+
+        // --- 新增：智慧工期推估與一鍵帶入邏輯 ---
+        function updateScheduleHintAndChart(floorsAbove, floorsBelow) {
+            const hintContainer = document.getElementById('schedule-hint-container');
+            const axisContainer = document.getElementById('schedule-axis');
+            
+            if (floorsAbove === undefined || floorsBelow === undefined) return;
+
+            const fAbove = Math.ceil(floorsAbove); // 地上層無條件進位計算工期
+            const fBelow = Math.round(floorsBelow);
+
+            // 依都更事業提列基準計算各階段月數
+            const prepMonths = 6;
+            const belowMonths = fBelow * 2.5;
+            const aboveMonths = fAbove * 1.2;
+            const regMonths = 6;
+
+            const totalMonths = prepMonths + belowMonths + aboveMonths + regMonths;
+            const totalYears = totalMonths / 12;
+            // 建議年數取到小數第一位
+            const suggestedYears = (Math.round(totalYears * 10) / 10).toFixed(1);
+
+            // 1. 更新左側輸入欄下方的提示與一鍵帶入按鈕
+            hintContainer.innerHTML = `
+                <div class="text-[11px] text-indigo-800 bg-indigo-50 border border-indigo-200 p-2 rounded shadow-sm flex flex-col gap-2 mt-1">
+                    <span class="flex items-center gap-1 font-medium">
+                        💡 依都更標準推估工期：${totalMonths.toFixed(1)} 個月 (約 ${suggestedYears} 年)
+                    </span>
+                    <button type="button" onclick="applySuggestedYears(${suggestedYears})" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-1 rounded transition font-medium text-[10px]">⚡ 帶入 ${suggestedYears} 年</button>
+                </div>
+            `;
+
+            // 2. 更新右側專案標準工期推估的堆疊長條圖 (百分比寬度)
+            const pctPrep = (prepMonths / totalMonths) * 100;
+            const pctBelow = (belowMonths / totalMonths) * 100;
+            const pctAbove = (aboveMonths / totalMonths) * 100;
+            const pctReg = (regMonths / totalMonths) * 100;
+
+            document.getElementById('bar-prep').style.width = pctPrep + '%';
+            document.getElementById('bar-below').style.width = pctBelow + '%';
+            document.getElementById('bar-above').style.width = pctAbove + '%';
+            document.getElementById('bar-reg').style.width = pctReg + '%';
+
+            // 設定 Tooltip (加入計算公式)
+            document.getElementById('bar-prep').title = `前置期: 固定 ${prepMonths} 個月`;
+            document.getElementById('bar-below').title = `地下層施工: ${fBelow} 層 × 2.5 個月/層 = ${belowMonths} 個月`;
+            document.getElementById('bar-above').title = `地上層施工: ${fAbove} 層 × 1.2 個月/層 = ${(aboveMonths).toFixed(1)} 個月`;
+            document.getElementById('bar-reg').title = `產權登記: 固定 ${regMonths} 個月`;
+
+            // 3. 更新圖表下方的階段明細圖例
+            document.getElementById('schedule-legend').innerHTML = `
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-amber-500 inline-block shrink-0"></span><div class="leading-tight"><span class="block text-stone-500 text-[10px]">前置期</span><span class="font-bold text-stone-700">${prepMonths} <span class="font-normal text-[10px] text-stone-400">個月</span></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-stone-400 inline-block shrink-0"></span><div class="leading-tight"><span class="block text-stone-500 text-[10px]">地下施工 (${fBelow}F)</span><span class="font-bold text-stone-700">${belowMonths} <span class="font-normal text-[10px] text-stone-400">個月</span></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block shrink-0"></span><div class="leading-tight"><span class="block text-stone-500 text-[10px]">地上施工 (${fAbove}F)</span><span class="font-bold text-stone-700">${(aboveMonths).toFixed(1)} <span class="font-normal text-[10px] text-stone-400">個月</span></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-blue-400 inline-block shrink-0"></span><div class="leading-tight"><span class="block text-stone-500 text-[10px]">產權登記</span><span class="font-bold text-stone-700">${regMonths} <span class="font-normal text-[10px] text-stone-400">個月</span></span></div></div>
+                <div class="flex items-center gap-2 pl-3 md:border-l border-stone-200"><div class="leading-tight"><span class="block text-indigo-600 text-[10px] font-bold">總計推估工期</span><span class="font-bold text-indigo-700 text-sm">${totalMonths.toFixed(1)} <span class="font-normal text-[10px] text-indigo-400">個月</span></span></div></div>
+            `;
+
+            // 4. 動態生成上方的年份座標軸
+            let axisHTML = '';
+            const maxYears = Math.ceil(totalYears);
+            for (let i = 0; i <= maxYears; i++) {
+                const pct = ( (i * 12) / totalMonths ) * 100;
+                // 為了排版美觀，避免最後一個刻度稍微超出邊界太遠，做一個小容差限制
+                if (pct <= 101) { 
+                    axisHTML += `
+                        <div class="absolute bottom-0 flex flex-col items-center" style="left: ${pct}%; transform: translateX(-50%);">
+                            <span class="text-[10px] text-stone-500 font-bold px-1 bg-white leading-none z-10">第 ${i} 年</span>
+                            <div class="h-2 w-px bg-stone-400 mt-1"></div>
+                        </div>
+                    `;
+                }
+            }
+            axisContainer.innerHTML = axisHTML;
+        }
+
+        // 一鍵帶入工期
+        window.applySuggestedYears = function(val) {
+            inputs.years.value = val;
+            updateDashboard(); // 重新觸發所有計算
+        };
 
         function updateDashboard() {
             const res = calculateCore();
@@ -601,26 +1254,161 @@
             outputs.totalPrice.innerText = fmt(res.V);
             outputs.unitPrice.innerText = fmtDec(res.landUnitPrice);
             
-            // Module B: Scale
+            // Module A-2: Joint Venture
+            outputs.ratioLandowner.innerText = (res.landownerRatio * 100).toFixed(1);
+            outputs.ratioDev.innerText = (res.devRatio * 100).toFixed(1);
+            outputs.pingLandowner.innerText = fmtDec(res.landownerPing);
+            outputs.pingDev.innerText = fmtDec(res.devPing);
+            outputs.parkLandowner.innerText = res.landownerParkDisplay;
+            outputs.parkDev.innerText = res.devParkDisplay;
+
+            // Module B-1: Revenue Scale
             outputs.totalSales.innerText = fmt(res.S);
+            outputs.houseRevenue.innerText = fmt(res.houseRevenue);
             outputs.salePing.innerText = fmtDec(res.totalSalePing);
-            outputs.floorArea.innerText = fmtDec(res.totalFloorArea);
-            outputs.parkCount.innerText = res.parkCount.toLocaleString('en-US');
             outputs.parkRevenue.innerText = fmt(res.parkRevenue);
+            outputs.parkCount.innerText = res.parkCount.toLocaleString('en-US');
             
+            // Module B-2: Area & Costs
+            outputs.floorArea.innerText = fmtDec(res.totalFloorArea);
+            outputs.totalDevCost.innerText = fmt(res.devContribution);
+            outputs.outC.innerText = fmt(res.C);
+            outputs.outDesignFee.innerText = fmt(res.designFeeAmount);
+            outputs.outAdFee.innerText = fmt(res.adFeeAmount);
+            outputs.outMgtTaxFee.innerText = fmt(res.mgtTaxFeeAmount);
+            outputs.outBuildInterest.innerText = fmt(res.buildInterestAmount);
+
             // Module C: Financial Returns
-            outputs.totalInvestment.innerText = fmt(res.totalInvestment);
+            outputs.totalInvestment.innerText = fmt(res.devTotalInvestment); // 修改為建商總投資額
             outputs.equityCash.innerText = fmt(res.requiredEquity);
             outputs.profitAmount.innerText = fmt(res.profitAmount);
             outputs.roa.innerText = res.roa > 0 ? res.roa.toFixed(1) : "0.0";
             outputs.roe.innerText = res.roe > 0 ? res.roe.toFixed(1) : "0.0";
 
-            // Update Charts
+            // Update Charts and Hint
             updateWaterfallChart(res);
             drawMassing(res);
             updateSensitivityChart();
             updateProfitSensitivityChart();
             updateSensitivityMatrix();
+            
+            // 觸發造價與工期提示更新
+            updateCostHint(inputs.city.value, inputs.price.value, res.floorsAbove);
+            updateScheduleHintAndChart(res.floorsAbove, res.floorsBelow);
+
+            // 更新詳細計算日誌
+            updateCalcLog(res);
+        }
+
+        // --- 詳細計算日誌邏輯 (支援雙軌制) ---
+        function updateCalcLog(res) {
+            const logContainer = document.getElementById('calc-log-content');
+            if (!res) {
+                logContainer.innerHTML = '請輸入完整參數以顯示計算過程。';
+                return;
+            }
+
+            const fmt = (n) => Math.round(n).toLocaleString('en-US');
+            const fmtD = (n) => Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+            const houseRevenue = res.totalSalePing * res.price;
+
+            let step3HTML, step4HTML, step5HTML;
+
+            if (currentMode === 'buy') {
+                const PV_Sales = res.S / (1 + res.profitRate);
+                step3HTML = `
+                    <div class="bg-stone-50 p-4 rounded border border-stone-200">
+                        <h4 class="font-bold text-emerald-700 mb-2">Step 3: 利息與總銷固定利潤</h4>
+                        <p class="mb-1 text-xs text-stone-500">WACC = ${res.waccDisplay}% , 預期獲利率 = ${(res.profitRate*100).toFixed(1)}%</p>
+                        <p class="mb-1">建造期利息 = 總成本 ${fmt(res.C + res.M)} 萬 × WACC × (${res.years}年/2) = <span class="text-stone-800 font-semibold">${fmt(res.buildInterestAmount)}</span> 萬</p>
+                        <p class="mb-1">預期獲利 = 總銷 ${fmt(res.S)} 萬 - (總銷 ÷ 1.${res.profitRate*100}) = <span class="text-stone-800 font-semibold">${fmt(res.profitAmount)}</span> 萬</p>
+                    </div>`;
+                step4HTML = `
+                    <div class="bg-emerald-50/50 p-4 rounded border border-emerald-200">
+                        <h4 class="font-bold text-emerald-700 mb-2">Step 4: 購地決策 (推估土地現值 V)</h4>
+                        <p class="mb-1 text-[11px] text-stone-500">公式: (總銷現值 - 成本 - 建造期利息) ÷ (1 + WACC × 開發期)</p>
+                        <p class="mb-1">總銷現值 = 總銷 ${fmt(res.S)} 萬 ÷ 1.${res.profitRate*100} = <span class="text-stone-800 font-semibold">${fmt(PV_Sales)}</span> 萬</p>
+                        <p class="mb-1">土地總價 (V) = (${fmt(PV_Sales)} - ${fmt(res.C)} - ${fmt(res.M)} - ${fmt(res.buildInterestAmount)}) ÷ ${fmtD(1 + res.wacc * res.years)}</p>
+                        <div class="border-t border-emerald-200 mt-2 pt-2 flex justify-between">
+                            <p class="font-bold text-emerald-800">▶ 土地總價 (V) = ${fmt(res.V)} 萬</p>
+                            <p class="font-bold text-emerald-800">單價 = ${fmtD(res.landUnitPrice)} 萬/坪</p>
+                        </div>
+                    </div>`;
+                step5HTML = ''; // 買斷模式不顯示合建核算
+            } else {
+                step3HTML = `
+                    <div class="bg-stone-50 p-4 rounded border border-stone-200">
+                        <h4 class="font-bold text-blue-700 mb-2">Step 3: 建商成本加成利潤 (Cost Plus)</h4>
+                        <p class="mb-1 text-xs text-stone-500">建商僅針對營造與自身管銷要求加成報酬。</p>
+                        <p class="mb-1">建造期利息 = (C+M) × WACC × (${res.years}年/2) = <span class="text-stone-800 font-semibold">${fmt(res.buildInterestAmount)}</span> 萬</p>
+                        <p class="mb-1">建商總貢獻 = 成本 + 利息 = <span class="text-stone-800 font-semibold">${fmt(res.devContribution)}</span> 萬</p>
+                        <p class="mb-1">建商要求利潤 = 建商貢獻 × 加成率 ${(res.profitRate*100).toFixed(1)}% = <span class="text-stone-800 font-semibold">${fmt(res.profitAmount)}</span> 萬</p>
+                    </div>`;
+                step4HTML = `
+                    <div class="bg-blue-50/50 p-4 rounded border border-blue-200">
+                        <h4 class="font-bold text-blue-700 mb-2">Step 4: 推算合建地主價值 (免扣利息)</h4>
+                        <p class="mb-1 text-[11px] text-stone-500">地主貢獻土地成為合夥人，無須扣減購地融資利息。</p>
+                        <p class="mb-1">建商分配價值 = 貢獻 ${fmt(res.devContribution)} + 利潤 ${fmt(res.profitAmount)} = <span class="text-stone-800 font-semibold">${fmt(res.devValue)}</span> 萬</p>
+                        <p class="mb-1">地主分配價值 (V) = 全案總銷 ${fmt(res.S)} - 建商價值 = <span class="text-stone-800 font-semibold">${fmt(res.landownerValue)}</span> 萬</p>
+                        <div class="border-t border-blue-200 mt-2 pt-2 flex justify-between">
+                            <p class="font-bold text-blue-800">▶ 土地等價總值 = ${fmt(res.V)} 萬</p>
+                            <p class="font-bold text-blue-800">單價 = ${fmtD(res.landUnitPrice)} 萬/坪</p>
+                        </div>
+                    </div>`;
+                step5HTML = `
+                    <div class="bg-indigo-50 border-indigo-200 text-indigo-800 p-4 rounded border mt-4">
+                        <h4 class="font-bold mb-2">Step 5: 合建分回比例核算</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <p class="text-[11px] opacity-80 mb-1">地主分配價值</p>
+                                <p class="text-xs">等同土地貢獻現值 (V)</p>
+                                <p class="font-bold mt-1">= ${fmt(res.V)} 萬</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] opacity-80 mb-1">建商分配價值</p>
+                                <p class="text-xs">總成本 + 利息 + 加成利潤</p>
+                                <p class="font-bold mt-1">= ${fmt(res.devValue)} 萬</p>
+                            </div>
+                            <div class="bg-white/60 p-2 rounded">
+                                <p class="text-[11px] text-stone-500 mb-1">分回比例 (地主 : 建商)</p>
+                                <p class="font-bold text-lg">${(res.landownerRatio * 100).toFixed(1)}% <span class="text-stone-400 font-normal">:</span> ${(res.devRatio * 100).toFixed(1)}%</p>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            const logHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-stone-50 p-4 rounded border border-stone-200">
+                        <h4 class="font-bold text-emerald-700 mb-2">Step 1: 預估總銷金額 (S)</h4>
+                        <p class="mb-1">房屋總銷 = ${fmtD(res.totalSalePing)} 坪 × ${fmt(res.price)} 萬/坪 = <span class="text-stone-800 font-semibold">${fmt(houseRevenue)}</span> 萬</p>
+                        <p class="mb-1">車位總銷 = ${res.parkCount} 個 × ${fmt(res.parkPrice)} 萬/個 = <span class="text-stone-800 font-semibold">${fmt(res.parkRevenue)}</span> 萬</p>
+                        <div class="border-t border-stone-200 mt-2 pt-2">
+                            <p class="font-bold text-stone-800">▶ 總銷金額 (S) = ${fmt(res.S)} 萬元</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-stone-50 p-4 rounded border border-stone-200">
+                        <h4 class="font-bold text-emerald-700 mb-2">Step 2: 預估總成本 (C + M)</h4>
+                        <p class="mb-1">建造成本 (C) = ${fmtD(res.totalFloorArea)} 坪 × ${fmtD(res.cost)} 萬/坪 + 容獎(${fmt(res.bonusCost)}萬) = <span class="text-stone-800 font-semibold">${fmt(res.C)}</span> 萬</p>
+                        <p class="mb-1 text-[11px] text-stone-500 mt-2">管銷與稅費 (M) 拆解：</p>
+                        <p class="mb-1 text-xs">1. 規劃設計 = 成本 ${fmt(res.C)} 萬 × ${res.expDesignDisplay}% = <span class="text-stone-800">${fmt(res.designFeeAmount)}</span> 萬</p>
+                        ${currentMode === 'buy' 
+                            ? `<p class="mb-1 text-xs">2. 廣告/管理/稅捐 = 總銷 ${fmt(res.S)} 萬 × ${res.otherExpenseDisplay}% = <span class="text-stone-800">${fmt(res.otherExpenseAmount)}</span> 萬</p>`
+                            : `<p class="mb-1 text-xs">2. 廣告/管理/稅捐 = 建商分配價值 × ${res.otherExpenseDisplay}% = <span class="text-stone-800">${fmt(res.otherExpenseAmount)}</span> 萬 <span class="text-[10px] text-stone-400">(代數聯立推算)</span></p>`
+                        }
+                        <div class="border-t border-stone-200 mt-2 pt-2">
+                            <p class="font-bold text-stone-800">▶ 總成本合計 (C+M) = ${fmt(res.C + res.M)} 萬元</p>
+                        </div>
+                    </div>
+
+                    ${step3HTML}
+                    ${step4HTML}
+                </div>
+                ${step5HTML}
+            `;
+            logContainer.innerHTML = logHTML;
         }
 
         // --- 動態繪製量體剖面圖 ---
@@ -713,7 +1501,6 @@
         function initCharts() {
             Chart.defaults.font.family = "'Noto Sans TC', sans-serif";
             Chart.defaults.color = '#78716c';
-            // ✅ 新增這行：強制關閉所有 Chart.js 的繪圖與更新動畫
             Chart.defaults.animation = false; 
 
             // 1. 價值瀑布圖
@@ -758,7 +1545,7 @@
                 data: {
                     labels: [],
                     datasets: [{
-                        label: '土地合理單價',
+                        label: '分析指標',
                         data: [],
                         borderColor: '#059669',
                         backgroundColor: 'rgba(5, 150, 105, 0.1)',
@@ -778,12 +1565,14 @@
                         tooltip: {
                             callbacks: {
                                 title: (items) => `銷坪係數：${items[0].label} 倍`,
-                                label: (context) => `可買單價：${context.parsed.y.toFixed(2)} 萬/坪`
+                                label: (context) => currentMode === 'buy' 
+                                    ? `可買單價：${context.parsed.y.toFixed(2)} 萬/坪`
+                                    : `建商分回：${context.parsed.y.toFixed(1)} %`
                             }
                         }
                     },
                     scales: {
-                        y: { title: { display: true, text: '土地單價 (萬元/坪)', font: {size: 10} }, grid: { color: '#f5f5f4' } },
+                        y: { title: { display: true, text: '數值', font: {size: 10} }, grid: { color: '#f5f5f4' } },
                         x: { title: { display: true, text: '銷坪係數 (倍)', font: {size: 10} }, grid: { display: false } }
                     }
                 }
@@ -796,7 +1585,7 @@
                 data: {
                     labels: [],
                     datasets: [{
-                        label: '土地合理單價',
+                        label: '分析指標',
                         data: [],
                         borderColor: '#ea580c', 
                         backgroundColor: 'rgba(234, 88, 12, 0.1)',
@@ -815,13 +1604,15 @@
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                title: (items) => `要求獲利率：${items[0].label}`,
-                                label: (context) => `可買單價：${context.parsed.y.toFixed(2)} 萬/坪`
+                                title: (items) => currentMode === 'buy' ? `要求獲利率：${items[0].label}` : `成本加成率：${items[0].label}`,
+                                label: (context) => currentMode === 'buy'
+                                    ? `可買單價：${context.parsed.y.toFixed(2)} 萬/坪`
+                                    : `建商分回：${context.parsed.y.toFixed(1)} %`
                             }
                         }
                     },
                     scales: {
-                        y: { title: { display: true, text: '土地單價 (萬元/坪)', font: {size: 10} }, grid: { color: '#f5f5f4' } },
+                        y: { title: { display: true, text: '數值', font: {size: 10} }, grid: { color: '#f5f5f4' } },
                         x: { title: { display: true, text: '獲利率 (%)', font: {size: 10} }, grid: { display: false } }
                     }
                 }
@@ -851,7 +1642,7 @@
         function updateSensitivityChart() {
             if(!sensitivityChartInst) return;
 
-            const baseCoef = parseFloat(inputs.coef.value) || 1.6;
+            const baseCoef = parseFloat(inputs.coef.value) || 1.55;
             const variations = [-0.05, -0.025, 0, 0.025, 0.05];
             const labels = [];
             const dataPoints = [];
@@ -862,11 +1653,18 @@
 
                 const res = calculateCore(undefined, undefined, testCoef);
                 labels.push(testCoef.toFixed(3));
-                dataPoints.push(res ? res.landUnitPrice : 0);
+                
+                let val = 0;
+                if (res) {
+                    val = currentMode === 'buy' ? res.landUnitPrice : (res.devRatio * 100);
+                }
+                dataPoints.push(val);
             });
 
             sensitivityChartInst.data.labels = labels;
             sensitivityChartInst.data.datasets[0].data = dataPoints;
+            sensitivityChartInst.data.datasets[0].label = currentMode === 'buy' ? '土地合理單價' : '建商分回比例';
+            sensitivityChartInst.options.scales.y.title.text = currentMode === 'buy' ? '土地單價 (萬元/坪)' : '建商分回比例 (%)';
             sensitivityChartInst.update();
         }
 
@@ -885,11 +1683,18 @@
                 
                 const res = calculateCore(undefined, undefined, undefined, testProfit);
                 labels.push((testProfit * 100).toFixed(1) + '%');
-                dataPoints.push(res ? res.landUnitPrice : 0);
+                
+                let val = 0;
+                if (res) {
+                    val = currentMode === 'buy' ? res.landUnitPrice : (res.devRatio * 100);
+                }
+                dataPoints.push(val);
             });
 
             profitSensitivityChartInst.data.labels = labels;
             profitSensitivityChartInst.data.datasets[0].data = dataPoints;
+            profitSensitivityChartInst.data.datasets[0].label = currentMode === 'buy' ? '土地合理單價' : '建商分回比例';
+            profitSensitivityChartInst.options.scales.y.title.text = currentMode === 'buy' ? '土地單價 (萬元/坪)' : '建商分回比例 (%)';
             profitSensitivityChartInst.update();
         }
 
@@ -904,8 +1709,8 @@
             const body = document.getElementById('matrix-body');
             
             const matrixData = [];
-            let maxPrice = -Infinity;
-            let minPrice = Infinity;
+            let maxMetric = -Infinity;
+            let minMetric = Infinity;
 
             for (let r = 0; r < variations.length; r++) {
                 const vc = variations[r];
@@ -915,11 +1720,19 @@
                     const vp = variations[c];
                     const testPrice = currentPrice * (1 + vp);
                     const res = calculateCore(testPrice, testCost);
-                    const landPrice = res ? res.landUnitPrice : 0;
-                    row.push({ vp, vc, price: landPrice });
                     
-                    if (landPrice > maxPrice) maxPrice = landPrice;
-                    if (landPrice < minPrice) minPrice = landPrice;
+                    let metric = 0;
+                    if (res) {
+                        if (currentMode === 'buy') {
+                            metric = matrixDisplayMode === 'unit' ? res.landUnitPrice : res.V;
+                        } else {
+                            metric = res.devRatio * 100;
+                        }
+                    }
+                    row.push({ vp, vc, metric: metric });
+                    
+                    if (metric > maxMetric) maxMetric = metric;
+                    if (metric < minMetric) minMetric = metric;
                 }
                 matrixData.push(row);
             }
@@ -942,14 +1755,25 @@
                 
                 for (let c = 0; c < variations.length; c++) {
                     const cell = matrixData[r][c];
-                    const val = cell.price;
-                    const displayPrice = val > 0 ? val.toFixed(2) : '0.00';
+                    const val = cell.metric;
+                    
+                    let displayVal = '0.00';
+                    if (val > 0) {
+                        if (currentMode === 'buy') {
+                            displayVal = matrixDisplayMode === 'unit' ? val.toFixed(2) : Math.round(val).toLocaleString('en-US');
+                        } else {
+                            displayVal = val.toFixed(1) + '%';
+                        }
+                    } else if (val === 0 && currentMode === 'buy' && matrixDisplayMode === 'total') {
+                        displayVal = '0'; // 總價為 0 時的乾淨顯示
+                    }
                     
                     let ratio = 0;
                     if (val > 0) {
-                        ratio = (maxPrice === minPrice) ? 0.5 : (val - minPrice) / (maxPrice - minPrice);
+                        ratio = (maxMetric === minMetric) ? 0.5 : (val - minMetric) / (maxMetric - minMetric);
                     }
 
+                    // 漸層深度依據數值大小變化（越高越深色）
                     const alpha = val > 0 ? 0.05 + (ratio * 0.75) : 0.02; 
                     const bgColor = `rgba(5, 150, 105, ${alpha})`;
                     const textColorClass = ratio > 0.5 ? 'text-white font-medium' : 'text-stone-700';
@@ -961,7 +1785,7 @@
                         cellClass += " hover:opacity-80";
                     }
                     
-                    bodyHTML += `<td class="${cellClass}" style="background-color: ${bgColor};">${displayPrice}</td>`;
+                    bodyHTML += `<td class="${cellClass}" style="background-color: ${bgColor};">${displayVal}</td>`;
                 }
                 bodyHTML += '</tr>';
             }

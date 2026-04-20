@@ -392,19 +392,19 @@
                     </div>
                     <div class="space-y-1 relative z-10">
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="土地總價 + 營造管銷 + 利息總和">預估總投資額</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="建商視角之總投入資金 (買斷含土地，合建僅含營造管銷)">建商總投資額</span>
                             <span class="font-bold text-stone-800"><span id="out-total-investment">0</span> <span class="text-[10px] text-stone-500 font-normal">萬</span></span>
                         </div>
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="預估總投資額 × 自 বপ資金比例">預估準備現金</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="建商總投資額 × 自有資金比例">預估準備現金</span>
                             <span class="font-bold text-orange-700"><span id="out-equity-cash">0</span> <span class="text-[10px] text-orange-600/70 font-normal">萬</span></span>
                         </div>
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="開發商獲利絕對金額">預估獲利金額</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="建商獲利絕對金額">預估獲利金額</span>
                             <span class="font-bold text-orange-700"><span id="out-profit-amount">0</span> <span class="text-[10px] text-orange-600/70 font-normal">萬</span></span>
                         </div>
                         <div class="flex justify-between items-baseline border-b border-orange-200/50 pb-1">
-                            <span class="text-xs text-stone-600 cursor-help" title="預估獲利金額 ÷ 預估總投資額">專案 ROA</span>
+                            <span class="text-xs text-stone-600 cursor-help" title="預估獲利金額 ÷ 建商總投資額">專案 ROA</span>
                             <span class="font-bold text-orange-700"><span id="out-roa">0</span> <span class="text-[10px] text-orange-600/70 font-normal">%</span></span>
                         </div>
                         <div class="flex justify-between items-baseline pt-1">
@@ -989,9 +989,16 @@
             const landUnitPrice = area > 0 ? (V / area) : 0;
 
             // --- 5. 財務指標運算 ---
-            const totalInvestment = V + C + M + buildInterestAmount + landInterestAmount;
-            const requiredEquity = totalInvestment * equityRatio;
-            const roa = totalInvestment > 0 ? (profitAmount / totalInvestment) * 100 : 0;
+            // 修正建商視角之投資總額 (買斷含土地，合建僅含營造管銷)
+            let devTotalInvestment = 0;
+            if (currentMode === 'buy') {
+                devTotalInvestment = V + C + M + buildInterestAmount + landInterestAmount;
+            } else {
+                devTotalInvestment = devContribution; // 建商在合建中的實際投入 (C + M + 利息)
+            }
+            
+            const requiredEquity = devTotalInvestment * equityRatio;
+            const roa = devTotalInvestment > 0 ? (profitAmount / devTotalInvestment) * 100 : 0;
             const roe = requiredEquity > 0 ? (profitAmount / requiredEquity) * 100 : 0;
 
             // 依據比例拆分坪數與車位
@@ -1004,7 +1011,7 @@
                 area, bcr, excavation, totalSalePing, totalFloorArea, parkCount, parkRevenue, 
                 floorsAbove, floorsBelow,
                 S, C, M, profitAmount, landInterestAmount, buildInterestAmount, V, landUnitPrice,
-                totalInvestment, requiredEquity, roa, roe,
+                devTotalInvestment, requiredEquity, roa, roe,
                 waccDisplay: (wacc * 100).toFixed(2),
                 equityDisplay: Math.round(equityRatio * 100),
                 loanDisplay: Math.round(loanRatio * 100),
@@ -1163,7 +1170,7 @@
             outputs.outBuildInterest.innerText = fmt(res.buildInterestAmount);
 
             // Module C: Financial Returns
-            outputs.totalInvestment.innerText = fmt(res.totalInvestment);
+            outputs.totalInvestment.innerText = fmt(res.devTotalInvestment); // 修改為建商總投資額
             outputs.equityCash.innerText = fmt(res.requiredEquity);
             outputs.profitAmount.innerText = fmt(res.profitAmount);
             outputs.roa.innerText = res.roa > 0 ? res.roa.toFixed(1) : "0.0";

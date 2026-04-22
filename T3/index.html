@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商用不動產：租賃與購買財務決策分析 (CCIM模型)</title>
+    <title>商用不動產決策：購買 vs. 租賃</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Chosen Palette: Warm Neutrals with Slate (Professional/Financial), Emerald (Lease), and Indigo (Buy) Accents -->
@@ -48,7 +48,7 @@ The application uses a dashboard architecture optimized for financial modeling.
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
     <header class="mb-8">
-        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2">🏢 商用不動產決策：租賃 vs. 購買</h1>
+        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2">🏢 商用不動產決策：購買 vs. 租賃</h1>
         <p class="text-slate-600 max-w-3xl leading-relaxed">
             本分析工具基於美國 CCIM (國際認證不動產投資師) 現金流折現法，並整合台灣現行法令 (營利事業所得稅 20%、房地合一稅 2.0)。透過調整參數，協助企業客觀評估不同持有年期下，最符合企業利益的資產配置策略。
         </p>
@@ -58,7 +58,10 @@ The application uses a dashboard architecture optimized for financial modeling.
         
         <div class="lg:col-span-4 space-y-6">
             <div class="glass-card p-6">
-                <h2 class="text-xl font-semibold text-slate-800 mb-4 border-b pb-2">📊 標的物與市場假設</h2>
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-xl font-semibold text-slate-800">📊 標的物與市場假設</h2>
+                    <button onclick="resetDefaults()" class="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md transition-colors shadow-sm border border-slate-200">恢復預設值</button>
+                </div>
                 
                 <div class="space-y-4">
                     <div>
@@ -210,6 +213,21 @@ The application uses a dashboard architecture optimized for financial modeling.
         return -pmt;
     }
 
+    function resetDefaults() {
+        document.getElementById('inpArea').value = 100;
+        document.getElementById('inpPrice').value = 80;
+        document.getElementById('inpRent').value = 2000;
+        document.getElementById('inpRentGrowth').value = 1.0;
+        document.getElementById('inpAppreciation').value = 2.0;
+        document.getElementById('inpYears').value = 5;
+        document.getElementById('inpLtv').value = 70;
+        document.getElementById('inpLoanTerm').value = 20;
+        document.getElementById('inpRate').value = 2.8;
+        document.getElementById('inpDiscount').value = 5.0;
+        document.getElementById('inpBuildingRatio').value = 15;
+        calculate();
+    }
+
     function calculate() {
         STATE.years = parseInt(document.getElementById('inpYears').value);
         const area = parseFloat(document.getElementById('inpArea').value);
@@ -321,11 +339,11 @@ The application uses a dashboard architecture optimized for financial modeling.
 
         const decisionEl = document.getElementById('resDecision');
         if (buyNpv > leaseNpv) {
-            decisionEl.innerText = `購買較划算 (省 ${formatCurrency(buyNpv - leaseNpv)} 萬)`;
-            decisionEl.className = "text-xl md:text-2xl font-bold text-indigo-400";
+            decisionEl.innerHTML = `購買較划算<br><span class="text-lg opacity-90">(省 ${formatCurrency(buyNpv - leaseNpv)} 萬)</span>`;
+            decisionEl.className = "text-xl md:text-2xl font-bold text-indigo-400 leading-tight block mt-1";
         } else {
-            decisionEl.innerText = `租賃較划算 (省 ${formatCurrency(leaseNpv - buyNpv)} 萬)`;
-            decisionEl.className = "text-xl md:text-2xl font-bold text-emerald-400";
+            decisionEl.innerHTML = `租賃較划算<br><span class="text-lg opacity-90">(省 ${formatCurrency(leaseNpv - buyNpv)} 萬)</span>`;
+            decisionEl.className = "text-xl md:text-2xl font-bold text-emerald-400 leading-tight block mt-1";
         }
 
         updateCharts();

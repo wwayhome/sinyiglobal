@@ -37,12 +37,37 @@
         const { useState, useEffect, useRef } = React;
 
         // --- 設定區：您部署 Google Apps Script 後取得的「網頁應用程式網址」 ---
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbzUDD23PmWZpEw3Nt_nlavTVLgxucAhxKshpF4mfyIEYS3HY12pGjZ3zZmrVKVq7FBC/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbw2llOypIDB-lfcCdh_KsW-Q5JbHAjbly0W7dqPPhoajCFg_TG40nQOAenaecEFt7Ko/exec";
+
+        // 萃取土管/建管歸組編號的工具函數 (處理 "52、53", "條件:52;條件:53", 或 "C-2&C-1")
+        const extractGroupNumbers = (text) => {
+            if (!text) return [];
+            const groups = new Set();
+            const textStr = String(text).replace(/：/g, ':').replace(/；/g, ';');
+            const parts = textStr.split(';');
+            
+            parts.forEach(part => {
+                const afterColon = part.includes(':') ? part.split(':')[1] : part;
+                // 加入 & 與 ＆ 符號作為切割條件
+                const subParts = afterColon.split(/[、,&＆]/);
+                
+                subParts.forEach(sp => {
+                    // 萃取數字與英文字母組合 (如 "52", "52-1", "C-1")
+                    const match = sp.match(/[a-zA-Z0-9-]+/);
+                    if (match) {
+                        groups.add(match[0].toUpperCase());
+                    }
+                });
+            });
+            
+            return Array.from(groups);
+        };
 
         function App() {
             const [mainData, setMainData] = useState([]);
             const [groupData, setGroupData] = useState([]);
             const [buildingData, setBuildingData] = useState([]);
+            const [rulesData, setRulesData] = useState([]);
             const [isLoaded, setIsLoaded] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
             const [searchTerm, setSearchTerm] = useState('');
@@ -80,8 +105,8 @@
                             throw new Error("尚未設定 Google Apps Script (GAS) URL。請確認程式碼設定。");
                         }
 
-                        // 同時向 GAS 發送三個請求，分別取得 main, group, building 的資料
-                        const [mainRaw, groupRaw, buildingRaw] = await Promise.all([
+                        // 同時向 GAS 發送請求，分別取得 main, group, building, rules 的資料
+                        const [mainRaw, groupRaw, buildingRaw, rulesRaw] = await Promise.all([
                             fetchJsonData('main'),
                             fetchJsonData('group').catch(e => {
                                 console.warn("組別資料載入失敗", e);
@@ -89,6 +114,10 @@
                             }),
                             fetchJsonData('building').catch(e => {
                                 console.warn("建管歸組資料載入失敗", e);
+                                return [];
+                            }),
+                            fetchJsonData('rules').catch(e => {
+                                console.warn("使用規定載入失敗", e);
                                 return [];
                             })
                         ]);
@@ -101,6 +130,7 @@
                         setMainData(mainRaw);
                         setGroupData(groupRaw);
                         setBuildingData(buildingRaw);
+                        setRulesData(rulesRaw);
                         setIsLoaded(true);
                     } catch (error) {
                         console.error("載入失敗:", error);
@@ -235,16 +265,25 @@
                                     const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
                                     const buildValue = buildKey ? selectedItem[buildKey] : null;
 
-                                    // 動態從 buildingData 找出對應的「組別定義」
+                                    // 動態從 buildingData 找出對應的「組別定義」 (支援多組，例如 C-2&C-1)
                                     let buildingDef = null;
                                     if (buildValue && buildingData.length > 0) {
                                         const bKeyName = Object.keys(buildingData[0])[0];
-                                        const matchedBItem = buildingData.find(b => String(b[bKeyName]) === String(buildValue));
-                                        if (matchedBItem) {
-                                            const defKey = Object.keys(matchedBItem).find(k => k.includes('組別定義'));
-                                            if (defKey) {
-                                                buildingDef = matchedBItem[defKey];
+                                        const buildNums = extractGroupNumbers(buildValue);
+                                        const defs = [];
+                                        
+                                        buildNums.forEach(bNum => {
+                                            const matchedBItem = buildingData.find(b => String(b[bKeyName]).toUpperCase() === String(bNum));
+                                            if (matchedBItem) {
+                                                const defKey = Object.keys(matchedBItem).find(k => k.includes('組別定義'));
+                                                if (defKey && matchedBItem[defKey]) {
+                                                    // 如果有多組，加上前綴標示
+                                                    defs.push(buildNums.length > 1 ? `【${bNum}】${matchedBItem[defKey]}` : matchedBItem[defKey]);
+                                                }
                                             }
+                                        });
+                                        if (defs.length > 0) {
+                                            buildingDef = defs.join('\n\n');
                                         }
                                     }
 
@@ -318,96 +357,276 @@
                                     );
                                 })()}
 
+                                {/* 下方關聯附屬組別表格 (支援多組並排顯示) */}
                                 {(() => {
-                                    // 下方關聯附屬組別表格，同樣改為動態抓取以防錯誤
                                     const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
-                                    const targetGroupNum = landKey ? selectedItem[landKey] : null;
+                                    const landValue = landKey ? selectedItem[landKey] : null;
+                                    const targetGroupNums = extractGroupNumbers(landValue);
                                     
-                                    if (!targetGroupNum || groupData.length === 0) return null;
+                                    if (targetGroupNums.length === 0 || groupData.length === 0) return null;
                                     
-                                    // 抓取第一欄作為對照用的「土管歸組編號」
-                                    const groupKeyName = Object.keys(groupData[0])[0];
-                                    const matchedItems = groupData.filter(g => String(g[groupKeyName]) === String(targetGroupNum));
-                                    
-                                    if (matchedItems.length === 0) return null;
+                                    return targetGroupNums.map(targetGroupNum => {
+                                        const groupKeyName = Object.keys(groupData[0])[0];
+                                        const matchedItems = groupData.filter(g => String(g[groupKeyName]) === String(targetGroupNum));
+                                        
+                                        if (matchedItems.length === 0) return null;
 
-                                    // 抓取第二欄與第三欄的標題名稱 (如果沒有標題，預設顯示為使用組、使用項目)
-                                    const displayKeys = Object.keys(groupData[0]).filter(k => k !== groupKeyName);
-                                    const col2Name = displayKeys[0] || '使用組';
-                                    const col3Name = displayKeys[1] || '使用項目';
+                                        const displayKeys = Object.keys(groupData[0]).filter(k => k !== groupKeyName);
+                                        const col2Name = displayKeys[0] || '使用組';
+                                        const col3Name = displayKeys[1] || '使用項目';
 
-                                    return (
-                                        <div className="mt-8 bg-green-50 rounded-xl border border-green-200 overflow-hidden">
-                                            <div className="px-6 py-4 bg-green-100/60 font-bold text-green-800">
-                                                土管歸組資料 (第 {targetGroupNum} 組)
+                                        return (
+                                            <div key={`group-${targetGroupNum}`} className="mt-8 bg-green-50 rounded-xl border border-green-200 overflow-hidden">
+                                                <div className="px-6 py-4 bg-green-100/60 font-bold text-green-800">
+                                                    土管歸組資料 (第 {targetGroupNum} 組)
+                                                </div>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm">
+                                                        <thead className="bg-green-200/50 text-green-800 text-left">
+                                                            <tr>
+                                                                <th className="px-6 py-3 w-1/3">{col2Name}</th>
+                                                                <th className="px-6 py-3 w-2/3">{col3Name}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {matchedItems.map((g, i) => {
+                                                                return (
+                                                                    <tr key={i} className="border-b border-green-100 bg-white">
+                                                                        <td className="px-6 py-4 font-bold text-green-800 align-top whitespace-pre-wrap">{g[displayKeys[0]]}</td>
+                                                                        <td className="px-6 py-4 whitespace-pre-wrap">{g[displayKeys[1]]}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-sm">
-                                                    <thead className="bg-green-200/50 text-green-800 text-left">
-                                                        <tr>
-                                                            <th className="px-6 py-3 w-1/3">{col2Name}</th>
-                                                            <th className="px-6 py-3 w-2/3">{col3Name}</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {matchedItems.map((g, i) => {
-                                                            return (
-                                                                <tr key={i} className="border-b border-green-100 bg-white">
-                                                                    <td className="px-6 py-4 font-bold text-green-800 align-top whitespace-pre-wrap">{g[displayKeys[0]]}</td>
-                                                                    <td className="px-6 py-4 whitespace-pre-wrap">{g[displayKeys[1]]}</td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    );
+                                        );
+                                    });
                                 })()}
 
+                                {/* 下方關聯「建管歸組/使用項目」表格 (支援多組並排顯示) */}
                                 {(() => {
-                                    // 下方關聯「建管歸組/使用項目」表格
                                     const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
                                     const buildValue = buildKey ? selectedItem[buildKey] : null;
+                                    const targetBuildNums = extractGroupNumbers(buildValue);
                                     
-                                    if (!buildValue || buildingData.length === 0) return null;
+                                    if (targetBuildNums.length === 0 || buildingData.length === 0) return null;
                                     
-                                    // 抓取第一欄作為對照用的「建管歸組編號」
-                                    const bKeyName = Object.keys(buildingData[0])[0];
-                                    const matchedBItems = buildingData.filter(b => String(b[bKeyName]) === String(buildValue));
-                                    
-                                    if (matchedBItems.length === 0) return null;
+                                    return targetBuildNums.map(targetBuildNum => {
+                                        // 抓取第一欄作為對照用的「建管歸組編號」
+                                        const bKeyName = Object.keys(buildingData[0])[0];
+                                        const matchedBItems = buildingData.filter(b => String(b[bKeyName]).toUpperCase() === String(targetBuildNum));
+                                        
+                                        if (matchedBItems.length === 0) return null;
 
-                                    // 抓取其他欄位名稱 (排除已經獨立顯示的組別定義，預設顯示為使用項目舉例)
-                                    const displayBKeys = Object.keys(buildingData[0]).filter(k => k !== bKeyName && !k.includes('組別定義'));
-                                    const col2Name = displayBKeys[0] || '使用項目舉例';
+                                        // 抓取其他欄位名稱 (排除已經獨立顯示的組別定義，預設顯示為使用項目舉例)
+                                        const displayBKeys = Object.keys(buildingData[0]).filter(k => k !== bKeyName && !k.includes('組別定義'));
+                                        const col2Name = displayBKeys[0] || '使用項目舉例';
+
+                                        return (
+                                            <div key={`build-${targetBuildNum}`} className="mt-8 bg-purple-50 rounded-xl border border-purple-200 overflow-hidden">
+                                                <div className="px-6 py-4 bg-purple-100/60 font-bold text-purple-800">
+                                                    建管使用類組說明 ({targetBuildNum})
+                                                </div>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm">
+                                                        <thead className="bg-purple-200/50 text-purple-800 text-left">
+                                                            <tr>
+                                                                <th className="px-6 py-3 w-1/4">建築類組</th>
+                                                                <th className="px-6 py-3 w-3/4">{col2Name}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {matchedBItems.map((b, i) => {
+                                                                const rawText = b[displayBKeys[0]] || '';
+                                                                // 遇到半形或全形分號時，在後方加上換行符號
+                                                                const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
+                                                                
+                                                                return (
+                                                                    <tr key={i} className="border-b border-purple-100 bg-white hover:bg-purple-50/50 transition-colors">
+                                                                        <td className="px-6 py-4 font-bold text-purple-800 align-top whitespace-pre-wrap">{b[bKeyName]}</td>
+                                                                        <td className="px-6 py-4 whitespace-pre-wrap text-gray-700 leading-relaxed">{formattedText}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+
+                                {/* 下方關聯「使用規定一覽表」區塊 (支援多組並排顯示) */}
+                                {(() => {
+                                    const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
+                                    const landValue = landKey ? selectedItem[landKey] : null;
+                                    const targetGroupNums = extractGroupNumbers(landValue);
+                                    
+                                    if (targetGroupNums.length === 0 || rulesData.length === 0) return null;
+                                    
+                                    return targetGroupNums.map(targetGroupNum => {
+                                        const rKeyName = Object.keys(rulesData[0])[0];
+                                        const matchedRules = rulesData.filter(r => String(r[rKeyName]) === String(targetGroupNum));
+                                        
+                                        if (matchedRules.length === 0) return null;
+
+                                        const displayKeys = Object.keys(rulesData[0]).filter(k => k !== rKeyName);
+
+                                        return (
+                                            <div key={`rules-${targetGroupNum}`} className="mt-8 bg-orange-50 rounded-xl border border-orange-200 overflow-hidden">
+                                                <div className="px-6 py-4 bg-orange-100/60 font-bold text-orange-800 flex justify-between items-center">
+                                                    <span>使用規定一覽表 (第 {targetGroupNum} 組)</span>
+                                                </div>
+                                                
+                                                {/* 新增的圖例說明區塊 */}
+                                                <div className="px-6 py-3 bg-white border-b border-orange-100 text-sm text-gray-700">
+                                                    <span className="font-bold text-orange-800 mr-3">符號圖例：</span>
+                                                    <div className="inline-block md:inline-flex flex-wrap gap-4 mt-2 md:mt-0 items-center">
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>○</span> 允許使用</span>
+                                                        <span className="flex items-center gap-1"><span className="text-lg font-bold text-orange-600 leading-none -mt-1" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許</span>
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>※</span> 限於原有合法建築物</span>
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>×</span> 不允許使用</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="overflow-x-auto custom-scrollbar">
+                                                    <table className="w-full text-sm text-center">
+                                                        <thead className="bg-orange-200/50 text-orange-800">
+                                                            <tr>
+                                                                {matchedRules.length > 1 && (
+                                                                    <th className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">項次</th>
+                                                                )}
+                                                                {displayKeys.map((k, i) => (
+                                                                    <th key={i} className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">{k}</th>
+                                                                ))}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-orange-100 bg-white">
+                                                            {matchedRules.map((rule, idx) => (
+                                                                <tr key={idx} className="hover:bg-orange-50/50 transition-colors">
+                                                                    {matchedRules.length > 1 && (
+                                                                        <td className="px-2 py-4 font-bold text-orange-700 bg-orange-50/30 align-middle border-r border-orange-100">{idx + 1}</td>
+                                                                    )}
+                                                                    {displayKeys.map((k, i) => {
+                                                                        const rawText = rule[k] || '-';
+                                                                        const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
+
+                                                                        const renderFormattedText = () => {
+                                                                            return formattedText.split(/(○|△|※|×)/g).map((part, index) => {
+                                                                                if (part === '△') {
+                                                                                    return <span key={index} className="text-lg font-bold leading-none inline-block -translate-y-[1px]">{part}</span>;
+                                                                                }
+                                                                                if (['○', '※', '×'].includes(part)) {
+                                                                                    return <span key={index} className="text-base font-bold leading-none inline-block">{part}</span>;
+                                                                                }
+                                                                                return part;
+                                                                            });
+                                                                        };
+
+                                                                        return (
+                                                                            <td key={i} 
+                                                                                className="px-2 py-4 whitespace-pre-wrap text-gray-700 align-middle border-r border-orange-50 last:border-r-0 leading-relaxed"
+                                                                                style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}
+                                                                            >
+                                                                                {renderFormattedText()}
+                                                                            </td>
+                                                                        );
+                                                                    })}
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+
+                                {/* 下方關聯「策略型產業」專屬使用規定一覽表 */}
+                                {(() => {
+                                    const strategyValue = selectedItem['策略型產業'];
+                                    
+                                    // 判斷：如果沒有值、為空白、或為 "-" 就不顯示
+                                    if (!strategyValue || String(strategyValue).trim() === '' || String(strategyValue).trim() === '-') {
+                                        return null;
+                                    }
+                                    if (rulesData.length === 0) return null;
+
+                                    const rKeyName = Object.keys(rulesData[0])[0];
+                                    // 尋找 A 欄內容為「策略」的資料
+                                    const matchedRules = rulesData.filter(r => String(r[rKeyName]).trim() === '策略');
+                                    
+                                    if (matchedRules.length === 0) return null;
+
+                                    const displayKeys = Object.keys(rulesData[0]).filter(k => k !== rKeyName);
 
                                     return (
-                                        <div className="mt-8 bg-purple-50 rounded-xl border border-purple-200 overflow-hidden">
-                                            <div className="px-6 py-4 bg-purple-100/60 font-bold text-purple-800">
-                                                建管使用類組說明 ({buildValue})
+                                        <div className="mt-8 bg-orange-50 rounded-xl border border-orange-300 overflow-hidden shadow-sm relative">
+                                            {/* 加上一個顯眼的側邊條標示這是特殊策略表 */}
+                                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-500"></div>
+                                            
+                                            <div className="px-6 py-4 bg-orange-200/70 font-bold text-orange-900 flex justify-between items-center border-b border-orange-200">
+                                                <span>使用規定一覽表 ({strategyValue})</span>
                                             </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-sm">
-                                                    <thead className="bg-purple-200/50 text-purple-800 text-left">
+                                            
+                                            {/* 符號圖例 */}
+                                            <div className="px-6 py-3 bg-white border-b border-orange-100 text-sm text-gray-700">
+                                                <span className="font-bold text-orange-800 mr-3">符號圖例：</span>
+                                                <div className="inline-block md:inline-flex flex-wrap gap-4 mt-2 md:mt-0 items-center">
+                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>○</span> 允許使用</span>
+                                                    <span className="flex items-center gap-1"><span className="text-lg font-bold text-orange-600 leading-none -mt-1" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許</span>
+                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>※</span> 限於原有合法建築物</span>
+                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>×</span> 不允許使用</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="overflow-x-auto custom-scrollbar">
+                                                <table className="w-full text-sm text-center">
+                                                    <thead className="bg-orange-100/50 text-orange-800">
                                                         <tr>
-                                                            <th className="px-6 py-3 w-1/4">建築類組</th>
-                                                            <th className="px-6 py-3 w-3/4">{col2Name}</th>
+                                                            {matchedRules.length > 1 && (
+                                                                <th className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">項次</th>
+                                                            )}
+                                                            {displayKeys.map((k, i) => (
+                                                                <th key={i} className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">{k}</th>
+                                                            ))}
                                                         </tr>
                                                     </thead>
-                                                    <tbody>
-                                                        {matchedBItems.map((b, i) => {
-                                                            const rawText = b[displayBKeys[0]] || '';
-                                                            // 遇到半形或全形分號時，在後方加上換行符號
-                                                            const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
-                                                            
-                                                            return (
-                                                                <tr key={i} className="border-b border-purple-100 bg-white hover:bg-purple-50/50 transition-colors">
-                                                                    <td className="px-6 py-4 font-bold text-purple-800 align-top whitespace-pre-wrap">{b[bKeyName]}</td>
-                                                                    <td className="px-6 py-4 whitespace-pre-wrap text-gray-700 leading-relaxed">{formattedText}</td>
-                                                                </tr>
-                                                            );
-                                                        })}
+                                                    <tbody className="divide-y divide-orange-100 bg-white">
+                                                        {matchedRules.map((rule, idx) => (
+                                                            <tr key={idx} className="hover:bg-orange-50/50 transition-colors">
+                                                                {matchedRules.length > 1 && (
+                                                                    <td className="px-2 py-4 font-bold text-orange-700 bg-orange-50/30 align-middle border-r border-orange-100">{idx + 1}</td>
+                                                                )}
+                                                                {displayKeys.map((k, i) => {
+                                                                    const rawText = rule[k] || '-';
+                                                                    const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
+
+                                                                    const renderFormattedText = () => {
+                                                                        return formattedText.split(/(○|△|※|×)/g).map((part, index) => {
+                                                                            if (part === '△') {
+                                                                                return <span key={index} className="text-lg font-bold leading-none inline-block -translate-y-[1px]">{part}</span>;
+                                                                            }
+                                                                            if (['○', '※', '×'].includes(part)) {
+                                                                                return <span key={index} className="text-base font-bold leading-none inline-block">{part}</span>;
+                                                                            }
+                                                                            return part;
+                                                                        });
+                                                                    };
+
+                                                                    return (
+                                                                        <td key={i} 
+                                                                            className="px-2 py-4 whitespace-pre-wrap text-gray-700 align-middle border-r border-orange-50 last:border-r-0 leading-relaxed"
+                                                                            style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}
+                                                                        >
+                                                                            {renderFormattedText()}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        ))}
                                                     </tbody>
                                                 </table>
                                             </div>

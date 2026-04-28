@@ -37,9 +37,9 @@
         const { useState, useEffect, useRef } = React;
 
         // --- 設定區：您部署 Google Apps Script 後取得的「網頁應用程式網址」 ---
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbw2llOypIDB-lfcCdh_KsW-Q5JbHAjbly0W7dqPPhoajCFg_TG40nQOAenaecEFt7Ko/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbwBVp5KhefjBTkU0V9cOpj9pDS7nKD1GoKt003sSil5feVM2OUatIFZpiWzCDO31OOU/exec";
 
-        // 萃取土管/建管歸組編號的工具函數 (處理 "52、53", "條件:52;條件:53", 或 "C-2&C-1")
+        // 萃取土管/建管歸組編號的工具函數
         const extractGroupNumbers = (text) => {
             if (!text) return [];
             const groups = new Set();
@@ -48,11 +48,9 @@
             
             parts.forEach(part => {
                 const afterColon = part.includes(':') ? part.split(':')[1] : part;
-                // 加入 & 與 ＆ 符號作為切割條件
                 const subParts = afterColon.split(/[、,&＆]/);
                 
                 subParts.forEach(sp => {
-                    // 萃取數字與英文字母組合 (如 "52", "52-1", "C-1")
                     const match = sp.match(/[a-zA-Z0-9-]+/);
                     if (match) {
                         groups.add(match[0].toUpperCase());
@@ -63,11 +61,78 @@
             return Array.from(groups);
         };
 
+        // 轉換中文數字為阿拉伯數字的工具函數
+        const normalizeGroupIdentifier = (str) => {
+            if (!str) return '';
+            const s = String(str).trim();
+            
+            if (/[A-Za-z]/.test(s)) return s.toUpperCase();
+            
+            const cnMatch = s.match(/[一二三四五六七八九十]+/);
+            if (cnMatch && !/\d/.test(s)) {
+                const cnStr = cnMatch[0];
+                const numMap = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10 };
+                let total = 0;
+                let temp = 0;
+                for (let i = 0; i < cnStr.length; i++) {
+                    let char = cnStr[i];
+                    let val = numMap[char];
+                    if (val === 10) {
+                        if (temp === 0) temp = 1;
+                        total += temp * 10;
+                        temp = 0;
+                    } else {
+                        temp = val;
+                    }
+                }
+                total += temp;
+                return String(total);
+            }
+            
+            const arabicMatch = s.match(/\d+/);
+            if (arabicMatch) return arabicMatch[0];
+
+            return s; 
+        };
+
+        // 升級版：將字串聰明拆解並展開所有別名的工具函數 (處理 "第二種住宅區(住二、住二之一)" -> ["第二種住宅區", "住二", "住二之一"])
+        const parseZones = (rawStr) => {
+            const cleaned = String(rawStr || '').replace(/[\s　]/g, '');
+            if (!cleaned) return [];
+            
+            const expanded = new Set();
+            expanded.add(cleaned); // 保留完整原始字串
+            
+            // 1. 處理括號：將括號內外的文字分開
+            const match = cleaned.match(/^(.*?)[(（](.*?)[)）]$/);
+            let outside = cleaned;
+            let inside = "";
+            if (match) {
+                outside = match[1]; // 例如：第二種住宅區
+                inside = match[2];  // 例如：住二、住二之一、住二之二
+                if (outside) expanded.add(outside);
+                if (inside) expanded.add(inside);
+            }
+            
+            // 2. 將文字依頓號、逗號等符號切分，並加入集合
+            const splitAndAdd = (str) => {
+                if (!str) return;
+                str.split(/[、,，/]/).filter(Boolean).forEach(p => expanded.add(p));
+            };
+            
+            splitAndAdd(cleaned);
+            splitAndAdd(outside);
+            splitAndAdd(inside);
+            
+            return Array.from(expanded);
+        };
+
         function App() {
             const [mainData, setMainData] = useState([]);
             const [groupData, setGroupData] = useState([]);
             const [buildingData, setBuildingData] = useState([]);
             const [rulesData, setRulesData] = useState([]);
+            const [conditionsData, setConditionsData] = useState([]); 
             const [isLoaded, setIsLoaded] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
             const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +140,9 @@
             const [selectedItem, setSelectedItem] = useState(null);
             const [showDropdown, setShowDropdown] = useState(false);
             const dropdownRef = useRef(null);
+
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [modalData, setModalData] = useState(null);
 
             useEffect(() => {
                 function handleClickOutside(event) {
@@ -86,11 +154,8 @@
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, []);
 
-            // 呼叫 GAS API 取得 JSON 資料
             const fetchJsonData = async (type) => {
-                if (!GAS_URL) {
-                    return [];
-                }
+                if (!GAS_URL) return [];
                 const response = await fetch(`${GAS_URL}?type=${type}`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
@@ -105,36 +170,27 @@
                             throw new Error("尚未設定 Google Apps Script (GAS) URL。請確認程式碼設定。");
                         }
 
-                        // 同時向 GAS 發送請求，分別取得 main, group, building, rules 的資料
-                        const [mainRaw, groupRaw, buildingRaw, rulesRaw] = await Promise.all([
+                        const [mainRaw, groupRaw, buildingRaw, rulesRaw, conditionsRaw] = await Promise.all([
                             fetchJsonData('main'),
-                            fetchJsonData('group').catch(e => {
-                                console.warn("組別資料載入失敗", e);
-                                return [];
-                            }),
-                            fetchJsonData('building').catch(e => {
-                                console.warn("建管歸組資料載入失敗", e);
-                                return [];
-                            }),
-                            fetchJsonData('rules').catch(e => {
-                                console.warn("使用規定載入失敗", e);
-                                return [];
-                            })
+                            fetchJsonData('group').catch(e => { console.warn("組別載入失敗", e); return []; }),
+                            fetchJsonData('building').catch(e => { console.warn("建管載入失敗", e); return []; }),
+                            fetchJsonData('rules').catch(e => { console.warn("規定載入失敗", e); return []; }),
+                            fetchJsonData('conditions').catch(e => { console.warn("附條件載入失敗", e); return []; })
                         ]);
 
                         if (!mainRaw || mainRaw.length === 0) {
                             throw new Error("讀取到的資料為空，請確認 Apps Script 權限或試算表 ID。");
                         }
 
-                        // 因為在 GAS 中已經處理過標題的空白，這裡可以直接設定
                         setMainData(mainRaw);
                         setGroupData(groupRaw);
                         setBuildingData(buildingRaw);
                         setRulesData(rulesRaw);
+                        setConditionsData(conditionsRaw);
                         setIsLoaded(true);
                     } catch (error) {
                         console.error("載入失敗:", error);
-                        setErrorMsg(`連線至資料庫時發生錯誤：\n${error.message}\n\n請確認您的 GAS API 網址是否正確，且已部署為「所有人」皆可存取。`);
+                        setErrorMsg(`連線至資料庫時發生錯誤：\n${error.message}`);
                     }
                 };
 
@@ -167,6 +223,55 @@
                 setSearchTerm(item['營業項目代碼']);
                 setSelectedItem(item);
                 setShowDropdown(false);
+            };
+
+            // 處理點擊「△」的邏輯，開啟視窗
+            const handleConditionClick = (zone, group) => {
+                const targetGroup = normalizeGroupIdentifier(group);
+                console.log(`\n[附條件搜尋啟動] 正在尋找 -> 分區: "${zone}", 組別: "${targetGroup}"`);
+
+                if (!conditionsData || conditionsData.length === 0) {
+                    setModalData({ 
+                        zone, 
+                        group: targetGroup, 
+                        error: "附條件資料表尚未載入或讀取失敗。",
+                        details: [] 
+                    });
+                    setIsModalOpen(true);
+                    return;
+                }
+
+                const cKeyZone = Object.keys(conditionsData[0])[0]; 
+                const cKeyGroup = Object.keys(conditionsData[0])[1]; 
+                // 從B欄(索引1)開始提取，這樣彈出視窗會顯示B、C、D...欄
+                const conditionKeys = Object.keys(conditionsData[0]).slice(1); 
+
+                // 將點擊的分區展開成陣列
+                const targetZones = parseZones(zone);
+                console.log(`[展開橘色表格的查詢條件]:`, targetZones);
+
+                const matched = conditionsData.filter(c => {
+                    // 將條件表的分區也展開成陣列
+                    const cZones = parseZones(c[cKeyZone]);
+                    const gVal = normalizeGroupIdentifier(c[cKeyGroup]);
+                    
+                    // 精準交集比對：只要有一個陣列元素「完全相等」才算符合
+                    const zMatch = targetZones.some(tz => cZones.includes(tz));
+                    const gMatch = gVal === targetGroup;
+
+                    return zMatch && gMatch;
+                }).map(c => {
+                    const extracted = {};
+                    conditionKeys.forEach(k => {
+                        if (c[k] && String(c[k]).trim() !== '') {
+                            extracted[k] = c[k];
+                        }
+                    });
+                    return extracted;
+                }).filter(obj => Object.keys(obj).length > 0);
+
+                setModalData({ zone, group: targetGroup, details: matched });
+                setIsModalOpen(true);
             };
 
             const SearchIcon = () => (
@@ -203,20 +308,36 @@
             }
 
             return (
-                <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto">
+                <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto relative">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">營業項目編號對應台北市土管歸組</h1>
                         <div className="text-sm text-gray-600 bg-gray-100 inline-block px-4 py-3 rounded-md mb-2 leading-relaxed">
                             <div className="font-bold mb-1 text-gray-700">資料更新：</div>
-                            <ol className="list-decimal list-inside ml-1">
-                                <li>113.07.09 經濟部營業項目總表_對應土管歸組及歸目</li>
-                                <li>114.07.09 臺北市土地使用分區管制自治條例</li>
+                            <ol className="list-decimal list-inside ml-1 space-y-1">
+                                <li>
+                                    <a href="https://tcooc-co.gov.taipei/Content_List.aspx?n=C359BAE6A481EB85" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                        113.07.09 經濟部營業項目總表_對應土管歸組及歸目
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://laws.gov.taipei/Law/LawSearch/LawArticleContent/FL003962" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                        114.07.09 臺北市土地使用分區管制自治條例
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://laws.gov.taipei/Law/LawSearch/LawArticleContent/FL025529" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                        114.07.09 臺北市土地使用分區附條件允許使用標準
+                                    </a>
+                                </li>
                             </ol>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">透過 Google API 同步 | 主資料: {mainData.length} 筆</p>
+                        <p className="text-xs text-gray-500 mt-1 font-medium bg-white px-2 py-1 rounded inline-block border border-gray-200 shadow-sm">
+                            主資料: <span className="text-blue-600 font-bold">{mainData.length}</span> 筆 | 
+                            附條件: <span className={conditionsData.length > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{conditionsData.length}</span> 筆
+                        </p>
                     </div>
 
-                    <div className="relative mb-8 z-50" ref={dropdownRef}>
+                    <div className="relative mb-8 z-40" ref={dropdownRef}>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <SearchIcon />
@@ -248,7 +369,7 @@
                     </div>
 
                     {selectedItem && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in relative z-10">
                             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-6 text-white">
                                 <span className="bg-white/20 text-white border border-white/30 px-3 py-1 rounded-lg font-mono text-xl font-bold block mb-2 w-fit">
                                     {selectedItem['營業項目代碼']}
@@ -258,14 +379,12 @@
 
                             <div className="p-6 md:p-8">
                                 {(() => {
-                                    // 動態抓取欄位名稱，避免因為「建管歸組」或「建築歸組」等字眼差異而抓不到資料
                                     const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
                                     const landValue = landKey ? selectedItem[landKey] : null;
                                     
                                     const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
                                     const buildValue = buildKey ? selectedItem[buildKey] : null;
 
-                                    // 動態從 buildingData 找出對應的「組別定義」 (支援多組，例如 C-2&C-1)
                                     let buildingDef = null;
                                     if (buildValue && buildingData.length > 0) {
                                         const bKeyName = Object.keys(buildingData[0])[0];
@@ -277,7 +396,6 @@
                                             if (matchedBItem) {
                                                 const defKey = Object.keys(matchedBItem).find(k => k.includes('組別定義'));
                                                 if (defKey && matchedBItem[defKey]) {
-                                                    // 如果有多組，加上前綴標示
                                                     defs.push(buildNums.length > 1 ? `【${bNum}】${matchedBItem[defKey]}` : matchedBItem[defKey]);
                                                 }
                                             }
@@ -325,7 +443,6 @@
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 {(() => {
-                                                    // 整理要顯示的項目，並將動態抓取到的「組別定義」加進來一起排序
                                                     let entries = Object.entries(selectedItem)
                                                         .filter(([key]) => !['營業項目代碼', '營業項目', '定義內容', '', landKey, buildKey].includes(key));
                                                     
@@ -334,15 +451,11 @@
                                                     }
 
                                                     return entries.sort(([keyA], [keyB]) => {
-                                                        // 自訂排序：確保「組別定義」排在「本業目別」之後、「限辦歸組」之前
                                                         const customOrder = ['本業目別', '組別定義', '限辦歸組', '限辦目別', '策略型產業'];
                                                         let indexA = customOrder.indexOf(keyA);
                                                         let indexB = customOrder.indexOf(keyB);
-                                                        
-                                                        // 若不在自訂名單內，則維持在後方顯示
                                                         if (indexA === -1) indexA = 999;
                                                         if (indexB === -1) indexB = 999;
-                                                        
                                                         return indexA - indexB;
                                                     })
                                                     .map(([key, value]) => (
@@ -357,7 +470,7 @@
                                     );
                                 })()}
 
-                                {/* 下方關聯附屬組別表格 (支援多組並排顯示) */}
+                                {/* 下方關聯附屬組別表格 */}
                                 {(() => {
                                     const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
                                     const landValue = landKey ? selectedItem[landKey] : null;
@@ -389,14 +502,12 @@
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {matchedItems.map((g, i) => {
-                                                                return (
-                                                                    <tr key={i} className="border-b border-green-100 bg-white">
-                                                                        <td className="px-6 py-4 font-bold text-green-800 align-top whitespace-pre-wrap">{g[displayKeys[0]]}</td>
-                                                                        <td className="px-6 py-4 whitespace-pre-wrap">{g[displayKeys[1]]}</td>
-                                                                    </tr>
-                                                                );
-                                                            })}
+                                                            {matchedItems.map((g, i) => (
+                                                                <tr key={i} className="border-b border-green-100 bg-white">
+                                                                    <td className="px-6 py-4 font-bold text-green-800 align-top whitespace-pre-wrap">{g[displayKeys[0]]}</td>
+                                                                    <td className="px-6 py-4 whitespace-pre-wrap">{g[displayKeys[1]]}</td>
+                                                                </tr>
+                                                            ))}
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -405,7 +516,7 @@
                                     });
                                 })()}
 
-                                {/* 下方關聯「建管歸組/使用項目」表格 (支援多組並排顯示) */}
+                                {/* 下方關聯「建管歸組/使用項目」表格 */}
                                 {(() => {
                                     const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
                                     const buildValue = buildKey ? selectedItem[buildKey] : null;
@@ -414,13 +525,11 @@
                                     if (targetBuildNums.length === 0 || buildingData.length === 0) return null;
                                     
                                     return targetBuildNums.map(targetBuildNum => {
-                                        // 抓取第一欄作為對照用的「建管歸組編號」
                                         const bKeyName = Object.keys(buildingData[0])[0];
                                         const matchedBItems = buildingData.filter(b => String(b[bKeyName]).toUpperCase() === String(targetBuildNum));
                                         
                                         if (matchedBItems.length === 0) return null;
 
-                                        // 抓取其他欄位名稱 (排除已經獨立顯示的組別定義，預設顯示為使用項目舉例)
                                         const displayBKeys = Object.keys(buildingData[0]).filter(k => k !== bKeyName && !k.includes('組別定義'));
                                         const col2Name = displayBKeys[0] || '使用項目舉例';
 
@@ -440,9 +549,7 @@
                                                         <tbody>
                                                             {matchedBItems.map((b, i) => {
                                                                 const rawText = b[displayBKeys[0]] || '';
-                                                                // 遇到半形或全形分號時，在後方加上換行符號
                                                                 const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
-                                                                
                                                                 return (
                                                                     <tr key={i} className="border-b border-purple-100 bg-white hover:bg-purple-50/50 transition-colors">
                                                                         <td className="px-6 py-4 font-bold text-purple-800 align-top whitespace-pre-wrap">{b[bKeyName]}</td>
@@ -458,7 +565,7 @@
                                     });
                                 })()}
 
-                                {/* 下方關聯「使用規定一覽表」區塊 (支援多組並排顯示) */}
+                                {/* 下方關聯「使用規定一覽表」區塊 (一般組別) */}
                                 {(() => {
                                     const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
                                     const landValue = landKey ? selectedItem[landKey] : null;
@@ -469,7 +576,6 @@
                                     return targetGroupNums.map(targetGroupNum => {
                                         const rKeyName = Object.keys(rulesData[0])[0];
                                         const matchedRules = rulesData.filter(r => String(r[rKeyName]) === String(targetGroupNum));
-                                        
                                         if (matchedRules.length === 0) return null;
 
                                         const displayKeys = Object.keys(rulesData[0]).filter(k => k !== rKeyName);
@@ -480,12 +586,13 @@
                                                     <span>使用規定一覽表 (第 {targetGroupNum} 組)</span>
                                                 </div>
                                                 
-                                                {/* 新增的圖例說明區塊 */}
                                                 <div className="px-6 py-3 bg-white border-b border-orange-100 text-sm text-gray-700">
                                                     <span className="font-bold text-orange-800 mr-3">符號圖例：</span>
                                                     <div className="inline-block md:inline-flex flex-wrap gap-4 mt-2 md:mt-0 items-center">
                                                         <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>○</span> 允許使用</span>
-                                                        <span className="flex items-center gap-1"><span className="text-lg font-bold text-orange-600 leading-none -mt-1" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許</span>
+                                                        <span className="flex items-center gap-1">
+                                                            <span className="text-lg font-bold text-blue-600 underline decoration-blue-300 underline-offset-4 leading-none -mt-1 cursor-pointer" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許 <span className="text-xs text-gray-400 font-normal ml-1">(可點擊查看條件)</span>
+                                                        </span>
                                                         <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>※</span> 限於原有合法建築物</span>
                                                         <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>×</span> 不允許使用</span>
                                                     </div>
@@ -516,10 +623,19 @@
                                                                         const renderFormattedText = () => {
                                                                             return formattedText.split(/(○|△|※|×)/g).map((part, index) => {
                                                                                 if (part === '△') {
-                                                                                    return <span key={index} className="text-lg font-bold leading-none inline-block -translate-y-[1px]">{part}</span>;
+                                                                                    return (
+                                                                                        <button 
+                                                                                            key={index} 
+                                                                                            onClick={() => handleConditionClick(k, targetGroupNum)}
+                                                                                            className="text-lg font-bold leading-none inline-block -translate-y-[1px] text-blue-600 hover:text-blue-800 hover:scale-125 transition-transform cursor-pointer relative group underline decoration-blue-300 decoration-2 underline-offset-4"
+                                                                                            title="點擊查看附帶條件"
+                                                                                        >
+                                                                                            {part}
+                                                                                        </button>
+                                                                                    );
                                                                                 }
                                                                                 if (['○', '※', '×'].includes(part)) {
-                                                                                    return <span key={index} className="text-base font-bold leading-none inline-block">{part}</span>;
+                                                                                    return <span key={index} className="text-base font-bold leading-none inline-block text-orange-700">{part}</span>;
                                                                                 }
                                                                                 return part;
                                                                             });
@@ -548,14 +664,12 @@
                                 {(() => {
                                     const strategyValue = selectedItem['策略型產業'];
                                     
-                                    // 判斷：如果沒有值、為空白、或為 "-" 就不顯示
                                     if (!strategyValue || String(strategyValue).trim() === '' || String(strategyValue).trim() === '-') {
                                         return null;
                                     }
                                     if (rulesData.length === 0) return null;
 
                                     const rKeyName = Object.keys(rulesData[0])[0];
-                                    // 尋找 A 欄內容為「策略」的資料
                                     const matchedRules = rulesData.filter(r => String(r[rKeyName]).trim() === '策略');
                                     
                                     if (matchedRules.length === 0) return null;
@@ -564,19 +678,19 @@
 
                                     return (
                                         <div className="mt-8 bg-orange-50 rounded-xl border border-orange-300 overflow-hidden shadow-sm relative">
-                                            {/* 加上一個顯眼的側邊條標示這是特殊策略表 */}
                                             <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-500"></div>
                                             
                                             <div className="px-6 py-4 bg-orange-200/70 font-bold text-orange-900 flex justify-between items-center border-b border-orange-200">
                                                 <span>使用規定一覽表 ({strategyValue})</span>
                                             </div>
                                             
-                                            {/* 符號圖例 */}
                                             <div className="px-6 py-3 bg-white border-b border-orange-100 text-sm text-gray-700">
                                                 <span className="font-bold text-orange-800 mr-3">符號圖例：</span>
                                                 <div className="inline-block md:inline-flex flex-wrap gap-4 mt-2 md:mt-0 items-center">
                                                     <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>○</span> 允許使用</span>
-                                                    <span className="flex items-center gap-1"><span className="text-lg font-bold text-orange-600 leading-none -mt-1" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許</span>
+                                                    <span className="flex items-center gap-1">
+                                                        <span className="text-lg font-bold text-blue-600 underline decoration-blue-300 underline-offset-4 leading-none -mt-1 cursor-pointer" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許 <span className="text-xs text-gray-400 font-normal ml-1">(可點擊查看條件)</span>
+                                                    </span>
                                                     <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>※</span> 限於原有合法建築物</span>
                                                     <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>×</span> 不允許使用</span>
                                                 </div>
@@ -607,10 +721,19 @@
                                                                     const renderFormattedText = () => {
                                                                         return formattedText.split(/(○|△|※|×)/g).map((part, index) => {
                                                                             if (part === '△') {
-                                                                                return <span key={index} className="text-lg font-bold leading-none inline-block -translate-y-[1px]">{part}</span>;
+                                                                                return (
+                                                                                    <button 
+                                                                                        key={index} 
+                                                                                        onClick={() => handleConditionClick(k, '策略')}
+                                                                                        className="text-lg font-bold leading-none inline-block -translate-y-[1px] text-blue-600 hover:text-blue-800 hover:scale-125 transition-transform cursor-pointer relative group underline decoration-blue-300 decoration-2 underline-offset-4"
+                                                                                        title="點擊查看附帶條件"
+                                                                                    >
+                                                                                        {part}
+                                                                                    </button>
+                                                                                );
                                                                             }
                                                                             if (['○', '※', '×'].includes(part)) {
-                                                                                return <span key={index} className="text-base font-bold leading-none inline-block">{part}</span>;
+                                                                                return <span key={index} className="text-base font-bold leading-none inline-block text-orange-700">{part}</span>;
                                                                             }
                                                                             return part;
                                                                         });
@@ -636,6 +759,71 @@
                             </div>
                         </div>
                     )}
+
+                    {/* 彈出視窗 Modal */}
+                    {isModalOpen && modalData && (
+                        <div 
+                            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+                            onClick={() => setIsModalOpen(false)}
+                        >
+                            <div 
+                                className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden transform transition-all"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center shrink-0">
+                                    <h3 className="font-bold text-lg flex items-center gap-2">
+                                        <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        【{modalData.zone}】 - 第 {modalData.group} 組 附帶條件
+                                    </h3>
+                                    <button 
+                                        onClick={() => setIsModalOpen(false)} 
+                                        className="text-white/70 hover:text-white hover:bg-blue-700 p-1 rounded-lg transition-colors"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
+                                
+                                <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50/50">
+                                    {modalData.error ? (
+                                        <div className="text-center py-10 bg-red-50 rounded-xl border border-red-100">
+                                            <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                            <p className="text-red-600 font-bold text-lg mb-2">無法讀取資料</p>
+                                            <p className="text-red-500/80 text-sm">{modalData.error}</p>
+                                        </div>
+                                    ) : modalData.details && modalData.details.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {modalData.details.map((detail, idx) => (
+                                                <div key={idx} className="bg-white p-5 rounded-xl border border-blue-100 shadow-sm">
+                                                    {Object.entries(detail).map(([key, val], i) => (
+                                                        <div key={i} className="mb-4 last:mb-0">
+                                                            <div className="text-xs font-bold text-blue-500 mb-1 tracking-wider uppercase">{key}</div>
+                                                            <div className="text-gray-800 whitespace-pre-wrap leading-relaxed bg-blue-50/30 p-3 rounded-lg border border-blue-50/50">
+                                                                {val}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12 flex flex-col items-center">
+                                            <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            <p className="text-gray-500 font-medium">目前查無「{modalData.zone}」與「第 {modalData.group} 組」的附帶條件資料。</p>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="px-6 py-4 bg-white border-t border-gray-100 shrink-0 flex justify-end">
+                                    <button 
+                                        onClick={() => setIsModalOpen(false)}
+                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-sm"
+                                    >
+                                        關閉說明
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -646,7 +834,7 @@
 
     <style>
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
     </style>
 </body>
 </html>

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>營業項目編號對應台北市土管歸組</title>
     
-    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -15,12 +14,9 @@
       gtag('config', 'G-5YQY4RT9H2');
     </script>
 
-    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 React 與 ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- 引入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <style>
@@ -28,6 +24,10 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        
+        /* Modal 動畫設定 */
+        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-modal { animation: modalFadeIn 0.2s ease-out forwards; }
     </style>
 </head>
 <body>
@@ -36,95 +36,32 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- 設定區：您部署 Google Apps Script 後取得的「網頁應用程式網址」 ---
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbwBVp5KhefjBTkU0V9cOpj9pDS7nKD1GoKt003sSil5feVM2OUatIFZpiWzCDO31OOU/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbx0G-H3J0SSegGfDT_8lTvdqHLmB201QLATfg6l_KcCne5wfgTa8yxD0j8NtUc4pp_O/exec";
 
-        // 萃取土管/建管歸組編號的工具函數
+        // 萃取土管/建管歸組編號的工具函數 (已修復：強力提取引擎，不再因標點符號截斷)
         const extractGroupNumbers = (text) => {
             if (!text) return [];
             const groups = new Set();
-            const textStr = String(text).replace(/：/g, ':').replace(/；/g, ';');
-            const parts = textStr.split(';');
             
-            parts.forEach(part => {
-                const afterColon = part.includes(':') ? part.split(':')[1] : part;
-                const subParts = afterColon.split(/[、,&＆]/);
-                
-                subParts.forEach(sp => {
-                    const match = sp.match(/[a-zA-Z0-9-]+/);
-                    if (match) {
-                        groups.add(match[0].toUpperCase());
-                    }
-                });
+            // 1. 將可能出現的全形英數字轉換為半形，避免漏抓 (如 ２２ 轉為 22，Ｂ－３ 轉為 B-3)
+            const normalizedText = String(text).replace(/[\uff01-\uff5e]/g, function(ch) {
+                return String.fromCharCode(ch.charCodeAt(0) - 0xfee0);
             });
             
-            return Array.from(groups);
-        };
-
-        // 轉換中文數字為阿拉伯數字的工具函數
-        const normalizeGroupIdentifier = (str) => {
-            if (!str) return '';
-            const s = String(str).trim();
+            // 2. 直接全域掃描：抓取所有由英文、數字、橫線組成的代碼組合
+            const matches = normalizedText.match(/[a-zA-Z0-9-]+/g);
             
-            if (/[A-Za-z]/.test(s)) return s.toUpperCase();
-            
-            const cnMatch = s.match(/[一二三四五六七八九十]+/);
-            if (cnMatch && !/\d/.test(s)) {
-                const cnStr = cnMatch[0];
-                const numMap = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10 };
-                let total = 0;
-                let temp = 0;
-                for (let i = 0; i < cnStr.length; i++) {
-                    let char = cnStr[i];
-                    let val = numMap[char];
-                    if (val === 10) {
-                        if (temp === 0) temp = 1;
-                        total += temp * 10;
-                        temp = 0;
-                    } else {
-                        temp = val;
+            if (matches) {
+                matches.forEach(match => {
+                    const cleanMatch = match.trim().toUpperCase();
+                    // 3. 防呆過濾：確保抓取出的字串「至少包含一個數字」
+                    if (/\d/.test(cleanMatch)) {
+                        groups.add(cleanMatch);
                     }
-                }
-                total += temp;
-                return String(total);
+                });
             }
             
-            const arabicMatch = s.match(/\d+/);
-            if (arabicMatch) return arabicMatch[0];
-
-            return s; 
-        };
-
-        // 升級版：將字串聰明拆解並展開所有別名的工具函數 (處理 "第二種住宅區(住二、住二之一)" -> ["第二種住宅區", "住二", "住二之一"])
-        const parseZones = (rawStr) => {
-            const cleaned = String(rawStr || '').replace(/[\s　]/g, '');
-            if (!cleaned) return [];
-            
-            const expanded = new Set();
-            expanded.add(cleaned); // 保留完整原始字串
-            
-            // 1. 處理括號：將括號內外的文字分開
-            const match = cleaned.match(/^(.*?)[(（](.*?)[)）]$/);
-            let outside = cleaned;
-            let inside = "";
-            if (match) {
-                outside = match[1]; // 例如：第二種住宅區
-                inside = match[2];  // 例如：住二、住二之一、住二之二
-                if (outside) expanded.add(outside);
-                if (inside) expanded.add(inside);
-            }
-            
-            // 2. 將文字依頓號、逗號等符號切分，並加入集合
-            const splitAndAdd = (str) => {
-                if (!str) return;
-                str.split(/[、,，/]/).filter(Boolean).forEach(p => expanded.add(p));
-            };
-            
-            splitAndAdd(cleaned);
-            splitAndAdd(outside);
-            splitAndAdd(inside);
-            
-            return Array.from(expanded);
+            return Array.from(groups);
         };
 
         function App() {
@@ -132,17 +69,21 @@
             const [groupData, setGroupData] = useState([]);
             const [buildingData, setBuildingData] = useState([]);
             const [rulesData, setRulesData] = useState([]);
-            const [conditionsData, setConditionsData] = useState([]); 
+            const [extraData, setExtraData] = useState([]);
+            const [conditionsData, setConditionsData] = useState([]);
+            const [neihuConData, setNeihuConData] = useState([]); 
+            
             const [isLoaded, setIsLoaded] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
             const [searchTerm, setSearchTerm] = useState('');
             const [filteredData, setFilteredData] = useState([]);
             const [selectedItem, setSelectedItem] = useState(null);
             const [showDropdown, setShowDropdown] = useState(false);
-            const dropdownRef = useRef(null);
-
+            
             const [isModalOpen, setIsModalOpen] = useState(false);
-            const [modalData, setModalData] = useState(null);
+            const [modalContent, setModalContent] = useState(null);
+            
+            const dropdownRef = useRef(null);
 
             useEffect(() => {
                 function handleClickOutside(event) {
@@ -166,16 +107,19 @@
             useEffect(() => {
                 const loadData = async () => {
                     try {
-                        if (!GAS_URL) {
-                            throw new Error("尚未設定 Google Apps Script (GAS) URL。請確認程式碼設定。");
-                        }
+                        if (!GAS_URL) throw new Error("尚未設定 Google Apps Script (GAS) URL。請確認程式碼設定。");
 
-                        const [mainRaw, groupRaw, buildingRaw, rulesRaw, conditionsRaw] = await Promise.all([
+                        const [mainRaw, groupRaw, buildingRaw, rulesRaw, extraRaw, conditionsRaw, neihuConRaw] = await Promise.all([
                             fetchJsonData('main'),
-                            fetchJsonData('group').catch(e => { console.warn("組別載入失敗", e); return []; }),
-                            fetchJsonData('building').catch(e => { console.warn("建管載入失敗", e); return []; }),
-                            fetchJsonData('rules').catch(e => { console.warn("規定載入失敗", e); return []; }),
-                            fetchJsonData('conditions').catch(e => { console.warn("附條件載入失敗", e); return []; })
+                            fetchJsonData('group').catch(e => []),
+                            fetchJsonData('building').catch(e => []),
+                            fetchJsonData('rules').catch(e => []),
+                            fetchJsonData('extra').catch(e => []),
+                            fetchJsonData('conditions').catch(e => []),
+                            fetchJsonData('NeihuCon').catch(e => {
+                                console.warn("T5D6內湖條件資料載入失敗", e);
+                                return [];
+                            })
                         ]);
 
                         if (!mainRaw || mainRaw.length === 0) {
@@ -186,11 +130,13 @@
                         setGroupData(groupRaw);
                         setBuildingData(buildingRaw);
                         setRulesData(rulesRaw);
+                        setExtraData(extraRaw);
                         setConditionsData(conditionsRaw);
+                        setNeihuConData(neihuConRaw); 
                         setIsLoaded(true);
                     } catch (error) {
                         console.error("載入失敗:", error);
-                        setErrorMsg(`連線至資料庫時發生錯誤：\n${error.message}`);
+                        setErrorMsg(`連線至資料庫時發生錯誤：\n${error.message}\n\n請確認您的 GAS API 網址是否正確。`);
                     }
                 };
 
@@ -225,58 +171,205 @@
                 setShowDropdown(false);
             };
 
-            // 處理點擊「△」的邏輯，開啟視窗
+            // 處理點擊 △ 符號的事件 (T5D5) - 完全嚴格精準比對版
             const handleConditionClick = (zone, group) => {
-                const targetGroup = normalizeGroupIdentifier(group);
-                console.log(`\n[附條件搜尋啟動] 正在尋找 -> 分區: "${zone}", 組別: "${targetGroup}"`);
-
                 if (!conditionsData || conditionsData.length === 0) {
-                    setModalData({ 
-                        zone, 
-                        group: targetGroup, 
-                        error: "附條件資料表尚未載入或讀取失敗。",
-                        details: [] 
-                    });
-                    setIsModalOpen(true);
+                    alert("條件資料載入異常或為空，無法查詢。");
                     return;
                 }
 
-                const cKeyZone = Object.keys(conditionsData[0])[0]; 
-                const cKeyGroup = Object.keys(conditionsData[0])[1]; 
-                // 從B欄(索引1)開始提取，這樣彈出視窗會顯示B、C、D...欄
-                const conditionKeys = Object.keys(conditionsData[0]).slice(1); 
+                const keys = Object.keys(conditionsData[0]);
+                const zoneKey = keys[0];  
+                const groupKey = keys[1]; 
+                const cKey = keys[2] || '使用組及使用項目';
+                const dKey = keys[3] || '允許使用條件';
+                const eKey = keys[4] || '備註';
 
-                // 將點擊的分區展開成陣列
-                const targetZones = parseZones(zone);
-                console.log(`[展開橘色表格的查詢條件]:`, targetZones);
+                const normalizeZoneStr = (str) => {
+                    return str.replace(/之1/g, '之一')
+                              .replace(/之2/g, '之二')
+                              .replace(/之3/g, '之三')
+                              .replace(/之4/g, '之四');
+                };
 
-                const matched = conditionsData.filter(c => {
-                    // 將條件表的分區也展開成陣列
-                    const cZones = parseZones(c[cKeyZone]);
-                    const gVal = normalizeGroupIdentifier(c[cKeyGroup]);
+                const matchedDetails = conditionsData.filter(item => {
+                    const itemZone = String(item[zoneKey] || '').trim();
+                    const itemGroup = String(item[groupKey] || '').trim();
                     
-                    // 精準交集比對：只要有一個陣列元素「完全相等」才算符合
-                    const zMatch = targetZones.some(tz => cZones.includes(tz));
-                    const gMatch = gVal === targetGroup;
-
-                    return zMatch && gMatch;
-                }).map(c => {
-                    const extracted = {};
-                    conditionKeys.forEach(k => {
-                        if (c[k] && String(c[k]).trim() !== '') {
-                            extracted[k] = c[k];
+                    // 1. 將點擊的表頭 (如 "住三之一、住三之二") 切成陣列
+                    const clickZones = zone.split(/[、,，\n/／|｜及與和&]+/).map(z => normalizeZoneStr(z.replace(/\s+/g, '')));
+                    
+                    // 2. 將 T5D5 表內的法規區 (如 "住三之一、之二") 切成陣列，並還原縮寫
+                    const itemZonesRaw = itemZone.split(/[、,，\n/／|｜及與和&]+/).map(z => normalizeZoneStr(z.replace(/\s+/g, '')));
+                    const itemZones = itemZonesRaw.map((z, index, arr) => {
+                        // 如果有「之二」縮寫，去抓陣列前一個項目的母區 (例如從"住三之一"抓出"住三")
+                        if (z.startsWith('之') && index > 0) {
+                            const prev = arr[index - 1];
+                            const match = prev.match(/^([商住工農].)/);
+                            if (match) {
+                                return match[1] + z;
+                            }
                         }
+                        return z;
                     });
-                    return extracted;
-                }).filter(obj => Object.keys(obj).length > 0);
+                    
+                    const zoneMatch = itemZones.some(z => {
+                        const strippedZ = z.replace(/\(.*\)|\（.*\）|\[.*\]|【.*】|「.*」/g, '').trim();
+                        const abbrZ = strippedZ.replace(/第一種住宅區/g, '住一')
+                                             .replace(/第二種住宅區/g, '住二')
+                                             .replace(/第三種住宅區/g, '住三')
+                                             .replace(/第四種住宅區/g, '住四')
+                                             .replace(/第一種商業區/g, '商一')
+                                             .replace(/第二種商業區/g, '商二')
+                                             .replace(/第三種商業區/g, '商三')
+                                             .replace(/第四種商業區/g, '商四')
+                                             .replace(/第二種工業區/g, '工二')
+                                             .replace(/第三種工業區/g, '工三');
 
-                setModalData({ zone, group: targetGroup, details: matched });
+                        // 【嚴格精準比對】：只有在切出來的項目「完全相等」時才算符合，不再用 startsWith 模糊包容
+                        return clickZones.some(cz => {
+                            const strippedCz = cz.replace(/\(.*\)|\（.*\）|\[.*\]|【.*】|「.*」/g, '').trim();
+                            return z === cz || strippedZ === cz || abbrZ === cz || abbrZ === strippedCz || z === strippedCz || strippedZ === strippedCz;
+                        });
+                    });
+                    
+                    const cleanGroup = String(group).replace(/第|組/g, '').trim();
+                    const itemGroups = itemGroup.replace(/第|組/g, '').split(/[、,，\n/／|｜及與和&\s]+/);
+                    
+                    let groupMatch = false;
+                    if (cleanGroup === '策略' || cleanGroup === '其他') {
+                        groupMatch = itemGroups.includes(cleanGroup) || itemGroup.includes(cleanGroup);
+                    } else {
+                        const target = parseInt(cleanGroup, 10);
+                        for (const g of itemGroups) {
+                            const cleanG = g.replace(/\(.*\)|\（.*\）|\[.*\]|【.*】/g, '').trim();
+                            if (cleanG === cleanGroup) {
+                                groupMatch = true;
+                                break;
+                            }
+                            const rangeMatch = cleanG.match(/^(\d+)(-|~|～|至)(\d+)$/);
+                            if (rangeMatch && !isNaN(target)) {
+                                const start = parseInt(rangeMatch[1], 10);
+                                const end = parseInt(rangeMatch[3], 10);
+                                if (target >= start && target <= end) {
+                                    groupMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    return zoneMatch && groupMatch;
+                });
+
+                setModalContent({
+                    type: 'conditions',
+                    title: '附條件允許使用說明',
+                    zone,
+                    group,
+                    details: matchedDetails,
+                    keys: { c: cKey, d: dKey, e: eKey }
+                });
                 setIsModalOpen(true);
+            };
+
+            const handleNeihuConClick = (group) => {
+                if (!neihuConData || neihuConData.length === 0) {
+                    alert("內湖科技園區附屬條件資料載入異常或為空，無法查詢。");
+                    return;
+                }
+
+                const keys = Object.keys(neihuConData[0]);
+                const groupKey = keys[0]; 
+
+                const cleanGroup = String(group).replace(/第|組/g, '').trim();
+                const target = parseInt(cleanGroup, 10);
+
+                const matchedDetails = neihuConData.filter(item => {
+                    const itemGroup = String(item[groupKey] || '').trim();
+                    if (itemGroup === '其他') return true; 
+
+                    const itemGroups = itemGroup.replace(/第|組/g, '').split(/[、,，\n/／|｜及與和&\s]+/);
+                    
+                    if (cleanGroup === '策略' || cleanGroup === '其他') {
+                        return itemGroups.includes(cleanGroup) || itemGroup.includes(cleanGroup);
+                    }
+
+                    for (const g of itemGroups) {
+                        const cleanG = g.replace(/\(.*\)|\（.*\）|\[.*\]|【.*】/g, '').trim();
+                        if (cleanG === cleanGroup) return true;
+                        
+                        const rangeMatch = cleanG.match(/^(\d+)(-|~|～|至)(\d+)$/);
+                        if (rangeMatch && !isNaN(target)) {
+                            const start = parseInt(rangeMatch[1], 10);
+                            const end = parseInt(rangeMatch[3], 10);
+                            if (target >= start && target <= end) return true;
+                        }
+                    }
+                    return false;
+                });
+
+                setModalContent({
+                    type: 'neihu',
+                    title: '內科附條件允許使用說明',
+                    zone: '內湖科技園區',
+                    group: group,
+                    details: matchedDetails,
+                    keys: keys 
+                });
+                setIsModalOpen(true);
+            };
+
+            const renderTextWithClick = (formattedText, zone, currentGroup, symbolColorClass) => {
+                return formattedText.split(/(○|△|□|＃|×)/g).map((part, index) => {
+                    if (part === '△') {
+                        return (
+                            <span 
+                                key={index} 
+                                onClick={() => handleConditionClick(zone, currentGroup)}
+                                className={`text-lg font-bold leading-none inline-flex items-center justify-center -translate-y-[1px] cursor-pointer hover:scale-150 hover:drop-shadow-lg transition-transform relative group ${symbolColorClass}`}
+                                style={{ padding: '0.1rem' }}
+                            >
+                                {part}
+                                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-max bg-gray-800 text-white text-xs rounded py-1.5 px-2.5 z-10 shadow-lg whitespace-nowrap font-normal" style={{ fontFamily: 'sans-serif' }}>
+                                    點擊查看允許條件
+                                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                                </span>
+                            </span>
+                        );
+                    }
+                    if (part === '□') {
+                        return (
+                            <span 
+                                key={index} 
+                                onClick={() => handleNeihuConClick(currentGroup)}
+                                className={`text-base font-bold leading-none inline-flex items-center justify-center -translate-y-[1px] cursor-pointer hover:scale-150 hover:drop-shadow-lg transition-transform relative group ${symbolColorClass}`}
+                                style={{ padding: '0.1rem' }}
+                            >
+                                {part}
+                                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-max bg-gray-800 text-white text-xs rounded py-1.5 px-2.5 z-10 shadow-lg whitespace-nowrap font-normal" style={{ fontFamily: 'sans-serif' }}>
+                                    點擊查看內科附條件
+                                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                                </span>
+                            </span>
+                        );
+                    }
+                    if (['○', '＃', '×'].includes(part)) {
+                        return <span key={index} className="text-base font-bold leading-none inline-block">{part}</span>;
+                    }
+                    return part;
+                });
             };
 
             const SearchIcon = () => (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            );
+
+            const ExternalLinkIcon = () => (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 inline-block ml-1 text-blue-500 hover:text-blue-700 mb-0.5 transition-colors">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                 </svg>
             );
 
@@ -308,36 +401,23 @@
             }
 
             return (
-                <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto relative">
+                <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">營業項目編號對應台北市土管歸組</h1>
                         <div className="text-sm text-gray-600 bg-gray-100 inline-block px-4 py-3 rounded-md mb-2 leading-relaxed">
                             <div className="font-bold mb-1 text-gray-700">資料更新：</div>
                             <ol className="list-decimal list-inside ml-1 space-y-1">
-                                <li>
-                                    <a href="https://tcooc-co.gov.taipei/Content_List.aspx?n=C359BAE6A481EB85" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                                        113.07.09 經濟部營業項目總表_對應土管歸組及歸目
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="https://laws.gov.taipei/Law/LawSearch/LawArticleContent/FL003962" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                                        114.07.09 臺北市土地使用分區管制自治條例
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="https://laws.gov.taipei/Law/LawSearch/LawArticleContent/FL025529" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                                        114.07.09 臺北市土地使用分區附條件允許使用標準
-                                    </a>
-                                </li>
+                                <li>113.07.09 經濟部營業項目總表_對應土管歸組及歸目 <a href="https://tcooc-co.gov.taipei/Content_List.aspx?n=C359BAE6A481EB85" target="_blank" rel="noopener noreferrer" title="點擊查看原始網頁"><ExternalLinkIcon /></a></li>
+                                <li>114.07.09 臺北市土地使用分區管制自治條例 <a href="https://laws.gov.taipei/Law/LawSearch/LawInformation/FL003962" target="_blank" rel="noopener noreferrer" title="點擊查看原始網頁"><ExternalLinkIcon /></a></li>
+                                <li>114.07.09 臺北市土地使用分區附條件允許使用標準 <a href="https://laws.gov.taipei/Law/LawSearch/LawArticleContent/FL025529" target="_blank" rel="noopener noreferrer" title="點擊查看原始網頁"><ExternalLinkIcon /></a></li>
+                                <li>111.09.22 修訂『變更臺北市「臺北內湖科技園區」(原內湖輕工業區)計畫案』土地使用規定案 <a href="https://webgis.udd.gov.taipei/book/P111035.pdf" target="_blank" rel="noopener noreferrer" title="點擊查看原始網頁"><ExternalLinkIcon /></a></li>
+                                <li>97.08.05 變更臺北市『基隆河（中山橋至成美橋段）計畫案（南段地區）』及『內湖區新里族段羊稠小段附近地區都市計畫案』計畫案 <a href="https://webgis.udd.gov.taipei/book/P097013.pdf" target="_blank" rel="noopener noreferrer" title="點擊查看原始網頁"><ExternalLinkIcon /></a></li>
                             </ol>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 font-medium bg-white px-2 py-1 rounded inline-block border border-gray-200 shadow-sm">
-                            主資料: <span className="text-blue-600 font-bold">{mainData.length}</span> 筆 | 
-                            附條件: <span className={conditionsData.length > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{conditionsData.length}</span> 筆
-                        </p>
+                        <p className="text-xs text-gray-400 mt-1">透過 Google API 同步 | 主資料: {mainData.length} 筆</p>
                     </div>
 
-                    <div className="relative mb-8 z-40" ref={dropdownRef}>
+                    <div className="relative mb-8 z-50" ref={dropdownRef}>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <SearchIcon />
@@ -369,7 +449,7 @@
                     </div>
 
                     {selectedItem && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in relative z-10">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
                             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-6 text-white">
                                 <span className="bg-white/20 text-white border border-white/30 px-3 py-1 rounded-lg font-mono text-xl font-bold block mb-2 w-fit">
                                     {selectedItem['營業項目代碼']}
@@ -451,7 +531,7 @@
                                                     }
 
                                                     return entries.sort(([keyA], [keyB]) => {
-                                                        const customOrder = ['本業目別', '組別定義', '限辦歸組', '限辦目別', '策略型產業'];
+                                                        const customOrder = ['本業目別', '組別定義', '限辦歸組', '限辦目別', '策略性產業'];
                                                         let indexA = customOrder.indexOf(keyA);
                                                         let indexB = customOrder.indexOf(keyB);
                                                         if (indexA === -1) indexA = 999;
@@ -470,7 +550,7 @@
                                     );
                                 })()}
 
-                                {/* 下方關聯附屬組別表格 */}
+                                {/* 土管歸組資料 */}
                                 {(() => {
                                     const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
                                     const landValue = landKey ? selectedItem[landKey] : null;
@@ -485,8 +565,6 @@
                                         if (matchedItems.length === 0) return null;
 
                                         const displayKeys = Object.keys(groupData[0]).filter(k => k !== groupKeyName);
-                                        const col2Name = displayKeys[0] || '使用組';
-                                        const col3Name = displayKeys[1] || '使用項目';
 
                                         return (
                                             <div key={`group-${targetGroupNum}`} className="mt-8 bg-green-50 rounded-xl border border-green-200 overflow-hidden">
@@ -497,8 +575,8 @@
                                                     <table className="w-full text-sm">
                                                         <thead className="bg-green-200/50 text-green-800 text-left">
                                                             <tr>
-                                                                <th className="px-6 py-3 w-1/3">{col2Name}</th>
-                                                                <th className="px-6 py-3 w-2/3">{col3Name}</th>
+                                                                <th className="px-6 py-3 w-1/3">{displayKeys[0] || '使用組'}</th>
+                                                                <th className="px-6 py-3 w-2/3">{displayKeys[1] || '使用項目'}</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -516,7 +594,7 @@
                                     });
                                 })()}
 
-                                {/* 下方關聯「建管歸組/使用項目」表格 */}
+                                {/* 建管歸組說明 */}
                                 {(() => {
                                     const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
                                     const buildValue = buildKey ? selectedItem[buildKey] : null;
@@ -531,7 +609,6 @@
                                         if (matchedBItems.length === 0) return null;
 
                                         const displayBKeys = Object.keys(buildingData[0]).filter(k => k !== bKeyName && !k.includes('組別定義'));
-                                        const col2Name = displayBKeys[0] || '使用項目舉例';
 
                                         return (
                                             <div key={`build-${targetBuildNum}`} className="mt-8 bg-purple-50 rounded-xl border border-purple-200 overflow-hidden">
@@ -543,20 +620,16 @@
                                                         <thead className="bg-purple-200/50 text-purple-800 text-left">
                                                             <tr>
                                                                 <th className="px-6 py-3 w-1/4">建築類組</th>
-                                                                <th className="px-6 py-3 w-3/4">{col2Name}</th>
+                                                                <th className="px-6 py-3 w-3/4">{displayBKeys[0] || '使用項目舉例'}</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {matchedBItems.map((b, i) => {
-                                                                const rawText = b[displayBKeys[0]] || '';
-                                                                const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
-                                                                return (
-                                                                    <tr key={i} className="border-b border-purple-100 bg-white hover:bg-purple-50/50 transition-colors">
-                                                                        <td className="px-6 py-4 font-bold text-purple-800 align-top whitespace-pre-wrap">{b[bKeyName]}</td>
-                                                                        <td className="px-6 py-4 whitespace-pre-wrap text-gray-700 leading-relaxed">{formattedText}</td>
-                                                                    </tr>
-                                                                );
-                                                            })}
+                                                            {matchedBItems.map((b, i) => (
+                                                                <tr key={i} className="border-b border-purple-100 bg-white hover:bg-purple-50/50 transition-colors">
+                                                                    <td className="px-6 py-4 font-bold text-purple-800 align-top whitespace-pre-wrap">{b[bKeyName]}</td>
+                                                                    <td className="px-6 py-4 whitespace-pre-wrap text-gray-700 leading-relaxed">{String(b[displayBKeys[0]] || '').replace(/;/g, ';\n').replace(/；/g, '；\n')}</td>
+                                                                </tr>
+                                                            ))}
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -565,7 +638,7 @@
                                     });
                                 })()}
 
-                                {/* 下方關聯「使用規定一覽表」區塊 (一般組別) */}
+                                {/* T5D3 使用規定一覽表 */}
                                 {(() => {
                                     const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
                                     const landValue = landKey ? selectedItem[landKey] : null;
@@ -576,9 +649,22 @@
                                     return targetGroupNums.map(targetGroupNum => {
                                         const rKeyName = Object.keys(rulesData[0])[0];
                                         const matchedRules = rulesData.filter(r => String(r[rKeyName]) === String(targetGroupNum));
-                                        if (matchedRules.length === 0) return null;
+                                        
+                                        const strategyValue = selectedItem['策略性產業'];
+                                        const isStrategy = strategyValue && String(strategyValue).trim() !== '' && String(strategyValue).trim() !== '-';
+                                        
+                                        if (matchedRules.length === 0 && !isStrategy) return null;
+
+                                        let strategyRules = [];
+                                        if (isStrategy) {
+                                            strategyRules = rulesData.filter(r => String(r[rKeyName]).trim() === '策略');
+                                        }
+
+                                        const combinedRules = [...matchedRules, ...strategyRules];
+                                        if (combinedRules.length === 0) return null;
 
                                         const displayKeys = Object.keys(rulesData[0]).filter(k => k !== rKeyName);
+                                        const showIndexCol = combinedRules.length > 1 || isStrategy;
 
                                         return (
                                             <div key={`rules-${targetGroupNum}`} className="mt-8 bg-orange-50 rounded-xl border border-orange-200 overflow-hidden">
@@ -590,9 +676,7 @@
                                                     <span className="font-bold text-orange-800 mr-3">符號圖例：</span>
                                                     <div className="inline-block md:inline-flex flex-wrap gap-4 mt-2 md:mt-0 items-center">
                                                         <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>○</span> 允許使用</span>
-                                                        <span className="flex items-center gap-1">
-                                                            <span className="text-lg font-bold text-blue-600 underline decoration-blue-300 underline-offset-4 leading-none -mt-1 cursor-pointer" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許 <span className="text-xs text-gray-400 font-normal ml-1">(可點擊查看條件)</span>
-                                                        </span>
+                                                        <span className="flex items-center gap-1"><span className="text-lg font-bold text-orange-600 leading-none -mt-1" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> <span className="underline decoration-dashed decoration-orange-400 underline-offset-4 cursor-pointer">附條件允許(可點擊)</span></span>
                                                         <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>※</span> 限於原有合法建築物</span>
                                                         <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>×</span> 不允許使用</span>
                                                     </div>
@@ -602,56 +686,34 @@
                                                     <table className="w-full text-sm text-center">
                                                         <thead className="bg-orange-200/50 text-orange-800">
                                                             <tr>
-                                                                {matchedRules.length > 1 && (
-                                                                    <th className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">項次</th>
-                                                                )}
-                                                                {displayKeys.map((k, i) => (
-                                                                    <th key={i} className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">{k}</th>
-                                                                ))}
+                                                                {showIndexCol && <th className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">項次</th>}
+                                                                {displayKeys.map((k, i) => <th key={i} className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">{k}</th>)}
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-orange-100 bg-white">
-                                                            {matchedRules.map((rule, idx) => (
-                                                                <tr key={idx} className="hover:bg-orange-50/50 transition-colors">
-                                                                    {matchedRules.length > 1 && (
-                                                                        <td className="px-2 py-4 font-bold text-orange-700 bg-orange-50/30 align-middle border-r border-orange-100">{idx + 1}</td>
-                                                                    )}
-                                                                    {displayKeys.map((k, i) => {
-                                                                        const rawText = rule[k] || '-';
-                                                                        const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
-
-                                                                        const renderFormattedText = () => {
-                                                                            return formattedText.split(/(○|△|※|×)/g).map((part, index) => {
-                                                                                if (part === '△') {
-                                                                                    return (
-                                                                                        <button 
-                                                                                            key={index} 
-                                                                                            onClick={() => handleConditionClick(k, targetGroupNum)}
-                                                                                            className="text-lg font-bold leading-none inline-block -translate-y-[1px] text-blue-600 hover:text-blue-800 hover:scale-125 transition-transform cursor-pointer relative group underline decoration-blue-300 decoration-2 underline-offset-4"
-                                                                                            title="點擊查看附帶條件"
-                                                                                        >
-                                                                                            {part}
-                                                                                        </button>
-                                                                                    );
-                                                                                }
-                                                                                if (['○', '※', '×'].includes(part)) {
-                                                                                    return <span key={index} className="text-base font-bold leading-none inline-block text-orange-700">{part}</span>;
-                                                                                }
-                                                                                return part;
-                                                                            });
-                                                                        };
-
-                                                                        return (
-                                                                            <td key={i} 
-                                                                                className="px-2 py-4 whitespace-pre-wrap text-gray-700 align-middle border-r border-orange-50 last:border-r-0 leading-relaxed"
-                                                                                style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}
-                                                                            >
-                                                                                {renderFormattedText()}
+                                                            {combinedRules.map((rule, idx) => {
+                                                                const currentGroup = String(rule[rKeyName]).trim() === '策略' ? '策略' : targetGroupNum;
+                                                                
+                                                                return (
+                                                                    <tr key={idx} className="hover:bg-orange-50/50 transition-colors">
+                                                                        {showIndexCol && (
+                                                                            <td className="px-2 py-4 font-bold text-orange-700 bg-orange-50/30 align-middle border-r border-orange-100">
+                                                                                {currentGroup === '策略' ? '策略' : idx + 1}
                                                                             </td>
-                                                                        );
-                                                                    })}
-                                                                </tr>
-                                                            ))}
+                                                                        )}
+                                                                        {displayKeys.map((k, i) => {
+                                                                            const rawText = rule[k] || '-';
+                                                                            const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
+
+                                                                            return (
+                                                                                <td key={i} className="px-2 py-4 whitespace-pre-wrap text-gray-700 align-middle border-r border-orange-50 last:border-r-0 leading-relaxed" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>
+                                                                                    {renderTextWithClick(formattedText, k, currentGroup, 'text-orange-600')}
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                    </tr>
+                                                                );
+                                                            })}
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -660,166 +722,208 @@
                                     });
                                 })()}
 
-                                {/* 下方關聯「策略型產業」專屬使用規定一覽表 */}
+                                {/* T5D4 (extra) 內湖科技園區規定一覽表 */}
                                 {(() => {
-                                    const strategyValue = selectedItem['策略型產業'];
+                                    const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
+                                    const landValue = landKey ? selectedItem[landKey] : null;
+                                    const targetGroupNums = extractGroupNumbers(landValue);
                                     
-                                    if (!strategyValue || String(strategyValue).trim() === '' || String(strategyValue).trim() === '-') {
-                                        return null;
-                                    }
-                                    if (rulesData.length === 0) return null;
-
-                                    const rKeyName = Object.keys(rulesData[0])[0];
-                                    const matchedRules = rulesData.filter(r => String(r[rKeyName]).trim() === '策略');
+                                    if (targetGroupNums.length === 0 || extraData.length === 0) return null;
                                     
-                                    if (matchedRules.length === 0) return null;
+                                    return targetGroupNums.map(targetGroupNum => {
+                                        const rKeyName = Object.keys(extraData[0])[0];
+                                        const matchedRules = extraData.filter(r => String(r[rKeyName]) === String(targetGroupNum));
+                                        
+                                        const strategyValue = selectedItem['策略性產業'];
+                                        const isStrategy = strategyValue && String(strategyValue).trim() !== '' && String(strategyValue).trim() !== '-';
+                                        
+                                        if (matchedRules.length === 0 && !isStrategy) return null;
 
-                                    const displayKeys = Object.keys(rulesData[0]).filter(k => k !== rKeyName);
+                                        let strategyRules = [];
+                                        if (isStrategy) {
+                                            strategyRules = extraData.filter(r => String(r[rKeyName]).trim() === '策略');
+                                        }
 
-                                    return (
-                                        <div className="mt-8 bg-orange-50 rounded-xl border border-orange-300 overflow-hidden shadow-sm relative">
-                                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-500"></div>
-                                            
-                                            <div className="px-6 py-4 bg-orange-200/70 font-bold text-orange-900 flex justify-between items-center border-b border-orange-200">
-                                                <span>使用規定一覽表 ({strategyValue})</span>
-                                            </div>
-                                            
-                                            <div className="px-6 py-3 bg-white border-b border-orange-100 text-sm text-gray-700">
-                                                <span className="font-bold text-orange-800 mr-3">符號圖例：</span>
-                                                <div className="inline-block md:inline-flex flex-wrap gap-4 mt-2 md:mt-0 items-center">
-                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>○</span> 允許使用</span>
-                                                    <span className="flex items-center gap-1">
-                                                        <span className="text-lg font-bold text-blue-600 underline decoration-blue-300 underline-offset-4 leading-none -mt-1 cursor-pointer" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> 附條件允許 <span className="text-xs text-gray-400 font-normal ml-1">(可點擊查看條件)</span>
-                                                    </span>
-                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>※</span> 限於原有合法建築物</span>
-                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>×</span> 不允許使用</span>
+                                        const otherRules = extraData.filter(r => String(r[rKeyName]).trim() === '其他');
+                                        const combinedRules = [...matchedRules, ...strategyRules, ...otherRules];
+
+                                        if (combinedRules.length === 0) return null;
+
+                                        const displayKeys = Object.keys(extraData[0]).filter(k => k !== rKeyName);
+
+                                        return (
+                                            <div key={`extra-${targetGroupNum}`} className="mt-8 bg-teal-50 rounded-xl border border-teal-200 overflow-hidden">
+                                                <div className="px-6 py-4 bg-teal-100/60 font-bold text-teal-800 flex justify-between items-center">
+                                                    <span>內湖科技園區規定一覽表 (第 {targetGroupNum} 組)</span>
+                                                </div>
+                                                
+                                                <div className="px-6 py-4 bg-white border-b border-teal-100 text-sm text-gray-700">
+                                                    <span className="font-bold text-teal-800 mr-3 block mb-2 md:inline-block md:mb-0">符號圖例：</span>
+                                                    <div className="flex flex-col md:flex-row flex-wrap gap-y-2 gap-x-6 items-start md:items-center">
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-teal-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>○</span> 允許使用</span>
+                                                        <span className="flex items-center gap-1"><span className="text-lg font-bold text-teal-600 leading-none -mt-1" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>△</span> <span className="underline decoration-dashed decoration-teal-400 underline-offset-4 cursor-pointer">附條件允許(可點擊)</span></span>
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-teal-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>□</span> <span className="underline decoration-dashed decoration-teal-400 underline-offset-4 cursor-pointer">內科附條件(可點擊)</span></span>
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-teal-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>＃</span> 次核心產業，須依回饋規定繳納回饋金後始可使用</span>
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-teal-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>×</span> 不允許使用</span>
+                                                        <span className="flex items-center gap-1"><span className="text-base font-bold text-teal-600 leading-none" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>（空白）</span> 不允許使用或不適用</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="overflow-x-auto custom-scrollbar">
+                                                    <table className="w-full text-sm text-center">
+                                                        <thead className="bg-teal-200/50 text-teal-800">
+                                                            <tr>
+                                                                {combinedRules.length > 1 && <th className="px-2 py-5 border-b border-teal-200 align-middle min-w-[60px] whitespace-nowrap">類別</th>}
+                                                                {displayKeys.map((k, i) => <th key={i} className="px-2 py-5 border-b border-teal-200 align-middle min-w-[50px]">{k}</th>)}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-teal-100 bg-white">
+                                                            {combinedRules.map((rule, idx) => {
+                                                                const currentGroup = rule[rKeyName];
+                                                                
+                                                                return (
+                                                                    <tr key={idx} className="hover:bg-teal-50/50 transition-colors">
+                                                                        {combinedRules.length > 1 && (
+                                                                            <td className="px-2 py-4 font-bold text-teal-700 bg-teal-50/30 align-middle border-r border-teal-100 whitespace-nowrap">
+                                                                                {currentGroup}
+                                                                            </td>
+                                                                        )}
+                                                                        {displayKeys.map((k, i) => {
+                                                                            const rawText = rule[k] || '';
+                                                                            const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
+
+                                                                            return (
+                                                                                <td key={i} className="px-2 py-4 whitespace-pre-wrap text-gray-700 align-middle border-r border-teal-50 last:border-r-0 leading-relaxed" style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}>
+                                                                                    {renderTextWithClick(formattedText, "工三", currentGroup, 'text-teal-600')}
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
                                             </div>
-
-                                            <div className="overflow-x-auto custom-scrollbar">
-                                                <table className="w-full text-sm text-center">
-                                                    <thead className="bg-orange-100/50 text-orange-800">
-                                                        <tr>
-                                                            {matchedRules.length > 1 && (
-                                                                <th className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">項次</th>
-                                                            )}
-                                                            {displayKeys.map((k, i) => (
-                                                                <th key={i} className="px-2 py-5 border-b border-orange-200 align-middle min-w-[50px]">{k}</th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-orange-100 bg-white">
-                                                        {matchedRules.map((rule, idx) => (
-                                                            <tr key={idx} className="hover:bg-orange-50/50 transition-colors">
-                                                                {matchedRules.length > 1 && (
-                                                                    <td className="px-2 py-4 font-bold text-orange-700 bg-orange-50/30 align-middle border-r border-orange-100">{idx + 1}</td>
-                                                                )}
-                                                                {displayKeys.map((k, i) => {
-                                                                    const rawText = rule[k] || '-';
-                                                                    const formattedText = String(rawText).replace(/;/g, ';\n').replace(/；/g, '；\n');
-
-                                                                    const renderFormattedText = () => {
-                                                                        return formattedText.split(/(○|△|※|×)/g).map((part, index) => {
-                                                                            if (part === '△') {
-                                                                                return (
-                                                                                    <button 
-                                                                                        key={index} 
-                                                                                        onClick={() => handleConditionClick(k, '策略')}
-                                                                                        className="text-lg font-bold leading-none inline-block -translate-y-[1px] text-blue-600 hover:text-blue-800 hover:scale-125 transition-transform cursor-pointer relative group underline decoration-blue-300 decoration-2 underline-offset-4"
-                                                                                        title="點擊查看附帶條件"
-                                                                                    >
-                                                                                        {part}
-                                                                                    </button>
-                                                                                );
-                                                                            }
-                                                                            if (['○', '※', '×'].includes(part)) {
-                                                                                return <span key={index} className="text-base font-bold leading-none inline-block text-orange-700">{part}</span>;
-                                                                            }
-                                                                            return part;
-                                                                        });
-                                                                    };
-
-                                                                    return (
-                                                                        <td key={i} 
-                                                                            className="px-2 py-4 whitespace-pre-wrap text-gray-700 align-middle border-r border-orange-50 last:border-r-0 leading-relaxed"
-                                                                            style={{ fontFamily: "'Microsoft JhengHei', 'PingFang TC', sans-serif" }}
-                                                                        >
-                                                                            {renderFormattedText()}
-                                                                        </td>
-                                                                    );
-                                                                })}
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    );
+                                        );
+                                    });
                                 })()}
                             </div>
                         </div>
                     )}
 
-                    {/* 彈出視窗 Modal */}
-                    {isModalOpen && modalData && (
+                    {/* 條件查詢結果彈出視窗 (Modal) */}
+                    {isModalOpen && modalContent && (
                         <div 
-                            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+                            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm transition-opacity" 
                             onClick={() => setIsModalOpen(false)}
                         >
                             <div 
-                                className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden transform transition-all"
-                                onClick={(e) => e.stopPropagation()}
+                                className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col animate-modal overflow-hidden" 
+                                onClick={e => e.stopPropagation()}
                             >
-                                <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center shrink-0">
-                                    <h3 className="font-bold text-lg flex items-center gap-2">
-                                        <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                        【{modalData.zone}】 - 第 {modalData.group} 組 附帶條件
-                                    </h3>
+                                {/* Modal 標題列 (根據 type 變色) */}
+                                <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/80">
+                                    <div className="flex items-center gap-3">
+                                        <div className={modalContent.type === 'neihu' ? "bg-teal-100 text-teal-600 p-2 rounded-lg" : "bg-blue-100 text-blue-600 p-2 rounded-lg"}>
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-800 leading-none">{modalContent.title}</h3>
+                                            <div className="text-sm font-medium text-gray-500 mt-1">
+                                                <span className={modalContent.type === 'neihu' ? "text-teal-600" : "text-blue-600"}>分區：</span>{modalContent.zone} 
+                                                <span className="mx-2">|</span> 
+                                                <span className={modalContent.type === 'neihu' ? "text-teal-600" : "text-blue-600"}>組別：</span>{modalContent.group}
+                                            </div>
+                                        </div>
+                                    </div>
                                     <button 
                                         onClick={() => setIsModalOpen(false)} 
-                                        className="text-white/70 hover:text-white hover:bg-blue-700 p-1 rounded-lg transition-colors"
+                                        className="text-gray-400 hover:text-gray-700 bg-white hover:bg-gray-200 border border-gray-200 focus:outline-none p-2 rounded-full transition-colors shadow-sm"
                                     >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                     </button>
                                 </div>
-                                
-                                <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50/50">
-                                    {modalData.error ? (
-                                        <div className="text-center py-10 bg-red-50 rounded-xl border border-red-100">
-                                            <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                            <p className="text-red-600 font-bold text-lg mb-2">無法讀取資料</p>
-                                            <p className="text-red-500/80 text-sm">{modalData.error}</p>
-                                        </div>
-                                    ) : modalData.details && modalData.details.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {modalData.details.map((detail, idx) => (
-                                                <div key={idx} className="bg-white p-5 rounded-xl border border-blue-100 shadow-sm">
-                                                    {Object.entries(detail).map(([key, val], i) => (
-                                                        <div key={i} className="mb-4 last:mb-0">
-                                                            <div className="text-xs font-bold text-blue-500 mb-1 tracking-wider uppercase">{key}</div>
-                                                            <div className="text-gray-800 whitespace-pre-wrap leading-relaxed bg-blue-50/30 p-3 rounded-lg border border-blue-50/50">
-                                                                {val}
+
+                                {/* Modal 內容區 */}
+                                <div className="p-6 overflow-y-auto custom-scrollbar bg-white">
+                                    {modalContent.details.length > 0 ? (
+                                        modalContent.type === 'neihu' ? (
+                                            /* T5D6 內湖專屬排版 */
+                                            <div className="space-y-6">
+                                                {modalContent.details.map((detail, idx) => (
+                                                    <div key={idx} className="bg-teal-50/40 border border-teal-100 rounded-xl overflow-hidden shadow-sm">
+                                                        <div className="px-5 py-3 bg-teal-100/50 font-bold text-teal-800 border-b border-teal-100 flex items-center gap-2">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                                                            {detail[modalContent.keys[0]]}
+                                                        </div>
+                                                        
+                                                        {modalContent.keys.slice(1).map((k, i) => {
+                                                            if (!detail[k] || String(detail[k]).trim() === '') return null;
+                                                            return (
+                                                                <div key={i} className="px-5 py-4 border-b border-teal-50/80 bg-white last:border-b-0">
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+                                                                        <div className="text-sm font-bold text-teal-700">{k}</div>
+                                                                    </div>
+                                                                    <div className="text-base text-gray-800 font-medium whitespace-pre-wrap pl-4 leading-relaxed">
+                                                                        {detail[k]}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            /* 原本 T5D5 附條件排版 */
+                                            <div className="space-y-6">
+                                                {modalContent.details.map((detail, idx) => (
+                                                    <div key={idx} className="bg-blue-50/40 border border-blue-100 rounded-xl overflow-hidden shadow-sm">
+                                                        <div className="px-5 py-4 border-b border-blue-50/80 bg-white">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                                <div className="text-sm font-bold text-blue-700">{modalContent.keys.c}</div>
+                                                            </div>
+                                                            <div className="text-base text-gray-800 font-medium whitespace-pre-wrap pl-4 leading-relaxed">
+                                                                {detail[modalContent.keys.c] || '-'}
                                                             </div>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ))}
-                                        </div>
+                                                        <div className="px-5 py-4 bg-white border-b border-orange-50/50">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                                                                <div className="text-sm font-bold text-orange-700">{modalContent.keys.d}</div>
+                                                            </div>
+                                                            <div className="text-base text-gray-800 whitespace-pre-wrap pl-4 leading-relaxed">
+                                                                {detail[modalContent.keys.d] || '-'}
+                                                            </div>
+                                                        </div>
+                                                        {detail[modalContent.keys.e] && String(detail[modalContent.keys.e]).trim() !== '' && (
+                                                            <div className="px-5 py-4 bg-gray-50/80">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                                                                    <div className="text-sm font-bold text-gray-600">{modalContent.keys.e}</div>
+                                                                </div>
+                                                                <div className="text-sm text-gray-600 whitespace-pre-wrap pl-4 leading-relaxed">
+                                                                    {detail[modalContent.keys.e]}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )
                                     ) : (
-                                        <div className="text-center py-12 flex flex-col items-center">
-                                            <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                            <p className="text-gray-500 font-medium">目前查無「{modalData.zone}」與「第 {modalData.group} 組」的附帶條件資料。</p>
+                                        <div className="text-center py-16 flex flex-col items-center">
+                                            <div className="bg-gray-100 p-4 rounded-full mb-4">
+                                                <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <p className="text-gray-600 font-medium text-lg">目前沒有找到對應的特殊條件說明</p>
+                                            <p className="text-gray-400 text-sm mt-2">無法在條件庫中匹配到相關記錄</p>
                                         </div>
                                     )}
-                                </div>
-                                
-                                <div className="px-6 py-4 bg-white border-t border-gray-100 shrink-0 flex justify-end">
-                                    <button 
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-sm"
-                                    >
-                                        關閉說明
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -831,10 +935,5 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
-
-    <style>
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-    </style>
 </body>
 </html>

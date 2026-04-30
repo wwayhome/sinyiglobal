@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Map 定位點測試工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 設定地圖容器的高度 */
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="bg-white rounded-lg shadow p-6 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Google Map 定位點測試</h1>
+            <p class="text-gray-600">這是一個簡單的範例，展示如何在 Google 地圖上放置自訂定位點（標記）。</p>
+        </header>
+
+        <!-- 地圖將會渲染在這個 div 裡面 -->
+        <div id="map" class="bg-gray-200 flex items-center justify-center">
+            <p class="text-gray-500">正在載入地圖...</p>
+        </div>
+        
+        <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <strong>開發者注意：</strong> 請在原始碼最下方的 <code>&lt;script&gt;</code> 標籤中，將 <code>YOUR_API_KEY</code> 替換為您實際申請到的 API 金鑰，地圖才會正常顯示。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Maps API 邏輯 -->
+    <script>
+        // 初始化地圖的函數
+        function initMap() {
+            // 設定中心點座標 (此處以台北 101 為例)
+            const centerLocation = { lat: 25.033964, lng: 121.564468 };
+
+            // 建立地圖實例
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15, // 縮放級別
+                center: centerLocation, // 中心點
+                mapTypeId: "roadmap", // 地圖類型
+            });
+
+            // 在地圖上加上標記 (定位點)
+            const marker = new google.maps.Marker({
+                position: centerLocation,
+                map: map,
+                title: "台北 101", // 滑鼠移上去顯示的文字
+                animation: google.maps.Animation.DROP // 標記掉落動畫
+            });
+
+            // 也可以加入資訊視窗 (點擊標記時跳出)
+            const infoWindow = new google.maps.InfoWindow({
+                content: "<h3 class='font-bold'>台北 101</h3><p>這是一個測試定位點！</p>"
+            });
+
+            marker.addListener("click", () => {
+                infoWindow.open(map, marker);
+            });
+        }
+    </script>
+
+    <!-- 
+        載入 Google Maps JavaScript API
+        請將下方的 YOUR_API_KEY 替換為您申請到的金鑰。
+        callback=initMap 表示載入完成後執行 initMap 函數。
+    -->
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByzE68feI7fc5WVNw2d_UDpyn3O09J-1o">
+    </script>
+</body>
+</html>

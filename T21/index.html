@@ -46,6 +46,22 @@
 
     <!-- Google Maps API 邏輯 -->
     <script>
+        // 捕捉 API 金鑰驗證錯誤 (例如 Referer 限制問題)
+        window.gm_authFailure = function() {
+            const mapDiv = document.getElementById("map");
+            mapDiv.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full p-6 text-center">
+                    <svg class="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="text-red-600 font-bold mb-2">地圖載入失敗：RefererNotAllowedMapError</p>
+                    <p class="text-gray-600 text-sm max-w-md">
+                        您的 API 金鑰設定了「HTTP 參照網址」限制。<br>
+                        請前往 Google Cloud Console，將目前的測試網域加入允許清單：<br>
+                        <code class="bg-red-50 text-red-600 px-2 py-1 rounded mt-3 inline-block font-mono text-xs select-all">https://*.scf.usercontent.goog/*</code>
+                    </p>
+                </div>
+            `;
+        };
+
         // 初始化地圖的函數
         function initMap() {
             // 設定中心點座標 (此處以台北 101 為例)

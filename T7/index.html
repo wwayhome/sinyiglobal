@@ -102,11 +102,11 @@
     </style>
 </head>
 
-<!-- Body 設定外部背景色 (超過限制時會露出這個底色) -->
-<body class="font-sans text-slate-800 overflow-x-hidden min-h-screen" style="background-color: #94a3b8; margin: 0;">
+<!-- Body 設定外部背景色。移除 margin 以防干擾置中 -->
+<body class="font-sans text-slate-800 bg-slate-400 overflow-x-hidden min-h-screen m-0 p-0">
 
-    <!-- 專屬的主容器，直接用 style="max-width: 2048px" 強制鎖定，保證絕對生效 -->
-    <div class="mx-auto min-h-screen flex flex-col shadow-2xl relative overflow-hidden" style="width: 100%; max-width: 2048px; background-color: #f8fafc;">
+    <!-- 專屬的主容器：強制寬度 100% 且最大不超過 1600px，利用 mx-auto 達成置中效果 -->
+    <div class="mx-auto min-h-screen flex flex-col shadow-2xl relative overflow-hidden bg-slate-50 w-full" style="max-width: 1600px;">
         
         <!-- 頂部導覽列 (固定在上方) -->
         <header class="bg-white shadow-md px-6 py-4 flex justify-between items-center sticky top-0 z-[2000] w-full">

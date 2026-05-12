@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地 PDF 調整工具</title>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-5YQY4RT9H2');
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.js"></script>
+
+    <style>
+        body { background-color: #f3f4f6; }
+        .page-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+        .page-card:hover {
+            transform: translateY(-6px) scale(1.045);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18), 0 18px 28px -10px rgba(37, 99, 235, 0.35);
+            z-index: 25;
+        }
+        .page-card.is-selected:hover {
+            transform: translateY(-6px) scale(1.055);
+            box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.28), 0 20px 32px -10px rgba(37, 99, 235, 0.45);
+        }
+        .page-card.is-dragging:hover {
+            transform: scale(0.95);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const { useState, useRef } = React;
+        const { PDFDocument, degrees } = PDFLib;
+
+        const makeId = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+        const toUint8ArrayCopy = (input) => {
+            if (input instanceof Uint8Array) return new Uint8Array(input);
+            if (input instanceof ArrayBuffer) return new Uint8Array(input.slice(0));
+            if (ArrayBuffer.isView(input)) {
+                return new Uint8Array(input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength));
+            }
+            throw new Error('無法複製 PDF 二進位資料。');
+        };
+
+        const toArrayBufferCopy = (input) => {
+            const bytes = toUint8ArrayCopy(input);
+            return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        };
+
+        const normalizeRotation = (angle) => {
+            const value = Number(angle);
+            const safeAngle = Number.isFinite(value) ? value : 0;
+            return ((safeAngle % 360) + 360) % 360;
+        };
+
+        const validateRange = (startValue, endValue, totalPages) => {
+            const start = parseInt(startValue, 10);
+            const end = parseInt(endValue, 10);
+
+            if (Number.isNaN(start) || Number.isNaN(end)) {
+                return { ok: false, message: '請輸入起始頁與結束頁。' };
+            }
+            if (totalPages <= 0) {
+                return { ok: false, message: '目前沒有可處理的頁面。' };
+            }
+            if (start < 1 || end > totalPages || start > end) {
+                return { ok: false, message: `請輸入有效的頁碼範圍：1 到 ${totalPages}，且起始頁不能大於結束頁。` };
+            }
+            return { ok: true, start, end };
+        };
+
+        const movePagesToTarget = (allPages, dragIds, targetPageId, position) => {
+            if (!Array.isArray(allPages) || !Array.isArray(dragIds) || dragIds.length === 0) return allPages;
+            if (dragIds.includes(targetPageId)) return allPages;
+
+            const dragIdSet = new Set(dragIds);
+            const draggedPages = allPages.filter(page => dragIdSet.has(page.id));
+            const remainingPages = allPages.filter(page => !dragIdSet.has(page.id));
+            const targetIndexInRemaining = remainingPages.findIndex(page => page.id === targetPageId);
+
+            if (draggedPages.length === 0 || targetIndexInRemaining === -1) return allPages;
+
+            let insertIndex = targetIndexInRemaining;
+            if (position === 'right') insertIndex += 1;
+
+            const result = [...remainingPages];
+            result.splice(insertIndex, 0, ...draggedPages);
+            return result;
+        };
+
+        const validateExportPage = (pageState, filesMap, exportIndex) => {
+            const pageNumberForMessage = exportIndex + 1;
+
+            if (!pageState || typeof pageState !== 'object') {
+                return { ok: false, message: `第 ${pageNumberForMessage} 個匯出項目不是有效頁面。` };
+            }
+            if (!pageState.id) {
+                return { ok: false, message: `第 ${pageNumberForMessage} 頁缺少頁面識別碼。` };
+            }
+            if (!pageState.fileId) {
+                return { ok: false, message: `第 ${pageNumberForMessage} 頁缺少來源檔識別碼。` };
+            }
+            if (!filesMap || !filesMap[pageState.fileId]) {
+                return { ok: false, message: `第 ${pageNumberForMessage} 頁找不到來源 PDF。請重新載入檔案後再匯出。` };
+            }
+            if (!(filesMap[pageState.fileId].bytes instanceof Uint8Array)) {
+                return { ok: false, message: `第 ${pageNumberForMessage} 頁的來源 PDF 二進位資料格式不正確。` };
+            }
+            if (!Number.isInteger(pageState.originalPageNum) || pageState.originalPageNum < 0) {
+                return { ok: false, message: `第 ${pageNumberForMessage} 頁的來源頁碼不正確。` };
+            }
+            if (Number.isInteger(pageState.sourcePageCount) && pageState.originalPageNum >= pageState.sourcePageCount) {
+                return { ok: false, message: `第 ${pageNumberForMessage} 頁超出來源 PDF 頁數。` };
+            }
+
+            return { ok: true };
+        };
+
+        const assertExportPagesAreValid = (pagesToExport, filesMap) => {
+            if (!Array.isArray(pagesToExport) || pagesToExport.length === 0) {
+                throw new Error('沒有可以匯出的頁面。');
+            }
+
+            pagesToExport.forEach((pageState, index) => {
+                const result = validateExportPage(pageState, filesMap, index);
+                if (!result.ok) throw new Error(result.message);
+            });
+        };
+
+        const getReadableError = (error) => {
+            if (!error) return '未知錯誤。';
+            if (typeof error === 'string') return error;
+            if (error.message) return error.message;
+            try { return JSON.stringify(error); } catch (_) { return String(error); }
+        };
+
+        function App() {
+            const [pages, setPages] = useState([]);
+            const [sourceFiles, setSourceFiles] = useState({});
+            const [isLoading, setIsLoading] = useState(false);
+            const [extractStart, setExtractStart] = useState('');
+            const [extractEnd, setExtractEnd] = useState('');
+            const [exportMode, setExportMode] = useState('all');
+            const [draggedPageId, setDraggedPageId] = useState(null);
+            const [dropIndicator, setDropIndicator] = useState(null);
+            const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+            const [selectedPageIds, setSelectedPageIds] = useState([]);
+            const [lastSelectedPageId, setLastSelectedPageId] = useState(null);
+            const [selectionRangeStart, setSelectionRangeStart] = useState('');
+            const [selectionRangeEnd, setSelectionRangeEnd] = useState('');
+            const [lastError, setLastError] = useState('');
+            const [dialog, setDialog] = useState(null); // 新增：控制自訂對話框的狀態
+            const fileInputRef = useRef(null);
+
+            const handleFileUpload = async (event) => {
+                const files = Array.from(event.target.files || []);
+                if (files.length === 0) return;
+
+                setIsLoading(true);
+                setLastError('');
+
+                try {
+                    const nextSourceFiles = {};
+                    const nextPages = [];
+
+                    for (const file of files) {
+                        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                            throw new Error(`「${file.name}」不是 PDF 檔案。`);
+                        }
+
+                        const fileId = makeId();
+                        const rawBuffer = await file.arrayBuffer();
+                        const previewData = toUint8ArrayCopy(rawBuffer);
+                        const exportBytes = toUint8ArrayCopy(rawBuffer);
+
+                        nextSourceFiles[fileId] = {
+                            bytes: exportBytes,
+                            name: file.name,
+                            size: file.size,
+                            type: file.type || 'application/pdf'
+                        };
+
+                        let pdf;
+                        try {
+                            const loadingTask = pdfjsLib.getDocument({ data: previewData });
+                            pdf = await loadingTask.promise;
+                        } catch (loadError) {
+                            if (loadError.name === 'PasswordException') {
+                                throw new Error(`「${file.name}」受到密碼保護，本工具目前不支援處理加密檔案，請解密後再試。`);
+                            }
+                            throw loadError;
+                        }
+
+                        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                            const page = await pdf.getPage(pageNum);
+                            const scale = 0.5;
+                            const viewport = page.getViewport({ scale });
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+
+                            if (!context) throw new Error('瀏覽器無法建立 Canvas 預覽。');
+
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+
+                            await page.render({ canvasContext: context, viewport }).promise;
+
+                            // 改用 Object URL 降低記憶體，避免 Base64 字串造成的 Memory 暴增
+                            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                            const objectUrl = URL.createObjectURL(blob);
+
+                            nextPages.push({
+                                id: makeId(),
+                                fileId,
+                                originalPageNum: pageNum - 1,
+                                sourcePageCount: pdf.numPages,
+                                rotation: 0,
+                                thumbnail: objectUrl,
+                                filename: file.name
+                            });
+                        }
+                    }
+
+                    setSourceFiles(prev => ({ ...prev, ...nextSourceFiles }));
+                    setPages(prev => [...prev, ...nextPages]);
+                } catch (error) {
+                    console.error('載入 PDF 發生錯誤:', error);
+                    const message = getReadableError(error) || '載入 PDF 失敗，請確認檔案格式是否正確。';
+                    setLastError(message);
+                    setDialog({ type: 'alert', message }); // 替換 alert
+                } finally {
+                    setIsLoading(false);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                }
+            };
+
+            const deletePage = (id) => {
+                withViewTransition(() => {
+                    setPages(prev => {
+                        const pageToDelete = prev.find(p => p.id === id);
+                        // 釋放縮圖的 Blob 記憶體
+                        if (pageToDelete && pageToDelete.thumbnail) {
+                            URL.revokeObjectURL(pageToDelete.thumbnail);
+                        }
+                        
+                        const newPages = prev.filter(p => p.id !== id);
+                        
+                        // 同步清理 sourceFiles 以避免 Memory Leak
+                        if (pageToDelete) {
+                            const fileId = pageToDelete.fileId;
+                            const isFileIdStillUsed = newPages.some(p => p.fileId === fileId);
+                            if (!isFileIdStillUsed) {
+                                setSourceFiles(currentFiles => {
+                                    const updatedFiles = { ...currentFiles };
+                                    delete updatedFiles[fileId];
+                                    return updatedFiles;
+                                });
+                            }
+                        }
+                        return newPages;
+                    });
+                    setSelectedPageIds(prev => prev.filter(pageId => pageId !== id));
+                });
+            };
+
+            const toggleMultiSelectMode = () => {
+                setIsMultiSelectMode(prev => !prev);
+                setSelectedPageIds([]);
+                setLastSelectedPageId(null);
+                setSelectionRangeStart('');
+                setSelectionRangeEnd('');
+            };
+
+            const togglePageSelection = (id, event) => {
+                if (!isMultiSelectMode) return;
+
+                const isShiftPressed = Boolean(event?.shiftKey || event?.nativeEvent?.shiftKey);
+
+                if (isShiftPressed && lastSelectedPageId !== null) {
+                    const lastIndex = pages.findIndex(p => p.id === lastSelectedPageId);
+                    const currentIndex = pages.findIndex(p => p.id === id);
+
+                    if (lastIndex !== -1 && currentIndex !== -1) {
+                        const start = Math.min(lastIndex, currentIndex);
+                        const end = Math.max(lastIndex, currentIndex);
+                        const rangeIds = pages.slice(start, end + 1).map(page => page.id);
+                        setSelectedPageIds(prev => Array.from(new Set([...prev, ...rangeIds])));
+                        setLastSelectedPageId(id);
+                        return;
+                    }
+                }
+
+                setSelectedPageIds(prev => prev.includes(id) ? prev.filter(pageId => pageId !== id) : [...prev, id]);
+                setLastSelectedPageId(id);
+            };
+
+            const selectAllPages = () => {
+                setSelectedPageIds(pages.map(page => page.id));
+                setLastSelectedPageId(pages.length > 0 ? pages[pages.length - 1].id : null);
+            };
+
+            const clearPageSelection = () => {
+                setSelectedPageIds([]);
+                setLastSelectedPageId(null);
+                setSelectionRangeStart('');
+                setSelectionRangeEnd('');
+            };
+
+            const addRangeSelection = () => {
+                const result = validateRange(selectionRangeStart, selectionRangeEnd, pages.length);
+                if (!result.ok) return setDialog({ type: 'alert', message: result.message }); // 替換 alert
+
+                const rangeIds = pages.slice(result.start - 1, result.end).map(page => page.id);
+                setSelectedPageIds(prev => Array.from(new Set([...prev, ...rangeIds])));
+                setLastSelectedPageId(rangeIds[rangeIds.length - 1] || null);
+            };
+
+            const rotatePage = (id) => {
+                setPages(prev => prev.map(p => p.id === id ? { ...p, rotation: normalizeRotation(p.rotation + 90) } : p));
+            };
+
+            // 建立過渡動畫的共用 Helper 函式
+            const withViewTransition = (callback) => {
+                // 若瀏覽器支援 View Transitions API，則啟用平滑排版動畫
+                if (document.startViewTransition && typeof ReactDOM !== 'undefined' && ReactDOM.flushSync) {
+                    document.startViewTransition(() => {
+                        ReactDOM.flushSync(callback);
+                    });
+                } else {
+                    // 不支援的舊版瀏覽器則優雅降級，直接執行狀態更新
+                    callback();
+                }
+            };
+
+            const movePage = (index, direction) => {
+                withViewTransition(() => {
+                    setPages(prev => {
+                        if ((direction === -1 && index === 0) || (direction === 1 && index === prev.length - 1)) return prev;
+                        const newPages = [...prev];
+                        const temp = newPages[index];
+                        newPages[index] = newPages[index + direction];
+                        newPages[index + direction] = temp;
+                        return newPages;
+                    });
+                });
+            };
+
+            const handleDragStart = (e, pageId) => {
+                const draggingSelectedGroup = isMultiSelectMode && selectedPageIds.includes(pageId) && selectedPageIds.length > 0;
+                const dragIds = draggingSelectedGroup ? selectedPageIds : [pageId];
+
+                setDraggedPageId(pageId);
+                e.dataTransfer.setData('application/json', JSON.stringify({ dragIds }));
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragEnter = (e) => e.preventDefault();
+
+            const handleDragOver = (e, targetPageId) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+
+                const draggingSelectedGroup = isMultiSelectMode && draggedPageId && selectedPageIds.includes(draggedPageId) && selectedPageIds.length > 0;
+
+                if (draggedPageId === targetPageId || (draggingSelectedGroup && selectedPageIds.includes(targetPageId))) {
+                    setDropIndicator(null);
+                    return;
+                }
+
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const position = x < rect.width / 2 ? 'left' : 'right';
+
+                setDropIndicator(prev => {
+                    if (prev?.targetPageId === targetPageId && prev?.position === position) return prev;
+                    return { targetPageId, position };
+                });
+            };
+
+            const getDropLineClass = (pageId, position) => {
+                if (dropIndicator?.targetPageId !== pageId || dropIndicator?.position !== position) return 'hidden';
+                return 'block';
+            };
+
+            const handleDrop = (e, targetPageId) => {
+                e.preventDefault();
+                if (!draggedPageId || !dropIndicator) {
+                    setDropIndicator(null);
+                    setDraggedPageId(null);
+                    return;
+                }
+
+                const draggingSelectedGroup = isMultiSelectMode && selectedPageIds.includes(draggedPageId) && selectedPageIds.length > 0;
+                const dragIds = draggingSelectedGroup ? selectedPageIds : [draggedPageId];
+                
+                withViewTransition(() => {
+                    const newPages = movePagesToTarget(pages, dragIds, targetPageId, dropIndicator.position);
+                    setPages(newPages);
+                    setDraggedPageId(null);
+                    setDropIndicator(null);
+                });
+            };
+
+            const handleDragEnd = () => {
+                setDraggedPageId(null);
+                setDropIndicator(null);
+            };
+
+            const buildMergedPdf = async (pagesToExport) => {
+                assertExportPagesAreValid(pagesToExport, sourceFiles);
+
+                let mergedPdf;
+                try {
+                    mergedPdf = await PDFDocument.create();
+                } catch (createError) {
+                    throw new Error(`建立新 PDF 文件失敗：${getReadableError(createError)}`);
+                }
+
+                const parsedDocs = {};
+
+                for (let i = 0; i < pagesToExport.length; i++) {
+                    const pageState = pagesToExport[i];
+                    const { fileId, originalPageNum, rotation, filename } = pageState;
+
+                    try {
+                        if (!parsedDocs[fileId]) {
+                            const sourceRecord = sourceFiles[fileId];
+                            const sourceBytes = toUint8ArrayCopy(sourceRecord.bytes);
+                            parsedDocs[fileId] = await PDFDocument.load(sourceBytes, {
+                                ignoreEncryption: true,
+                                updateMetadata: false
+                            });
+                        }
+
+                        const sourcePdf = parsedDocs[fileId];
+                        const sourcePageCount = sourcePdf.getPageCount();
+
+                        if (originalPageNum < 0 || originalPageNum >= sourcePageCount) {
+                            throw new Error(`來源檔「${filename || fileId}」沒有第 ${originalPageNum + 1} 頁。`);
+                        }
+
+                        const [copiedPage] = await mergedPdf.copyPages(sourcePdf, [originalPageNum]);
+                        const currentRotation = copiedPage.getRotation().angle || 0;
+                        copiedPage.setRotation(degrees(normalizeRotation(currentRotation + rotation)));
+                        mergedPdf.addPage(copiedPage);
+                    } catch (pageError) {
+                        console.error('單頁匯出失敗:', { exportIndex: i, pageState, pageError });
+                        throw new Error(`匯出第 ${i + 1} 頁時失敗：${getReadableError(pageError)}`);
+                    }
+                }
+
+                return mergedPdf;
+            };
+
+            const downloadBytes = (bytes, filename) => {
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            };
+
+            const processAndDownloadPDF = async (pagesToExport, filenamePrefix) => {
+                setIsLoading(true);
+                setLastError('');
+
+                try {
+                    const mergedPdf = await buildMergedPdf(pagesToExport);
+                    let pdfBytes;
+
+                    try {
+                        pdfBytes = await mergedPdf.save({
+                            useObjectStreams: false,
+                            addDefaultPage: false
+                        });
+                    } catch (saveError) {
+                        throw new Error(`儲存合併後 PDF 失敗：${getReadableError(saveError)}`);
+                    }
+
+                    if (!pdfBytes || pdfBytes.length === 0) {
+                        throw new Error('產生的 PDF 是空檔案。');
+                    }
+
+                    downloadBytes(pdfBytes, `${filenamePrefix}_${new Date().getTime()}.pdf`);
+                } catch (error) {
+                    console.error('匯出發生錯誤:', error);
+                    const message = getReadableError(error) || '匯出 PDF 時發生錯誤。';
+                    setLastError(message);
+                    setDialog({ type: 'alert', message }); // 替換 alert
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleExport = () => {
+                if (pages.length === 0) return setDialog({ type: 'alert', message: '沒有可以匯出的頁面！' }); // 替換 alert
+
+                if (exportMode === 'all') {
+                    processAndDownloadPDF(pages, 'exported');
+                    return;
+                }
+
+                const result = validateRange(extractStart, extractEnd, pages.length);
+                if (!result.ok) return setDialog({ type: 'alert', message: result.message }); // 替換 alert
+
+                const subset = pages.slice(result.start - 1, result.end);
+                processAndDownloadPDF(subset, `extracted_${result.start}_to_${result.end}`);
+            };
+
+            const getExportSummary = () => {
+                if (pages.length === 0) return '尚未載入 PDF';
+                if (exportMode === 'all') return `將匯出全部 ${pages.length} 頁`;
+
+                const result = validateRange(extractStart, extractEnd, pages.length);
+                if (!result.ok) return result.message;
+                return `將匯出第 ${result.start} - ${result.end} 頁，共 ${result.end - result.start + 1} 頁`;
+            };
+
+            const clearAll = () => {
+                // 替換 confirm 為自訂對話框
+                setDialog({
+                    type: 'confirm',
+                    message: '確定要清除所有頁面嗎？',
+                    onConfirm: () => {
+                        // 釋放所有縮圖的記憶體
+                        pages.forEach(page => {
+                            if (page.thumbnail) URL.revokeObjectURL(page.thumbnail);
+                        });
+                        setPages([]);
+                        setSourceFiles({});
+                        setExtractStart('');
+                        setExtractEnd('');
+                        setSelectedPageIds([]);
+                        setLastSelectedPageId(null);
+                        setSelectionRangeStart('');
+                        setSelectionRangeEnd('');
+                        setIsMultiSelectMode(false);
+                        setLastError('');
+                        setDialog(null); // 關閉對話框
+                    }
+                });
+            };
+
+            return (
+                <div className="min-h-screen p-8 font-sans">
+                    <div className="max-w-6xl mx-auto">
+                        <header className="mb-8 text-center">
+                            <h1 className="text-3xl font-bold text-gray-800 mb-2">📄 本地 PDF 調整工具</h1>
+                            <p className="text-gray-500">所有的處理都在您的瀏覽器中進行，檔案不會上傳至任何伺服器，確保隱私。</p>
+                            <p className="text-gray-500 mt-1">支援合併、插入、刪除、旋轉與拖曳排序頁面，並可輕鬆匯出全部或指定範圍的 PDF 檔案。</p>
+                        </header>
+
+                        <div className="bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                <section className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">1</span>
+                                        <div>
+                                            <h2 className="font-bold text-gray-800">檔案管理</h2>
+                                            <p className="text-xs text-gray-500">先載入或附加 PDF 檔案</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-sm transition font-medium flex items-center justify-center">
+                                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                            載入 / 附加 PDF
+                                            <input type="file" accept="application/pdf" multiple className="hidden" onChange={handleFileUpload} ref={fileInputRef}/>
+                                        </label>
+                                        {pages.length > 0 && (
+                                            <button onClick={clearAll} className="border border-red-200 bg-white hover:bg-red-50 text-red-600 px-4 py-2.5 rounded-lg transition font-medium">
+                                                清除全部
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-4 rounded-lg bg-white border border-gray-100 p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-xs text-gray-500">目前已載入</div>
+                                                <div className="text-2xl font-bold text-gray-800">{pages.length} <span className="text-sm font-medium text-gray-500">頁</span></div>
+                                            </div>
+                                            <div className="text-right text-xs text-gray-500 leading-relaxed">
+                                                {pages.length > 0 ? '可排序、旋轉、刪除' : '尚未載入 PDF'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-blue-100 bg-blue-50/60' : 'border-gray-100 bg-gray-50'}`}>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">2</span>
+                                        <div>
+                                            <h2 className="font-bold text-gray-800">頁面選取 / 多選</h2>
+                                            <p className="text-xs text-gray-500">選取頁面後可整批拖曳到藍線位置</p>
+                                        </div>
+                                    </div>
+                                    <div className="rounded-lg bg-white border border-gray-100 p-4">
+                                        <div className="text-sm font-semibold text-gray-700">
+                                            {pages.length > 0 ? (isMultiSelectMode ? `多選模式已啟動，已選取 ${selectedPageIds.length} 頁` : '可啟動多選，或直接拖曳單頁排序') : '請先載入 PDF 後再進行頁面選取'}
+                                        </div>
+                                        <div className="mt-2 text-xs text-gray-500 leading-relaxed">
+                                            {pages.length > 0 ? (isMultiSelectMode ? '勾選多頁後，拖曳任一已選頁面即可整批移動。' : '單頁仍可直接拖曳排序；需要批次移動時再啟動多選。') : '載入後，頁面縮圖會顯示在下方工作區。'}
+                                        </div>
+                                        {pages.length > 0 && (
+                                            <div className="mt-4 space-y-3">
+                                                <div className="flex flex-wrap gap-2">
+                                                    <button onClick={toggleMultiSelectMode} className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${isMultiSelectMode ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}>
+                                                        {isMultiSelectMode ? '關閉多選' : '啟動多選'}
+                                                    </button>
+                                                    {isMultiSelectMode && (
+                                                        <>
+                                                            <button onClick={selectAllPages} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">全選</button>
+                                                            <button onClick={clearPageSelection} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">取消選取</button>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                {isMultiSelectMode && (
+                                                    <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                                                        <div className="mb-2 text-xs font-semibold text-blue-800">範圍選取</div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <label className="text-xs text-gray-600">
+                                                                起始頁
+                                                                <input type="number" min="1" max={pages.length} value={selectionRangeStart} onChange={e => setSelectionRangeStart(e.target.value)} placeholder="1" className="mt-1 w-full px-2 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white" />
+                                                            </label>
+                                                            <label className="text-xs text-gray-600">
+                                                                結束頁
+                                                                <input type="number" min="1" max={pages.length} value={selectionRangeEnd} onChange={e => setSelectionRangeEnd(e.target.value)} placeholder={pages.length} className="mt-1 w-full px-2 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white" />
+                                                            </label>
+                                                        </div>
+                                                        <button onClick={addRangeSelection} className="mt-2 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">加入選取範圍</button>
+                                                        <p className="mt-2 text-[11px] leading-relaxed text-blue-700">桌機也可先勾選一頁，再按住 Shift 勾選另一頁，自動選取中間範圍。</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+
+                                <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-green-100 bg-green-50/60' : 'border-gray-100 bg-gray-50'}`}>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">3</span>
+                                        <div>
+                                            <h2 className="font-bold text-gray-800">匯出 PDF</h2>
+                                            <p className="text-xs text-gray-500">選擇匯出方式後按同一顆按鈕</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="grid grid-cols-2 gap-2 rounded-lg bg-white p-1 border border-gray-100">
+                                            <button type="button" onClick={() => setExportMode('all')} disabled={pages.length === 0} className={`rounded-md px-3 py-2 text-sm font-semibold transition disabled:opacity-40 ${exportMode === 'all' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>全部頁面</button>
+                                            <button type="button" onClick={() => setExportMode('range')} disabled={pages.length === 0} className={`rounded-md px-3 py-2 text-sm font-semibold transition disabled:opacity-40 ${exportMode === 'range' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>指定範圍</button>
+                                        </div>
+
+                                        {exportMode === 'range' && pages.length > 0 && (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <label className="text-sm text-gray-600">
+                                                    起始頁
+                                                    <input type="number" min="1" max={pages.length} value={extractStart} onChange={e => setExtractStart(e.target.value)} placeholder="1" className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500 bg-white" />
+                                                </label>
+                                                <label className="text-sm text-gray-600">
+                                                    結束頁
+                                                    <input type="number" min="1" max={pages.length} value={extractEnd} onChange={e => setExtractEnd(e.target.value)} placeholder={pages.length} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500 bg-white" />
+                                                </label>
+                                            </div>
+                                        )}
+
+                                        <div className="text-xs text-gray-600 bg-white border border-gray-100 rounded-lg px-3 py-2">{getExportSummary()}</div>
+
+                                        <button onClick={handleExport} disabled={isLoading || pages.length === 0} className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow-sm transition font-bold flex items-center disabled:opacity-50 w-full justify-center">
+                                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                            {isLoading ? '處理中...' : '匯出 PDF'}
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+
+                        {lastError && (
+                            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                <strong>錯誤：</strong>{lastError}
+                            </div>
+                        )}
+
+                        {isLoading && (
+                            <div className="text-center py-8 text-blue-600 font-medium">
+                                <svg className="animate-spin h-8 w-8 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                正在處理您的請求，請稍候...
+                            </div>
+                        )}
+
+                        {pages.length > 0 ? (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator(null); }}>
+                                {pages.map((page, index) => {
+                                    const isSelected = selectedPageIds.includes(page.id);
+                                    const isDraggingSelectedGroup = isMultiSelectMode && draggedPageId !== null && selectedPageIds.includes(draggedPageId) && isSelected;
+                                    return (
+                                        <div key={page.id} draggable="true" onDragStart={(e) => handleDragStart(e, page.id)} onDragEnter={handleDragEnter} onDragOver={(e) => handleDragOver(e, page.id)} onDrop={(e) => handleDrop(e, page.id)} onDragEnd={handleDragEnd}
+                                            style={{ viewTransitionName: `card-${page.id}` }}
+                                            className={`page-card ${draggedPageId === page.id || isDraggingSelectedGroup ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''} bg-white rounded-lg border-2 overflow-visible relative group p-2 cursor-move transition-all duration-200 ${draggedPageId === page.id || isDraggingSelectedGroup ? 'opacity-40 scale-95 border-gray-400' : isSelected ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'}`}>
+                                            
+                                            {/* 左側拖曳指示線 */}
+                                            <div className={`${getDropLineClass(page.id, 'left')} absolute top-0 -left-4 h-full w-1.5 bg-blue-500 rounded-full z-10`}></div>
+                                            {/* 右側拖曳指示線 */}
+                                            <div className={`${getDropLineClass(page.id, 'right')} absolute top-0 -right-4 h-full w-1.5 bg-blue-500 rounded-full z-10`}></div>
+
+                                            {/* 多選核取方塊 */}
+                                            {isMultiSelectMode && (
+                                                <div className="absolute top-3 left-3 z-20" onClick={(e) => { e.stopPropagation(); togglePageSelection(page.id, e); }}>
+                                                    <input type="checkbox" checked={isSelected} readOnly className="w-5 h-5 cursor-pointer accent-blue-600 rounded border-gray-300 shadow-sm" />
+                                                </div>
+                                            )}
+
+                                            {/* 頁面縮圖與覆蓋按鈕 */}
+                                            <div className="relative bg-gray-50 border border-gray-100 rounded flex items-center justify-center overflow-hidden aspect-[1/1.4] mb-2" onClick={(e) => togglePageSelection(page.id, e)}>
+                                                <img src={page.thumbnail} alt={`第 ${page.originalPageNum + 1} 頁`} className="max-h-full max-w-full object-contain shadow-sm transition-transform duration-300" style={{ transform: `rotate(${page.rotation}deg)` }} />
+
+                                                {/* 懸浮時顯示的控制項 */}
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                                                    <div className="flex justify-end gap-1">
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); rotatePage(page.id); }} className="p-1.5 bg-white/90 hover:bg-white text-gray-700 rounded shadow-sm transition" title="旋轉">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                                        </button>
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); deletePage(page.id); }} className="p-1.5 bg-red-100/90 hover:bg-red-500 hover:text-white text-red-600 rounded shadow-sm transition" title="刪除">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex justify-center gap-2 pb-1">
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); movePage(index, -1); }} disabled={index === 0} className="p-1.5 bg-white/90 hover:bg-white text-gray-700 rounded shadow-sm transition disabled:opacity-50" title="往前移">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                                                        </button>
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); movePage(index, 1); }} disabled={index === pages.length - 1} className="p-1.5 bg-white/90 hover:bg-white text-gray-700 rounded shadow-sm transition disabled:opacity-50" title="往後移">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* 頁面資訊標籤 */}
+                                            <div className="text-center px-1">
+                                                <div className="text-sm font-bold text-gray-800">第 {index + 1} 頁</div>
+                                                <div className="text-[10px] text-gray-400 truncate mt-0.5" title={page.filename}>{page.filename} (原頁碼: {page.originalPageNum + 1})</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            !isLoading && (
+                                <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+                                    <div className="text-gray-400 mb-3">
+                                        <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-sm font-medium text-gray-900">目前沒有載入任何檔案</h3>
+                                    <p className="mt-1 text-sm text-gray-500">請點擊上方「載入 / 附加 PDF」按鈕開始</p>
+                                </div>
+                            )
+                        )}
+                        
+                        {/* 這裡新增自訂對話框的 UI */}
+                        {dialog && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity">
+                                <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-100 transform transition-all">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">
+                                        {dialog.type === 'confirm' ? '請確認' : '提示'}
+                                    </h3>
+                                    <p className="text-gray-600 mb-8 leading-relaxed">{dialog.message}</p>
+                                    <div className="flex justify-end gap-3">
+                                        {dialog.type === 'confirm' && (
+                                            <button
+                                                onClick={() => setDialog(null)}
+                                                className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                                            >
+                                                取消
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => {
+                                                if (dialog.onConfirm) dialog.onConfirm();
+                                                else setDialog(null);
+                                            }}
+                                            className={`px-5 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all focus:ring-4 focus:outline-none ${
+                                                dialog.type === 'confirm' 
+                                                ? 'bg-red-500 hover:bg-red-600 focus:ring-red-100' 
+                                                : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-100'
+                                            }`}
+                                        >
+                                            確定
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

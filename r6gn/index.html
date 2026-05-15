@@ -13,7 +13,6 @@ import {
   Trash2,
   ArrowUpToLine,
   ArrowDownToLine,
-  TrainFront,
   Store,
   Landmark,
   Utensils,
@@ -26,6 +25,23 @@ import {
   Unlock,
   Upload
 } from 'lucide-react';
+
+// --- 自訂專屬：方形捷運車頭 Icon (取代原本較圓潤的 TrainFront) ---
+const SquareMetroIcon = ({ width = 24, height = 24, ...props }) => (
+  <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    {/* 車體外框 (偏方形) */}
+    <rect x="4" y="3" width="16" height="15" rx="2.5" />
+    {/* 擋風玻璃/窗戶 */}
+    <rect x="7" y="7" width="10" height="5" rx="1" />
+    {/* 左右車頭燈 */}
+    <circle cx="8" cy="14" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="14" r="1.5" fill="currentColor" stroke="none" />
+    {/* 底部底盤與軌道/車輪 */}
+    <path d="M6 18l-1.5 3" />
+    <path d="M18 18l1.5 3" />
+    <path d="M9 21h6" />
+  </svg>
+);
 
 // --- 全局主題與智慧專屬色票配置 (精簡為 5 個經典常用色) ---
 const THEMES = {
@@ -57,6 +73,12 @@ const THEMES = {
     palette: ['#FDE047', '#CBD5E1', '#F43F5E', '#38BDF8', '#34D399']
   }
 };
+
+const THEME_BUTTONS = [
+  { id: 'classic', label: '經典' },
+  { id: 'pastel', label: '柔和' },
+  { id: 'dark', label: '深色' }
+];
 
 // 將道路層級精簡為 3 層 (細、中、粗)，預設為中間 36px
 const ROAD_WIDTH_LEVELS = [16, 36, 64];
@@ -137,16 +159,16 @@ export default function App() {
   const [editingTextId, setEditingTextId] = useState(null);
   const [resizingInfo, setResizingInfo] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [showBgSetupModal, setShowBgSetupModal] = useState(false);
+  const [showBgSetupModal, setShowBgSetupModal] = useState(false); // 新增：底圖設定彈窗狀態
 
-  // --- 畫布平移與縮放狀態 (Virtual Camera) ---
+  // --- 新增：畫布平移與縮放狀態 (Virtual Camera) ---
   const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState(null);
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const hasPannedRef = useRef(false);
 
-  // --- 參考底圖狀態 ---
+  // --- 新增：參考底圖狀態 ---
   const [bgImage, setBgImage] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -245,6 +267,10 @@ export default function App() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const cloneSvg = svgElement.cloneNode(true);
+      
+      // 確保字體在匯出時不斷裂變成新細明體
+      cloneSvg.style.fontFamily = "ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'";
+
       const cloneWorld = cloneSvg.querySelector('#map-world');
       // 移除匯出用的 SVG 內部的 Transform，讓 viewBox 可以完美切齊 BBox
       cloneWorld.removeAttribute('transform'); 
@@ -256,9 +282,6 @@ export default function App() {
       cloneSvg.setAttribute('viewBox', `${bbox.x - padding} ${bbox.y - padding} ${exportWidth} ${exportHeight}`);
       cloneSvg.setAttribute('width', exportWidth);
       cloneSvg.setAttribute('height', exportHeight);
-
-      // 解決匯出時英文/數字變成新細明體的問題，強制設定無襯線字體
-      cloneSvg.style.fontFamily = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
       const serializer = new XMLSerializer();
       let svgString = serializer.serializeToString(cloneSvg);
@@ -282,7 +305,7 @@ export default function App() {
     }, 50); 
   };
 
-  // --- 處理底圖上傳 ---
+  // --- 新增：處理底圖上傳 ---
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -323,7 +346,7 @@ export default function App() {
     e.target.value = ''; // 重設 input 讓同張圖片可以重複上傳
   };
 
-  // --- 處理點擊底圖拖曳 ---
+  // --- 新增：處理點擊底圖拖曳 ---
   const handleBgMouseDown = (e) => {
     if (isSpaceDown || mode === 'pan' || bgImage?.locked) return;
     e.stopPropagation();
@@ -351,17 +374,16 @@ export default function App() {
       }
     }
     const { p1, p2 } = longestSegment;
-    
-    // 將 -50 ~ 50 的百分比轉換為 0.0 ~ 1.0 的線段比例 (0 為中心點 0.5)
-    const ratio = 0.5 + (offsetPercent / 100);
-    const cx = p1.x + (p2.x - p1.x) * ratio;
-    const cy = p1.y + (p2.y - p1.y) * ratio;
+    // 使用 offsetPercent 來微調中心點 (-50 表示起點, 0 表示中間, 50 表示終點)
+    const factor = (offsetPercent + 50) / 100; // 將 -50~50 轉換為 0~1 的比例
+    const midX = p1.x + (p2.x - p1.x) * factor;
+    const midY = p1.y + (p2.y - p1.y) * factor;
     
     let angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI);
     if (angle > 90) angle -= 180;
     else if (angle <= -90) angle += 180;
     
-    return { x: cx, y: cy, angle };
+    return { x: midX, y: midY, angle };
   };
 
   // --- 滑鼠事件更新 (轉換為邏輯世界座標) ---
@@ -470,9 +492,7 @@ export default function App() {
         const den = Math.hypot(p2.x - p1.x, p2.y - p1.y);
         const distance = den === 0 ? 0 : num / den;
         
-        // 降低敏感度：加入 sensitivityFactor (數值越小，需要滑動越遠)。
-        // 原本邏輯是 distance * 2，現在乘上 0.3，使其大約需要拉動 3 倍以上的距離才會變更層級。
-        const sensitivityFactor = 0.3; 
+        const sensitivityFactor = 0.3; // 加入敏感度係數，降低道路縮放的速度
         const targetWidth = distance * 2 * sensitivityFactor;
         
         const newWidth = ROAD_WIDTH_LEVELS.reduce((prev, curr) => 
@@ -589,7 +609,8 @@ export default function App() {
           name: '', 
           color: theme.road,
           width: 36, // 預設使用中間層級的寬度
-          rotation: 0
+          rotation: 0,
+          textOffset: 0 // 新增：文字中心偏移量預設為0
         };
         setElements([...elements, newRoad]);
         setSelectedId(newRoad.id);
@@ -631,7 +652,8 @@ export default function App() {
         defaultColor = getContrastingLandmarkColor(elements, theme);
       }
       else if (mode === 'compass') defaultColor = theme.palette[2]; // 紅色
-      else if (mode === 'icon_transit' || mode === 'icon_parking') defaultColor = theme.palette[3]; // 藍色
+      else if (mode === 'icon_transit') defaultColor = theme.palette[4]; // 綠色 (與藍色停車場區分)
+      else if (mode === 'icon_parking') defaultColor = theme.palette[3]; // 藍色
       else if (mode === 'icon_store') defaultColor = theme.palette[2]; // 紅色
       else if (mode === 'icon_bank') defaultColor = theme.palette[4]; // 綠色
       else if (mode === 'icon_food') defaultColor = theme.palette[0]; // 黃色
@@ -765,7 +787,7 @@ export default function App() {
     const isAdjusting = dynamicWidthState?.id === el.id;
     const isEditing = editingTextId === el.id;
     const pointsStr = el.points.map(p => `${p.x},${p.y}`).join(' ');
-    // 加入文字偏移計算
+    // 傳入 el.textOffset (若未定義則預設為 0) 計算文字中心
     const textInfo = calculateTextTransform(el.points, el.textOffset || 0);
 
     const midX = el.points.length > 1 ? (el.points[0].x + el.points[el.points.length - 1].x) / 2 : 0;
@@ -1032,7 +1054,7 @@ export default function App() {
         {el.type === 'icon_transit' && (
           <g transform={`scale(${el.width/100}, ${el.height/100})`}>
             <circle cx="50" cy="50" r="45" fill={el.color} />
-            <svg x="22" y="22" width="56" height="56" color={dynamicTextColor}><TrainFront width="100%" height="100%" strokeWidth={2}/></svg>
+            <svg x="22" y="22" width="56" height="56" color={dynamicTextColor}><SquareMetroIcon width="100%" height="100%" strokeWidth={2}/></svg>
           </g>
         )}
         {el.type === 'icon_parking' && (
@@ -1211,42 +1233,34 @@ export default function App() {
       )}
 
       {/* Header */}
-      <header className="relative flex items-center justify-between px-4 py-3 bg-white border-b shadow-sm z-10">
-        
-        {/* 左側標題 */}
-        <div className="flex items-center flex-1">
+      <header className="flex items-center px-4 py-3 bg-white border-b shadow-sm z-10 relative">
+        <div className="flex-1 flex items-center space-x-4">
           <h1 className="text-lg font-bold text-gray-800 flex items-center">
             <Compass className="w-5 h-5 mr-2 text-blue-500" />
             簡易地圖繪製工具
           </h1>
         </div>
         
-        {/* 改良後的主題切換按鈕群組 (絕對置中) */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
-            {[
-              { id: 'classic', label: '經典' },
-              { id: 'pastel', label: '柔和' },
-              { id: 'dark', label: '深色' }
-            ].map((t, index, array) => {
-              const isActive = theme.id === t.id;
+        <div className="absolute left-1/2 -translate-x-1/2 flex">
+          <div className="inline-flex rounded-md shadow-[0_2px_0_0_rgba(0,0,0,0.05)] bg-white p-0.5 border border-gray-200">
+            {THEME_BUTTONS.map((t, index) => {
+              const isSelected = theme.id === t.id;
               const isFirst = index === 0;
-              const isLast = index === array.length - 1;
-              const targetTheme = THEMES[t.id];
+              const isLast = index === THEME_BUTTONS.length - 1;
               
               return (
                 <button
                   key={t.id}
-                  onClick={() => setTheme(targetTheme)}
+                  onClick={() => setTheme(THEMES[t.id])}
                   className={`
-                    px-4 py-1.5 text-sm font-medium transition-all duration-150 border
-                    ${isFirst ? 'rounded-l-md' : '-ml-px'}
-                    ${isLast ? 'rounded-r-md' : ''}
-                    ${isActive 
-                      ? 'bg-blue-100 text-blue-700 border-blue-500 shadow-inner translate-y-[1px]' 
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:text-gray-800 shadow-[0_2px_0_0_rgba(0,0,0,0.05)] hover:-translate-y-[1px]'
+                    px-5 py-1.5 text-sm font-medium transition-all duration-150 relative
+                    ${isSelected 
+                      ? 'bg-blue-50 text-blue-700 shadow-inner translate-y-[1px]' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:-translate-y-[1px]'
                     }
-                    focus:z-10 focus:ring-2 focus:ring-blue-500 focus:outline-none
+                    ${isFirst ? 'rounded-l-md' : ''}
+                    ${isLast ? 'rounded-r-md' : ''}
+                    ${!isFirst ? '-ml-px border-l border-gray-200' : ''}
                   `}
                 >
                   {t.label}
@@ -1255,9 +1269,8 @@ export default function App() {
             })}
           </div>
         </div>
-        
-        {/* 右側按鈕群組 */}
-        <div className="flex items-center justify-end space-x-3 flex-1">
+
+        <div className="flex-1 flex justify-end items-center space-x-3">
           {/* 隱藏的檔案上傳輸入框 */}
           <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/png, image/jpeg, image/jpg, image/webp" />
           
@@ -1300,7 +1313,7 @@ export default function App() {
           <ToolButton icon={<MapPin />} label="圖釘" active={mode === 'landmark_pin'} onClick={() => setMode('landmark_pin')} />
           <ToolButton icon={<Compass />} label="指北針" active={mode === 'compass'} onClick={() => setMode('compass')} />
           <div className="w-8 h-px bg-gray-200 my-1"></div>
-          <ToolButton icon={<TrainFront />} label="捷運" active={mode === 'icon_transit'} onClick={() => setMode('icon_transit')} />
+          <ToolButton icon={<SquareMetroIcon />} label="捷運" active={mode === 'icon_transit'} onClick={() => setMode('icon_transit')} />
           <ToolButton icon={<div className="font-bold text-lg leading-none">P</div>} label="停車場" active={mode === 'icon_parking'} onClick={() => setMode('icon_parking')} />
           <ToolButton icon={<Store />} label="商店" active={mode === 'icon_store'} onClick={() => setMode('icon_store')} />
           <ToolButton icon={<Landmark />} label="銀行" active={mode === 'icon_bank'} onClick={() => setMode('icon_bank')} />
@@ -1416,7 +1429,7 @@ export default function App() {
             ) : (
               <div className="space-y-6">
                 
-                {/* --- 文字輸入框 --- */}
+                {/* --- 新增：文字輸入框 --- */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     {selectedElement.type === 'road' ? '路名' : '地標名稱'}
@@ -1429,6 +1442,7 @@ export default function App() {
                     placeholder="可留空"
                   />
                 </div>
+                {/* --- 新增結束 --- */}
 
                 <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">填滿顏色</label>
@@ -1445,35 +1459,41 @@ export default function App() {
               </div>
 
               {selectedElement.type === 'road' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex justify-between">
-                    <span>道路寬度</span>
-                    <span className="text-gray-500">
-                      層級 {ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) !== -1 ? ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) + 1 : 2} ({selectedElement.width}px)
-                    </span>
-                  </label>
-                  <input 
-                    type="range" min="0" max="2" step="1"
-                    value={ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) !== -1 ? ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) : 1}
-                    onChange={(e) => updateSelectedElement({ width: ROAD_WIDTH_LEVELS[parseInt(e.target.value)] })}
-                    className="w-full"
-                  />
-                </div>
-              )}
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex justify-between">
+                      <span>道路寬度</span>
+                      <span className="text-gray-500">
+                        層級 {ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) !== -1 ? ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) + 1 : 2} ({selectedElement.width}px)
+                      </span>
+                    </label>
+                    <input 
+                      type="range" min="0" max="2" step="1"
+                      value={ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) !== -1 ? ROAD_WIDTH_LEVELS.indexOf(selectedElement.width) : 1}
+                      onChange={(e) => updateSelectedElement({ width: ROAD_WIDTH_LEVELS[parseInt(e.target.value)] })}
+                      className="w-full"
+                    />
+                  </div>
 
-              {selectedElement.type === 'road' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex justify-between">
-                    <span>文字位置微調</span>
-                    <span className="text-gray-500">{selectedElement.textOffset || 0}%</span>
-                  </label>
-                  <input 
-                    type="range" min="-50" max="50" step="1"
-                    value={selectedElement.textOffset || 0}
-                    onChange={(e) => updateSelectedElement({ textOffset: parseInt(e.target.value) })}
-                    className="w-full"
-                  />
-                </div>
+                  {/* 新增：文字位置微調拉桿 */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex justify-between">
+                      <span>文字位置微調</span>
+                      <span className="text-gray-500">{selectedElement.textOffset || 0}%</span>
+                    </label>
+                    <input 
+                      type="range" min="-50" max="50" step="1"
+                      value={selectedElement.textOffset || 0}
+                      onChange={(e) => updateSelectedElement({ textOffset: parseInt(e.target.value) })}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                      <span>起點</span>
+                      <span>中點</span>
+                      <span>終點</span>
+                    </div>
+                  </div>
+                </>
               )}
 
               {(selectedElement.type === 'landmark_rect' || selectedElement.type === 'map_title') && (

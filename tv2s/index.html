@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>不動產交易查詢系統</title>
+  
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-5YQY4RT9H2');
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Segoe UI', 'Microsoft JhengHei', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; color: #1f2937; }
+    /* 自訂美化卷軸 */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    
+    /* 表頭排序樣式 */
+    .sortable-header { cursor: pointer; transition: background-color 0.2s; user-select: none; }
+    .sortable-header:hover { background-color: #e5e7eb; }
+    .sort-icon { display: inline-block; width: 12px; height: 16px; flex-shrink: 0; }
+    .sort-up, .sort-down { fill: #d1d5db; transition: fill 0.2s; }
+    .sort-icon.asc .sort-up { fill: #2563eb; }
+    .sort-icon.desc .sort-down { fill: #2563eb; }
+
+    /* 欄位拖曳設定區樣式 */
+    .col-drag-item { cursor: grab; user-select: none; transition: transform 0.2s, box-shadow 0.2s; }
+    .col-drag-item:active { cursor: grabbing; }
+    .col-drag-item.dragging { opacity: 0.5; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); transform: scale(1.02); z-index: 50; }
+    .drag-over { border-left: 4px solid #3b82f6 !important; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <header class="bg-blue-800 text-white shadow-md py-4 px-6 md:px-8 shrink-0">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold tracking-wide">商用不動產大型交易查詢</h1>
+        <p class="text-blue-200 text-sm mt-1">資料來源：上市櫃與公開發行公司取得或處分資產之紀錄 (更新至2026.04)</p>
+      </div>
+      <div id="statusIndicator" class="text-sm px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full font-medium flex items-center">
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        資料載入中...
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full flex flex-col gap-6">
+    
+    <!-- 第一區塊：資料篩選條件 -->
+    <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6 shrink-0 relative overflow-hidden">
+      <!-- 鎖定遮罩 (資料未載入前不可操作) -->
+      <div id="filterOverlay" class="absolute inset-0 bg-white/60 z-10 backdrop-blur-[1px]"></div>
+      
+      <div class="flex justify-between items-end border-b border-gray-100 pb-3 mb-4">
+        <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+          資料篩選條件
+        </h2>
+        <div class="flex items-center gap-3">
+          <button id="resetBtn" class="text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded transition-colors flex items-center gap-1 border border-indigo-200">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+            重設欄位
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        
+        <!-- 條件：年 -->
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">交易年份 (起 - 訖)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="filterYearStart" value="2025" placeholder="例如: 2020" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+            <span class="text-gray-400">-</span>
+            <input type="number" id="filterYearEnd" value="2025" placeholder="例如: 2025" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+          </div>
+        </div>
+
+        <!-- 條件：縣市與行政區 (連動) -->
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">地區 (縣市 / 行政區)</label>
+          <div class="flex items-center gap-2">
+            <select id="filterCity" class="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+              <option value="">所有縣市</option>
+            </select>
+            <select id="filterDistrict" disabled class="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 disabled:opacity-50">
+              <option value="">所有行政區</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 條件：總交易金額 -->
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">交易金額 (最低 - 最高)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="filterAmountMin" placeholder="不限" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+            <span class="text-gray-400">-</span>
+            <input type="number" id="filterAmountMax" placeholder="不限" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+          </div>
+        </div>
+
+        <!-- 條件：產品別 (改為大型切換按鈕) -->
+        <div class="flex flex-col gap-2 md:col-span-2 lg:col-span-3 mt-2">
+          <label class="text-sm font-medium text-gray-700 mb-1">產品類型 (可複選)</label>
+          <div class="grid grid-cols-3 lg:grid-cols-6 gap-3" id="filterProducts">
+            
+            <label class="cursor-pointer select-none relative">
+              <input type="checkbox" value="純辦" class="product-checkbox peer sr-only">
+              <div class="w-full text-center px-2 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all duration-200 hover:bg-gray-50 hover:border-blue-300 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 peer-checked:shadow-md">
+                純辦
+              </div>
+            </label>
+
+            <label class="cursor-pointer select-none relative">
+              <input type="checkbox" value="廠辦" class="product-checkbox peer sr-only">
+              <div class="w-full text-center px-2 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all duration-200 hover:bg-gray-50 hover:border-blue-300 peer-checked:bg-purple-600 peer-checked:text-white peer-checked:border-purple-600 peer-checked:shadow-md">
+                廠辦
+              </div>
+            </label>
+
+            <label class="cursor-pointer select-none relative">
+              <input type="checkbox" value="工業" class="product-checkbox peer sr-only">
+              <div class="w-full text-center px-2 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all duration-200 hover:bg-gray-50 hover:border-blue-300 peer-checked:bg-orange-600 peer-checked:text-white peer-checked:border-orange-600 peer-checked:shadow-md">
+                工業
+              </div>
+            </label>
+
+            <label class="cursor-pointer select-none relative">
+              <input type="checkbox" value="零售" class="product-checkbox peer sr-only">
+              <div class="w-full text-center px-2 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all duration-200 hover:bg-gray-50 hover:border-blue-300 peer-checked:bg-emerald-600 peer-checked:text-white peer-checked:border-emerald-600 peer-checked:shadow-md">
+                零售
+              </div>
+            </label>
+
+            <label class="cursor-pointer select-none relative">
+              <input type="checkbox" value="土地" class="product-checkbox peer sr-only">
+              <div class="w-full text-center px-2 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all duration-200 hover:bg-gray-50 hover:border-blue-300 peer-checked:bg-yellow-500 peer-checked:text-white peer-checked:border-yellow-500 peer-checked:shadow-md">
+                土地
+              </div>
+            </label>
+
+            <label class="cursor-pointer select-none relative">
+              <input type="checkbox" value="旅館" class="product-checkbox peer sr-only">
+              <div class="w-full text-center px-2 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all duration-200 hover:bg-gray-50 hover:border-blue-300 peer-checked:bg-rose-600 peer-checked:text-white peer-checked:border-rose-600 peer-checked:shadow-md">
+                旅館
+              </div>
+            </label>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 獨立的送出按鈕區塊 -->
+    <div class="flex justify-center -mt-2 mb-2 z-10 relative">
+      <button id="applyFilterBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold py-3 px-12 rounded-full shadow-lg transform transition-all hover:scale-105 flex items-center gap-2">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        送出篩選
+      </button>
+    </div>
+
+    <!-- 第二區塊：顯示欄位與排序 (新增區塊) -->
+    <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 shrink-0">
+      <div class="flex justify-between items-center mb-3">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+          <h2 class="text-md font-semibold text-gray-800">自訂顯示欄位與順序 <span class="text-xs font-normal text-gray-500 ml-2">(可拖曳項目改變表格左右排序)</span></h2>
+        </div>
+        <button id="resetColumnsBtn" class="text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded transition-colors flex items-center gap-1 border border-indigo-200">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+          重設欄位
+        </button>
+      </div>
+      <!-- 拖曳容器 -->
+      <div id="columnManager" class="flex flex-wrap gap-2">
+        <!-- JS 動態生成欄位方塊 -->
+      </div>
+    </section>
+
+    <!-- 第三區塊：成果區 -->
+    <section class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden relative">
+      <!-- 控制列 -->
+      <div class="bg-gray-50 border-b border-gray-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+        <div class="text-sm text-gray-600">
+          找到 <span id="totalCount" class="font-bold text-blue-600 text-lg">0</span> 筆符合條件的資料
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-sm text-gray-600">每頁顯示：</label>
+          <select id="rowsPerPage" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+            <option value="5">5 筆</option>
+            <option value="10" selected>10 筆</option>
+            <option value="20">20 筆</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 表格容器 -->
+      <div class="overflow-x-auto w-full">
+        <table class="min-w-full text-sm text-left whitespace-nowrap">
+          <thead id="tableHead" class="bg-gray-100 text-gray-700 uppercase sticky top-0 z-10 shadow-sm">
+            <!-- JS 動態生成表頭 (th) -->
+            <tr id="tableHeadRow"></tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-gray-200">
+            <tr><td colspan="13" class="px-4 py-12 text-center text-gray-500">請稍候，資料載入中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 分頁控制 -->
+      <div class="bg-white border-t border-gray-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+        <span class="text-sm text-gray-700">
+          顯示第 <span id="pageStartItem" class="font-medium">0</span> 到 <span id="pageEndItem" class="font-medium">0</span> 筆，共 <span id="pageTotalCount" class="font-medium">0</span> 筆
+        </span>
+        <div class="inline-flex rounded-md shadow-sm" role="group">
+          <button type="button" id="btnPrevPage" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-100 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            上一頁
+          </button>
+          <span id="pageIndicator" class="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border-t border-b border-gray-200">
+            第 1 頁
+          </span>
+          <button type="button" id="btnNextPage" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            下一頁
+          </button>
+        </div>
+      </div>
+      
+      <!-- 新增：複製按鈕區塊 (置中對齊) -->
+      <div class="bg-gray-50 border-t border-gray-200 p-4 flex justify-center shrink-0">
+        <button id="copyTableBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+          複製篩選結果
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // --- 狀態變數 ---
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxbJgTC44zfw5vJJcdTs_eFlIi_YkCNMrjK9gLaWOOdYYoxg-VX8KJUaNviPwXKywC-/exec';
+    
+    let rawData = [];
+    let filteredData = [];
+    
+    let currentPage = 1;
+    let rowsPerPage = 10;
+    
+    let currentSortColumn = '交易金額';
+    let currentSortOrder = 'desc';
+
+    let locationMap = {};
+
+    // 儲存原始的欄位設定，供重設時使用
+    const initialColumnDefs = [
+      { id: '年', checked: true, align: 'left', type: 'text' },
+      { id: '月', checked: true, align: 'left', type: 'text' },
+      { id: '產品', checked: true, align: 'left', type: 'badge' },
+      { id: '縣市', checked: false, align: 'left', type: 'text' },
+      { id: '行政區', checked: false, align: 'left', type: 'text' },
+      { id: '標的名稱', checked: true, align: 'left', type: 'truncate' },
+      { id: '購買者', checked: true, align: 'left', type: 'truncate' },
+      { id: '出售者', checked: true, align: 'left', type: 'truncate' },
+      { id: '交易金額', checked: true, align: 'right', type: 'number' },
+      { id: '土地面積', checked: true, align: 'right', type: 'number' },
+      { id: '建物面積', checked: true, align: 'right', type: 'number' },
+      { id: '土地單價', checked: false, align: 'right', type: 'number' },
+      { id: '建物單價', checked: false, align: 'right', type: 'number' },
+      { id: '地址', checked: false, align: 'left', type: 'truncate' },
+      { id: '地號', checked: false, align: 'left', type: 'truncate' }
+    ];
+
+    // --- 欄位定義與狀態 (決定呈現順序與勾選狀態) ---
+    // 使用深拷貝建立目前狀態，避免直接修改 initialColumnDefs
+    let columnDefs = JSON.parse(JSON.stringify(initialColumnDefs));
+
+    const ui = {
+      statusIndicator: document.getElementById('statusIndicator'),
+      filterOverlay: document.getElementById('filterOverlay'),
+      yearStart: document.getElementById('filterYearStart'),
+      yearEnd: document.getElementById('filterYearEnd'),
+      city: document.getElementById('filterCity'),
+      district: document.getElementById('filterDistrict'),
+      amountMin: document.getElementById('filterAmountMin'),
+      amountMax: document.getElementById('filterAmountMax'),
+      productCheckboxes: document.querySelectorAll('.product-checkbox'),
+      resetBtn: document.getElementById('resetBtn'),
+      applyFilterBtn: document.getElementById('applyFilterBtn'),
+      resetColumnsBtn: document.getElementById('resetColumnsBtn'),
+      
+      columnManager: document.getElementById('columnManager'),
+      tableHeadRow: document.getElementById('tableHeadRow'),
+      tableBody: document.getElementById('tableBody'),
+      totalCount: document.getElementById('totalCount'),
+      rowsPerPage: document.getElementById('rowsPerPage'),
+      btnPrevPage: document.getElementById('btnPrevPage'),
+      btnNextPage: document.getElementById('btnNextPage'),
+      pageIndicator: document.getElementById('pageIndicator'),
+      pageStartItem: document.getElementById('pageStartItem'),
+      pageEndItem: document.getElementById('pageEndItem'),
+      pageTotalCount: document.getElementById('pageTotalCount'),
+      copyTableBtn: document.getElementById('copyTableBtn')
+    };
+
+    async function init() {
+      renderColumnManager(); // 初始化拖曳選單 UI
+      
+      try {
+        const response = await fetch(API_URL, { redirect: 'follow' });
+        if (!response.ok) throw new Error('網路回應錯誤');
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+
+        // 預設篩選：
+        // 1. 只保留指定的產品類型
+        // 2. 排除「樞紐分析」欄位為空白的資料
+        const allowedProducts = ['純辦', '廠辦', '工業', '零售', '土地', '旅館'];
+        rawData = data.filter(row => {
+          const productMatch = allowedProducts.includes(String(row['產品'] || '').trim());
+          const pivotValid = String(row['樞紐分析'] || '').trim() !== '';
+          return productMatch && pivotValid;
+        });
+        
+        filteredData = [...rawData];
+
+        buildLocationMap();
+        ui.filterOverlay.style.display = 'none';
+        ui.statusIndicator.innerHTML = '<svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> 系統就緒';
+        ui.statusIndicator.className = 'text-sm px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium flex items-center';
+
+        bindEvents();
+        
+        // 第一次載入：繪製表頭 -> 套用預設排序 -> 進行篩選與繪製表格
+        renderTableHeaders(); 
+        applyFilters();
+
+      } catch (error) {
+        console.error('API Error:', error);
+        ui.statusIndicator.innerHTML = '❌ 載入失敗';
+        ui.statusIndicator.className = 'text-sm px-3 py-1 bg-red-100 text-red-800 rounded-full font-medium';
+        ui.tableBody.innerHTML = `<tr><td colspan="13" class="px-4 py-8 text-center text-red-600 font-medium">資料載入失敗：${error.message}</td></tr>`;
+      }
+    }
+
+    // --- 欄位選擇與拖曳排序邏輯 ---
+    function renderColumnManager() {
+      ui.columnManager.innerHTML = '';
+      columnDefs.forEach((col, index) => {
+        const div = document.createElement('div');
+        // 增加 w-[110px] (約四個中文字寬度加上圖示空間) 來固定標籤寬度
+        div.className = `col-drag-item flex items-center justify-start gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-indigo-50 w-[110px] overflow-hidden`;
+        div.draggable = true;
+        div.dataset.id = col.id;
+        
+        div.innerHTML = `
+          <div class="text-gray-400 cursor-grab hover:text-indigo-600 font-bold text-base px-1">⋮</div>
+          <label class="flex items-center gap-1.5 cursor-pointer select-none truncate w-full">
+            <input type="checkbox" class="col-checkbox w-3.5 h-3.5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 shrink-0" ${col.checked ? 'checked' : ''}>
+            <span class="truncate text-[13px] ${col.checked ? 'text-gray-800 font-medium' : 'text-gray-500'}" title="${col.id}">${col.id}</span>
+          </label>
+        `;
+
+        // 綁定 Checkbox 勾選事件
+        const checkbox = div.querySelector('.col-checkbox');
+        checkbox.addEventListener('change', (e) => {
+          // 檢查是否超過 11 個
+          if (e.target.checked) {
+            const currentCheckedCount = columnDefs.filter(c => c.checked).length;
+            if (currentCheckedCount >= 11) {
+              e.target.checked = false; // 恢復 UI 取消勾選狀態
+              showMessageBox('每次顯示的欄位上限為 11 個，請先取消其他欄位。');
+              return; // 終止後續執行
+            }
+          }
+
+          col.checked = e.target.checked;
+          const span = div.querySelector('span');
+          span.className = col.checked ? 'text-gray-800 font-medium' : 'text-gray-500';
+          // 更新表頭與表格
+          renderTableHeaders();
+          renderTable();
+        });
+
+        ui.columnManager.appendChild(div);
+      });
+
+      bindDragEvents();
+    }
+
+    function bindDragEvents() {
+      let draggedItem = null;
+
+      ui.columnManager.addEventListener('dragstart', function (e) {
+        const item = e.target.closest('.col-drag-item');
+        if (item) {
+          draggedItem = item;
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => item.classList.add('dragging'), 0);
+        }
+      });
+
+      ui.columnManager.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const targetItem = e.target.closest('.col-drag-item');
+        
+        if (targetItem && targetItem !== draggedItem) {
+          const rect = targetItem.getBoundingClientRect();
+          const midPoint = rect.left + rect.width / 2;
+          
+          // 決定是插入在前面還是後面
+          if (e.clientX < midPoint) {
+            ui.columnManager.insertBefore(draggedItem, targetItem);
+          } else {
+            ui.columnManager.insertBefore(draggedItem, targetItem.nextSibling);
+          }
+        }
+      });
+
+      ui.columnManager.addEventListener('dragend', function (e) {
+        if (draggedItem) {
+          draggedItem.classList.remove('dragging');
+          draggedItem = null;
+          updateColumnOrder(); // 更新底層資料陣列
+        }
+      });
+    }
+
+    function updateColumnOrder() {
+      const newOrderIds = Array.from(ui.columnManager.children).map(div => div.dataset.id);
+      
+      // 根據 DOM 的新順序重排 columnDefs 陣列
+      columnDefs.sort((a, b) => {
+        return newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id);
+      });
+
+      // 順序改變後，重新渲染表頭與表格
+      renderTableHeaders();
+      renderTable();
+    }
+
+    function renderTableHeaders() {
+      ui.tableHeadRow.innerHTML = '';
+      
+      const activeColumns = columnDefs.filter(col => col.checked);
+
+      if (activeColumns.length === 0) {
+        ui.tableHeadRow.innerHTML = '<th class="px-4 py-3 text-center text-gray-500">請至少勾選一個顯示欄位</th>';
+        return;
+      }
+
+      activeColumns.forEach(col => {
+        const th = document.createElement('th');
+        th.scope = 'col';
+        th.className = `px-4 py-3 font-semibold border-b sortable-header ${col.align === 'right' ? 'text-right' : 'text-left'}`;
+        if (col.type === 'truncate') th.classList.add('max-w-[200px]');
+        th.dataset.sort = col.id;
+
+        // 根據對齊方式排列文字與箭頭圖示
+        const flexClass = col.align === 'right' ? 'justify-end' : 'justify-start';
+        
+        // 針對特定標題加上單位 (不影響自訂欄位的名稱)
+        let displayTitle = col.id;
+        if (col.id === '土地面積') displayTitle = '土地面積(坪)';
+        if (col.id === '建物面積') displayTitle = '建物面積(坪)';
+        
+        th.innerHTML = `
+          <div class="flex items-center gap-1 ${flexClass}">
+            <span class="${col.type === 'truncate' ? 'truncate' : ''}">${displayTitle}</span>
+            <svg class="sort-icon" viewBox="0 0 320 512">
+              <path class="sort-up" d="M27.66 224h264.7c24.6 0 36.89-29.78 19.54-47.12l-132.3-136.8c-5.406-5.406-12.47-8.107-19.53-8.107c-7.055 0-14.09 2.701-19.45 8.107L8.119 176.9C-9.229 194.2 3.055 224 27.66 224z"/>
+              <path class="sort-down" d="M292.3 288H27.66c-24.6 0-36.89 29.77-19.54 47.12l132.5 136.8C145.9 477.3 152.1 480 160 480c7.053 0 14.12-2.703 19.53-8.109l132.3-136.8C329.2 317.8 316.9 288 292.3 288z"/>
+            </svg>
+          </div>
+        `;
+
+        // 綁定排序事件
+        th.addEventListener('click', () => handleSort(col.id));
+        ui.tableHeadRow.appendChild(th);
+      });
+
+      // 重繪表頭後，必須重新上色當前的排序箭頭
+      updateSortUI();
+    }
+
+    function buildLocationMap() {
+      rawData.forEach(row => {
+        const city = String(row['縣市'] || '').trim();
+        const dist = String(row['行政區'] || '').trim();
+        if (city) {
+          if (!locationMap[city]) locationMap[city] = new Set();
+          if (dist) locationMap[city].add(dist);
+        }
+      });
+
+      Object.keys(locationMap).sort((a, b) => a.localeCompare(b, 'zh-TW')).forEach(city => {
+        const option = document.createElement('option');
+        option.value = city;
+        option.textContent = city;
+        ui.city.appendChild(option);
+      });
+    }
+
+    function bindEvents() {
+      // 送出篩選按鈕
+      ui.applyFilterBtn.addEventListener('click', () => {
+        // --- 新增：年份防呆攔截 ---
+        const startY = parseInt(ui.yearStart.value) || 0;
+        const endY = parseInt(ui.yearEnd.value) || 0;
+        
+        if (startY > 0 && endY > 0) {
+          // 檢查起點是否大於終點 (例如 2025 - 2020)
+          if (startY > endY) {
+            ui.yearStart.value = endY;
+            ui.yearEnd.value = startY;
+            showMessageBox('已自動為您修正起訖年份的順序。');
+          } 
+          // 檢查跨距是否大於 10 年 (例如 2010 - 2025)
+          else if ((endY - startY) > 9) {
+            ui.yearEnd.value = startY + 9;
+            showMessageBox('年份區間最多為 10 年，已自動為您調整。');
+          }
+        }
+        // --- 防呆攔截結束 ---
+
+        applyFilters();
+      });
+
+      ui.city.addEventListener('change', (e) => {
+        const city = e.target.value;
+        ui.district.innerHTML = '<option value="">所有行政區</option>';
+        if (city && locationMap[city]) {
+          ui.district.disabled = false;
+          ui.district.classList.remove('bg-gray-50', 'disabled:opacity-50');
+          ui.district.classList.add('bg-white');
+          Array.from(locationMap[city]).sort((a, b) => a.localeCompare(b, 'zh-TW')).forEach(dist => {
+            const option = document.createElement('option');
+            option.value = dist;
+            option.textContent = dist;
+            ui.district.appendChild(option);
+          });
+        } else {
+          ui.district.disabled = true;
+          ui.district.classList.add('bg-gray-50', 'disabled:opacity-50');
+          ui.district.classList.remove('bg-white');
+        }
+        // 選擇縣市時不再自動送出篩選，僅連動行政區選單
+      });
+
+      // ui.district.addEventListener('change', applyFilters);
+
+      ui.resetBtn.addEventListener('click', () => {
+        ui.yearStart.value = '2025';
+        ui.yearEnd.value = '2025';
+        ui.amountMin.value = '';
+        ui.amountMax.value = '';
+        ui.city.value = '';
+        ui.district.innerHTML = '<option value="">所有行政區</option>';
+        ui.district.disabled = true;
+        ui.district.classList.add('bg-gray-50', 'disabled:opacity-50');
+        ui.productCheckboxes.forEach(cb => cb.checked = false);
+        
+        currentSortColumn = '交易金額';
+        currentSortOrder = 'desc';
+        updateSortUI();
+        applyFilters(); // 清除時自動送出一次
+      });
+
+      // 新增：重設欄位按鈕事件
+      ui.resetColumnsBtn.addEventListener('click', () => {
+        // 使用深拷貝恢復預設狀態
+        columnDefs = JSON.parse(JSON.stringify(initialColumnDefs));
+        renderColumnManager();
+        renderTableHeaders();
+        renderTable();
+      });
+
+      ui.rowsPerPage.addEventListener('change', (e) => {
+        rowsPerPage = parseInt(e.target.value);
+        currentPage = 1;
+        renderTable();
+      });
+      
+      ui.btnPrevPage.addEventListener('click', () => {
+        if (currentPage > 1) { currentPage--; renderTable(); }
+      });
+      
+      ui.btnNextPage.addEventListener('click', () => {
+        const maxPage = Math.ceil(filteredData.length / rowsPerPage);
+        if (currentPage < maxPage) { currentPage++; renderTable(); }
+      });
+
+      // 綁定複製按鈕事件
+      if (ui.copyTableBtn) {
+        ui.copyTableBtn.addEventListener('click', handleCopyTable);
+      }
+    }
+
+    function applyFilters() {
+      const yStart = parseInt(ui.yearStart.value) || 0;
+      const yEnd = parseInt(ui.yearEnd.value) || 9999;
+      const minAmt = parseFloat(ui.amountMin.value) || 0;
+      const maxAmt = parseFloat(ui.amountMax.value) || Infinity;
+      const selCity = ui.city.value;
+      const selDist = ui.district.value;
+      
+      const selProducts = Array.from(ui.productCheckboxes)
+                               .filter(cb => cb.checked)
+                               .map(cb => cb.value);
+
+      filteredData = rawData.filter(row => {
+        const rowYear = parseInt(row['年']) || 0;
+        const rowAmt = parseNumber(row['交易金額']); // 配合名稱修改
+        const rowCity = String(row['縣市'] || '').trim();
+        const rowDist = String(row['行政區'] || '').trim();
+        const rowProd = String(row['產品'] || '').trim();
+
+        if (rowYear > 0) { if (rowYear < yStart || rowYear > yEnd) return false; }
+        if (rowAmt >= 0) { if (rowAmt < minAmt || rowAmt > maxAmt) return false; }
+        if (selProducts.length > 0) { if (!selProducts.includes(rowProd)) return false; }
+        if (selCity && rowCity !== selCity) return false;
+        if (selDist && rowDist !== selDist) return false;
+
+        return true;
+      });
+
+      currentPage = 1;
+      if (currentSortColumn) performSort();
+      renderTable();
+    }
+
+    function handleSort(columnName) {
+      if (!columnName) return;
+      if (currentSortColumn === columnName) {
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSortColumn = columnName;
+        currentSortOrder = 'asc';
+      }
+      updateSortUI();
+      performSort();
+      renderTable();
+    }
+
+    function updateSortUI() {
+      // 因為 th 是動態產生的，所以每次都要重新搜尋所有的 SVG
+      document.querySelectorAll('#tableHeadRow .sort-icon').forEach(svg => {
+        svg.classList.remove('asc', 'desc');
+      });
+      
+      if (!currentSortColumn) return;
+      const activeTh = document.querySelector(`th[data-sort="${currentSortColumn}"]`);
+      if (activeTh) {
+        const svg = activeTh.querySelector('svg.sort-icon');
+        if (svg) svg.classList.add(currentSortOrder);
+      }
+    }
+
+    function performSort() {
+      filteredData.sort((a, b) => {
+        let valA = a[currentSortColumn];
+        let valB = b[currentSortColumn];
+
+        // 把新的數字型態欄位也加入轉換陣列 (配合名稱修改)
+        const numberCols = ['年', '月', '交易金額', '土地面積', '建物面積', '土地單價', '建物單價'];
+        
+        if (numberCols.includes(currentSortColumn)) {
+          valA = parseNumber(valA);
+          valB = parseNumber(valB);
+        } else {
+          valA = String(valA || '');
+          valB = String(valB || '');
+        }
+
+        if (valA < valB) return currentSortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return currentSortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    function renderTable() {
+      const activeColumns = columnDefs.filter(col => col.checked);
+      const activeColCount = activeColumns.length;
+
+      const total = filteredData.length;
+      ui.totalCount.textContent = total.toLocaleString();
+      ui.pageTotalCount.textContent = total.toLocaleString();
+
+      if (activeColCount === 0) {
+        ui.tableBody.innerHTML = `<tr><td class="px-4 py-12 text-center text-gray-500 bg-gray-50">請在上方勾選要顯示的欄位。</td></tr>`;
+        updatePaginationUI(0, 0, 0);
+        return;
+      }
+
+      if (total === 0) {
+        ui.tableBody.innerHTML = `<tr><td colspan="${activeColCount}" class="px-4 py-12 text-center text-gray-500 bg-gray-50">找不到符合條件的資料，請放寬篩選條件。</td></tr>`;
+        updatePaginationUI(0, 0, 0);
+        return;
+      }
+
+      const startIndex = (currentPage - 1) * rowsPerPage;
+      const endIndex = Math.min(startIndex + rowsPerPage, total);
+      const pageData = filteredData.slice(startIndex, endIndex);
+
+      const productColors = {
+        '純辦': 'bg-blue-100 text-blue-800 border border-blue-200',
+        '廠辦': 'bg-purple-100 text-purple-800 border border-purple-200',
+        '工業': 'bg-orange-100 text-orange-800 border border-orange-200',
+        '零售': 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+        '土地': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+        '旅館': 'bg-rose-100 text-rose-800 border border-rose-200'
+      };
+
+      let html = '';
+      pageData.forEach((row, index) => {
+        const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        const getVal = (key) => row[key] !== undefined && row[key] !== null ? String(row[key]) : '';
+        const fmtNum = (val) => {
+          const num = parseNumber(val);
+          return num !== 0 || String(val).includes('0') ? num.toLocaleString() : getVal(val);
+        };
+
+        html += `<tr class="${bgClass} hover:bg-indigo-50 transition-colors">`;
+        
+        // 依據目前勾選的動態欄位依序產出 td
+        activeColumns.forEach(col => {
+          const rawVal = getVal(col.id);
+          let cellContent = '';
+
+          if (col.type === 'badge') {
+            const badgeColor = productColors[rawVal] || 'bg-gray-100 text-gray-700 border border-gray-200';
+            cellContent = `<span class="px-2 py-1 ${badgeColor} text-xs font-medium rounded-md whitespace-nowrap shadow-sm">${rawVal}</span>`;
+          } else if (col.type === 'truncate') {
+            cellContent = `<div class="max-w-[180px] truncate" title="${rawVal}">${rawVal}</div>`;
+          } else if (col.type === 'number') {
+            // 處理數字並加入單位
+            let formattedNumStr = fmtNum(rawVal);
+            let unitStr = '';
+            
+            // 根據不同欄位附加不同單位
+            if (col.id === '交易金額') {
+              unitStr = ' <span class="text-xs text-gray-500 font-normal">億元</span>';
+            } else if (col.id === '土地單價' || col.id === '建物單價') {
+              unitStr = ' <span class="text-xs text-gray-500 font-normal">萬元</span>';
+            }
+            // 如果只有數字沒有其他單位需求，也可以在此處擴充（例如：面積加上 "坪"）
+            
+            cellContent = `<span class="font-medium text-gray-800">${formattedNumStr}${unitStr}</span>`;
+          } else {
+            cellContent = rawVal;
+          }
+
+          html += `<td class="px-4 py-3 border-b ${col.align === 'right' ? 'text-right' : 'text-left'}">${cellContent}</td>`;
+        });
+        
+        html += `</tr>`;
+      });
+
+      ui.tableBody.innerHTML = html;
+      updatePaginationUI(total, startIndex + 1, endIndex);
+    }
+
+    function updatePaginationUI(total, startNum, endNum) {
+      ui.pageStartItem.textContent = startNum;
+      ui.pageEndItem.textContent = endNum;
+      ui.pageIndicator.textContent = `第 ${currentPage} 頁`;
+
+      const maxPage = Math.ceil(total / rowsPerPage) || 1;
+      ui.btnPrevPage.disabled = currentPage <= 1;
+      ui.btnNextPage.disabled = currentPage >= maxPage;
+    }
+
+    function handleCopyTable() {
+      let tsv = '';
+      
+      // 1. 抓取表頭 (忽略排序用的 SVG，只抓取文字)
+      const ths = ui.tableHeadRow.querySelectorAll('th');
+      const headers = Array.from(ths).map(th => {
+        const span = th.querySelector('span'); // 因為你的 th 裡面有用 span 包文字
+        return span ? span.textContent.trim() : th.textContent.trim();
+      });
+      tsv += headers.join('\t') + '\n';
+
+      // 2. 抓取表格內容
+      const trs = ui.tableBody.querySelectorAll('tr');
+      let hasData = false;
+      
+      trs.forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        // 若遇到「找不到符合條件的資料」或「載入中」的單一長條合併儲存格，則跳過
+        if (tds.length === 1 && tds[0].colSpan > 1) return;
+        
+        hasData = true;
+        const rowData = Array.from(tds).map(td => td.textContent.trim());
+        tsv += rowData.join('\t') + '\n';
+      });
+
+      if (!hasData) {
+        showMessageBox('目前沒有資料可供複製。');
+        return;
+      }
+
+      // 3. 使用傳統的 execCommand 進行複製 (相容 iframe 與多數瀏覽器)
+      const textarea = document.createElement('textarea');
+      textarea.value = tsv;
+      // 將 textarea 隱藏並避免畫面滾動
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      
+      try {
+        document.execCommand('copy');
+        // 使用我們自己寫的精美提示框
+        showMessageBox('✅ 複製成功！您可以直接貼上到 Excel 或 Google Sheets 中。');
+      } catch (err) {
+        showMessageBox('❌ 複製失敗，請手動選取內容複製。');
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
+
+    function parseNumber(val) {
+      if (val === null || val === undefined || val === '') return 0;
+      if (typeof val === 'number') return val;
+      const cleanStr = String(val).replace(/[^0-9.-]+/g,"");
+      const num = parseFloat(cleanStr);
+      return isNaN(num) ? 0 : num;
+    }
+
+    // 自訂的訊息提示框 (Toast)，取代原生的 alert()
+    function showMessageBox(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-6 right-6 bg-gray-800 text-white px-5 py-3 rounded-lg shadow-xl transform transition-all duration-300 translate-y-10 opacity-0 z-[100] flex items-center gap-3 border-l-4 border-red-500';
+      toast.innerHTML = `
+        <svg class="w-5 h-5 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        <span class="text-sm font-medium">${msg}</span>
+      `;
+      document.body.appendChild(toast);
+
+      // 動畫滑入
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+      });
+
+      // 3秒後動畫滑出並移除DOM
+      setTimeout(() => {
+        toast.classList.add('translate-y-10', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+
+  </script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -168,7 +167,7 @@
             const [selectionRangeStart, setSelectionRangeStart] = useState('');
             const [selectionRangeEnd, setSelectionRangeEnd] = useState('');
             const [lastError, setLastError] = useState('');
-            const [dialog, setDialog] = useState(null); // 新增：控制自訂對話框的狀態
+            const [dialog, setDialog] = useState(null); // 控制自訂對話框的狀態
             const fileInputRef = useRef(null);
 
             const handleFileUpload = async (event) => {
@@ -246,40 +245,68 @@
                     console.error('載入 PDF 發生錯誤:', error);
                     const message = getReadableError(error) || '載入 PDF 失敗，請確認檔案格式是否正確。';
                     setLastError(message);
-                    setDialog({ type: 'alert', message }); // 替換 alert
+                    setDialog({ type: 'alert', message });
                 } finally {
                     setIsLoading(false);
                     if (fileInputRef.current) fileInputRef.current.value = '';
                 }
             };
 
-            const deletePage = (id) => {
+            const performDelete = (idsToDelete) => {
                 withViewTransition(() => {
                     setPages(prev => {
-                        const pageToDelete = prev.find(p => p.id === id);
-                        // 釋放縮圖的 Blob 記憶體
-                        if (pageToDelete && pageToDelete.thumbnail) {
-                            URL.revokeObjectURL(pageToDelete.thumbnail);
-                        }
+                        const idsSet = new Set(idsToDelete);
+                        const pagesToDelete = prev.filter(p => idsSet.has(p.id));
                         
-                        const newPages = prev.filter(p => p.id !== id);
+                        // 釋放縮圖的 Blob 記憶體
+                        pagesToDelete.forEach(p => {
+                            if (p.thumbnail) URL.revokeObjectURL(p.thumbnail);
+                        });
+                        
+                        const newPages = prev.filter(p => !idsSet.has(p.id));
                         
                         // 同步清理 sourceFiles 以避免 Memory Leak
-                        if (pageToDelete) {
-                            const fileId = pageToDelete.fileId;
-                            const isFileIdStillUsed = newPages.some(p => p.fileId === fileId);
-                            if (!isFileIdStillUsed) {
-                                setSourceFiles(currentFiles => {
-                                    const updatedFiles = { ...currentFiles };
+                        setSourceFiles(currentFiles => {
+                            const updatedFiles = { ...currentFiles };
+                            let hasChanges = false;
+                            
+                            pagesToDelete.forEach(page => {
+                                const fileId = page.fileId;
+                                const isFileIdStillUsed = newPages.some(p => p.fileId === fileId);
+                                if (!isFileIdStillUsed && updatedFiles[fileId]) {
                                     delete updatedFiles[fileId];
-                                    return updatedFiles;
-                                });
-                            }
-                        }
+                                    hasChanges = true;
+                                }
+                            });
+                            
+                            return hasChanges ? updatedFiles : currentFiles;
+                        });
+                        
                         return newPages;
                     });
-                    setSelectedPageIds(prev => prev.filter(pageId => pageId !== id));
+                    setSelectedPageIds(prev => prev.filter(pageId => !idsToDelete.includes(pageId)));
                 });
+            };
+
+            const deleteSelectedPages = () => {
+                if (selectedPageIds.length === 0) return;
+                setDialog({
+                    type: 'confirm',
+                    message: `確定要刪除選取的 ${selectedPageIds.length} 個頁面嗎？`,
+                    onConfirm: () => {
+                        performDelete(selectedPageIds);
+                        setDialog(null);
+                    }
+                });
+            };
+
+            const deletePage = (id) => {
+                // 如果目前是多選模式，且點擊的垃圾桶屬於「已選取」的頁面，且選了不只一頁，則觸發多選刪除
+                if (isMultiSelectMode && selectedPageIds.includes(id) && selectedPageIds.length > 1) {
+                    deleteSelectedPages();
+                } else {
+                    performDelete([id]);
+                }
             };
 
             const toggleMultiSelectMode = () => {
@@ -327,7 +354,7 @@
 
             const addRangeSelection = () => {
                 const result = validateRange(selectionRangeStart, selectionRangeEnd, pages.length);
-                if (!result.ok) return setDialog({ type: 'alert', message: result.message }); // 替換 alert
+                if (!result.ok) return setDialog({ type: 'alert', message: result.message });
 
                 const rangeIds = pages.slice(result.start - 1, result.end).map(page => page.id);
                 setSelectedPageIds(prev => Array.from(new Set([...prev, ...rangeIds])));
@@ -509,14 +536,14 @@
                     console.error('匯出發生錯誤:', error);
                     const message = getReadableError(error) || '匯出 PDF 時發生錯誤。';
                     setLastError(message);
-                    setDialog({ type: 'alert', message }); // 替換 alert
+                    setDialog({ type: 'alert', message });
                 } finally {
                     setIsLoading(false);
                 }
             };
 
             const handleExport = () => {
-                if (pages.length === 0) return setDialog({ type: 'alert', message: '沒有可以匯出的頁面！' }); // 替換 alert
+                if (pages.length === 0) return setDialog({ type: 'alert', message: '沒有可以匯出的頁面！' });
 
                 if (exportMode === 'all') {
                     processAndDownloadPDF(pages, 'exported');
@@ -524,7 +551,7 @@
                 }
 
                 const result = validateRange(extractStart, extractEnd, pages.length);
-                if (!result.ok) return setDialog({ type: 'alert', message: result.message }); // 替換 alert
+                if (!result.ok) return setDialog({ type: 'alert', message: result.message });
 
                 const subset = pages.slice(result.start - 1, result.end);
                 processAndDownloadPDF(subset, `extracted_${result.start}_to_${result.end}`);
@@ -540,7 +567,6 @@
             };
 
             const clearAll = () => {
-                // 替換 confirm 為自訂對話框
                 setDialog({
                     type: 'confirm',
                     message: '確定要清除所有頁面嗎？',
@@ -574,6 +600,7 @@
 
                         <div className="bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                {}
                                 <section className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">1</span>
@@ -608,6 +635,7 @@
                                     </div>
                                 </section>
 
+                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-blue-100 bg-blue-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">2</span>
@@ -659,6 +687,7 @@
                                     </div>
                                 </section>
 
+                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-green-100 bg-green-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">3</span>
@@ -698,6 +727,7 @@
                             </div>
                         </div>
 
+                        {}
                         {lastError && (
                             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                                 <strong>錯誤：</strong>{lastError}
@@ -714,6 +744,7 @@
                             </div>
                         )}
 
+                        {}
                         {pages.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator(null); }}>
                                 {pages.map((page, index) => {
@@ -736,6 +767,7 @@
                                                 </div>
                                             )}
 
+                                            {}
                                             {/* 頁面縮圖與覆蓋按鈕 */}
                                             <div className="relative bg-gray-50 border border-gray-100 rounded flex items-center justify-center overflow-hidden aspect-[1/1.4] mb-2" onClick={(e) => togglePageSelection(page.id, e)}>
                                                 <img src={page.thumbnail} alt={`第 ${page.originalPageNum + 1} 頁`} className="max-h-full max-w-full object-contain shadow-sm transition-transform duration-300" style={{ transform: `rotate(${page.rotation}deg)` }} />
@@ -784,7 +816,8 @@
                             )
                         )}
                         
-                        {/* 這裡新增自訂對話框的 UI */}
+                        {}
+                        {/* 自訂對話框的 UI */}
                         {dialog && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity">
                                 <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-100 transform transition-all">

@@ -100,11 +100,24 @@
 
         <!-- 條件：總交易金額 -->
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-gray-700">交易金額 (最低 - 最高)</label>
+          <label class="text-sm font-medium text-gray-700">交易金額 (最低 - 最高) <span class="text-xs text-gray-500 font-normal ml-1">(億元)</span></label>
           <div class="flex items-center gap-2">
             <input type="number" id="filterAmountMin" placeholder="不限" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
             <span class="text-gray-400">-</span>
             <input type="number" id="filterAmountMax" placeholder="不限" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+          </div>
+        </div>
+
+        <!-- 新增條件：買賣方與代號篩選 -->
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">買賣方名稱 / 代號</label>
+          <div class="flex items-center gap-2">
+            <select id="filterPartyType" class="w-2/5 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm">
+              <option value="both">不限(買/賣方)</option>
+              <option value="buyer">僅買方</option>
+              <option value="seller">僅賣方</option>
+            </select>
+            <input type="text" id="filterPartyKeyword" placeholder="輸入名稱或代號..." class="w-3/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
           </div>
         </div>
 
@@ -248,7 +261,8 @@
 
   <script>
     // --- 狀態變數 ---
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxbJgTC44zfw5vJJcdTs_eFlIi_YkCNMrjK9gLaWOOdYYoxg-VX8KJUaNviPwXKywC-/exec';
+    // 更新為新的 API 網址
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyItS79UtNoUVa_13P7XNLrUaGcMEhLIRvryVNvHRlAZSHv_tXZW4Lf1BcFU14wuKxC/exec';
     
     let rawData = [];
     let filteredData = [];
@@ -270,7 +284,9 @@
       { id: '行政區', checked: false, align: 'left', type: 'text' },
       { id: '標的名稱', checked: true, align: 'left', type: 'truncate' },
       { id: '購買者', checked: true, align: 'left', type: 'truncate' },
+      { id: '買代號', checked: false, align: 'left', type: 'text' },
       { id: '出售者', checked: true, align: 'left', type: 'truncate' },
+      { id: '售代號', checked: false, align: 'left', type: 'text' },
       { id: '交易金額', checked: true, align: 'right', type: 'number' },
       { id: '土地面積', checked: true, align: 'right', type: 'number' },
       { id: '建物面積', checked: true, align: 'right', type: 'number' },
@@ -293,6 +309,9 @@
       district: document.getElementById('filterDistrict'),
       amountMin: document.getElementById('filterAmountMin'),
       amountMax: document.getElementById('filterAmountMax'),
+      // 新增買賣方篩選 UI 參考
+      partyType: document.getElementById('filterPartyType'),
+      partyKeyword: document.getElementById('filterPartyKeyword'),
       productCheckboxes: document.querySelectorAll('.product-checkbox'),
       resetBtn: document.getElementById('resetBtn'),
       applyFilterBtn: document.getElementById('applyFilterBtn'),
@@ -462,22 +481,26 @@
       activeColumns.forEach(col => {
         const th = document.createElement('th');
         th.scope = 'col';
-        th.className = `px-4 py-3 font-semibold border-b sortable-header ${col.align === 'right' ? 'text-right' : 'text-left'}`;
+        th.className = `px-4 py-3 font-semibold border-b sortable-header align-top ${col.align === 'right' ? 'text-right' : 'text-left'}`;
         if (col.type === 'truncate') th.classList.add('max-w-[200px]');
         th.dataset.sort = col.id;
 
         // 根據對齊方式排列文字與箭頭圖示
         const flexClass = col.align === 'right' ? 'justify-end' : 'justify-start';
         
-        // 針對特定標題加上單位 (不影響自訂欄位的名稱)
+        // 針對特定標題加上單位並處理換行
         let displayTitle = col.id;
-        if (col.id === '土地面積') displayTitle = '土地面積(坪)';
-        if (col.id === '建物面積') displayTitle = '建物面積(坪)';
+        if (col.id === '土地面積') displayTitle = '土地面積<br><span class="text-xs font-normal text-gray-500">(坪)</span>';
+        if (col.id === '建物面積') displayTitle = '建物面積<br><span class="text-xs font-normal text-gray-500">(坪)</span>';
+        if (col.id === '交易金額') displayTitle = '交易金額<br><span class="text-xs font-normal text-gray-500">(億元)</span>';
+        if (col.id === '土地單價') displayTitle = '土地單價<br><span class="text-xs font-normal text-gray-500">(萬元)</span>';
+        if (col.id === '建物單價') displayTitle = '建物單價<br><span class="text-xs font-normal text-gray-500">(萬元)</span>';
         
+        // 注意：為了支援 <br> 換行，移除外層的 items-center，並調整 flex 方向
         th.innerHTML = `
-          <div class="flex items-center gap-1 ${flexClass}">
-            <span class="${col.type === 'truncate' ? 'truncate' : ''}">${displayTitle}</span>
-            <svg class="sort-icon" viewBox="0 0 320 512">
+          <div class="flex items-start gap-1 ${flexClass}">
+            <div class="${col.type === 'truncate' ? 'truncate' : ''}">${displayTitle}</div>
+            <svg class="sort-icon mt-1" viewBox="0 0 320 512">
               <path class="sort-up" d="M27.66 224h264.7c24.6 0 36.89-29.78 19.54-47.12l-132.3-136.8c-5.406-5.406-12.47-8.107-19.53-8.107c-7.055 0-14.09 2.701-19.45 8.107L8.119 176.9C-9.229 194.2 3.055 224 27.66 224z"/>
               <path class="sort-down" d="M292.3 288H27.66c-24.6 0-36.89 29.77-19.54 47.12l132.5 136.8C145.9 477.3 152.1 480 160 480c7.053 0 14.12-2.703 19.53-8.109l132.3-136.8C329.2 317.8 316.9 288 292.3 288z"/>
             </svg>
@@ -514,7 +537,7 @@
     function bindEvents() {
       // 送出篩選按鈕
       ui.applyFilterBtn.addEventListener('click', () => {
-        // --- 新增：年份防呆攔截 ---
+        // --- 年份防呆攔截 ---
         const startY = parseInt(ui.yearStart.value) || 0;
         const endY = parseInt(ui.yearEnd.value) || 0;
         
@@ -531,9 +554,16 @@
             showMessageBox('年份區間最多為 10 年，已自動為您調整。');
           }
         }
-        // --- 防呆攔截結束 ---
-
+        
+        // 綁定送出按鈕時也支援 Enter 鍵在輸入框觸發 (可選增強)
         applyFilters();
+      });
+
+      // 在關鍵字輸入框按下 Enter 也可以送出篩選
+      ui.partyKeyword.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          ui.applyFilterBtn.click();
+        }
       });
 
       ui.city.addEventListener('change', (e) => {
@@ -554,10 +584,7 @@
           ui.district.classList.add('bg-gray-50', 'disabled:opacity-50');
           ui.district.classList.remove('bg-white');
         }
-        // 選擇縣市時不再自動送出篩選，僅連動行政區選單
       });
-
-      // ui.district.addEventListener('change', applyFilters);
 
       ui.resetBtn.addEventListener('click', () => {
         ui.yearStart.value = '2025';
@@ -570,15 +597,17 @@
         ui.district.classList.add('bg-gray-50', 'disabled:opacity-50');
         ui.productCheckboxes.forEach(cb => cb.checked = false);
         
+        // 清空新增的買賣方篩選
+        ui.partyType.value = 'both';
+        ui.partyKeyword.value = '';
+        
         currentSortColumn = '交易金額';
         currentSortOrder = 'desc';
         updateSortUI();
-        applyFilters(); // 清除時自動送出一次
+        applyFilters(); 
       });
 
-      // 新增：重設欄位按鈕事件
       ui.resetColumnsBtn.addEventListener('click', () => {
-        // 使用深拷貝恢復預設狀態
         columnDefs = JSON.parse(JSON.stringify(initialColumnDefs));
         renderColumnManager();
         renderTableHeaders();
@@ -600,7 +629,6 @@
         if (currentPage < maxPage) { currentPage++; renderTable(); }
       });
 
-      // 綁定複製按鈕事件
       if (ui.copyTableBtn) {
         ui.copyTableBtn.addEventListener('click', handleCopyTable);
       }
@@ -618,18 +646,47 @@
                                .filter(cb => cb.checked)
                                .map(cb => cb.value);
 
+      // 取得買賣方篩選條件
+      const partyType = ui.partyType.value; // 'both', 'buyer', 'seller'
+      const partyKeyword = ui.partyKeyword.value.trim();
+
       filteredData = rawData.filter(row => {
         const rowYear = parseInt(row['年']) || 0;
-        const rowAmt = parseNumber(row['交易金額']); // 配合名稱修改
+        const rowAmt = parseNumber(row['交易金額']); 
         const rowCity = String(row['縣市'] || '').trim();
         const rowDist = String(row['行政區'] || '').trim();
         const rowProd = String(row['產品'] || '').trim();
 
+        // 基本篩選
         if (rowYear > 0) { if (rowYear < yStart || rowYear > yEnd) return false; }
         if (rowAmt >= 0) { if (rowAmt < minAmt || rowAmt > maxAmt) return false; }
         if (selProducts.length > 0) { if (!selProducts.includes(rowProd)) return false; }
         if (selCity && rowCity !== selCity) return false;
         if (selDist && rowDist !== selDist) return false;
+
+        // 買賣方/代號進階篩選邏輯 (全面模糊搜尋)
+        if (partyKeyword !== '') {
+          const lowerKeyword = partyKeyword.toLowerCase();
+          
+          // 將買賣方名稱與代號全部轉為小寫字串
+          const buyerName = String(row['購買者'] || '').toLowerCase();
+          const buyerCode = String(row['買代號'] || '').toLowerCase();
+          const sellerName = String(row['出售者'] || '').toLowerCase();
+          const sellerCode = String(row['售代號'] || '').toLowerCase();
+
+          // 只要名稱或代號「包含」關鍵字，就視為符合
+          const matchBuyer = buyerName.includes(lowerKeyword) || buyerCode.includes(lowerKeyword);
+          const matchSeller = sellerName.includes(lowerKeyword) || sellerCode.includes(lowerKeyword);
+
+          // 根據下拉選單決定最終是否符合
+          if (partyType === 'both') {
+            if (!matchBuyer && !matchSeller) return false;
+          } else if (partyType === 'buyer') {
+            if (!matchBuyer) return false;
+          } else if (partyType === 'seller') {
+            if (!matchSeller) return false;
+          }
+        }
 
         return true;
       });
@@ -671,7 +728,7 @@
         let valA = a[currentSortColumn];
         let valB = b[currentSortColumn];
 
-        // 把新的數字型態欄位也加入轉換陣列 (配合名稱修改)
+        // 把新的數字型態欄位也加入轉換陣列
         const numberCols = ['年', '月', '交易金額', '土地面積', '建物面積', '土地單價', '建物單價'];
         
         if (numberCols.includes(currentSortColumn)) {
@@ -743,19 +800,9 @@
           } else if (col.type === 'truncate') {
             cellContent = `<div class="max-w-[180px] truncate" title="${rawVal}">${rawVal}</div>`;
           } else if (col.type === 'number') {
-            // 處理數字並加入單位
+            // 處理數字，移除原本加在後面的單位
             let formattedNumStr = fmtNum(rawVal);
-            let unitStr = '';
-            
-            // 根據不同欄位附加不同單位
-            if (col.id === '交易金額') {
-              unitStr = ' <span class="text-xs text-gray-500 font-normal">億元</span>';
-            } else if (col.id === '土地單價' || col.id === '建物單價') {
-              unitStr = ' <span class="text-xs text-gray-500 font-normal">萬元</span>';
-            }
-            // 如果只有數字沒有其他單位需求，也可以在此處擴充（例如：面積加上 "坪"）
-            
-            cellContent = `<span class="font-medium text-gray-800">${formattedNumStr}${unitStr}</span>`;
+            cellContent = `<span class="font-medium text-gray-800">${formattedNumStr}</span>`;
           } else {
             cellContent = rawVal;
           }
@@ -783,21 +830,18 @@
     function handleCopyTable() {
       let tsv = '';
       
-      // 1. 抓取表頭 (忽略排序用的 SVG，只抓取文字)
       const ths = ui.tableHeadRow.querySelectorAll('th');
       const headers = Array.from(ths).map(th => {
-        const span = th.querySelector('span'); // 因為你的 th 裡面有用 span 包文字
+        const span = th.querySelector('span'); 
         return span ? span.textContent.trim() : th.textContent.trim();
       });
       tsv += headers.join('\t') + '\n';
 
-      // 2. 抓取表格內容
       const trs = ui.tableBody.querySelectorAll('tr');
       let hasData = false;
       
       trs.forEach(tr => {
         const tds = tr.querySelectorAll('td');
-        // 若遇到「找不到符合條件的資料」或「載入中」的單一長條合併儲存格，則跳過
         if (tds.length === 1 && tds[0].colSpan > 1) return;
         
         hasData = true;
@@ -810,10 +854,8 @@
         return;
       }
 
-      // 3. 使用傳統的 execCommand 進行複製 (相容 iframe 與多數瀏覽器)
       const textarea = document.createElement('textarea');
       textarea.value = tsv;
-      // 將 textarea 隱藏並避免畫面滾動
       textarea.style.position = 'fixed';
       textarea.style.top = '0';
       textarea.style.left = '0';
@@ -824,7 +866,6 @@
       
       try {
         document.execCommand('copy');
-        // 使用我們自己寫的精美提示框
         showMessageBox('✅ 複製成功！您可以直接貼上到 Excel 或 Google Sheets 中。');
       } catch (err) {
         showMessageBox('❌ 複製失敗，請手動選取內容複製。');
@@ -841,7 +882,7 @@
       return isNaN(num) ? 0 : num;
     }
 
-    // 自訂的訊息提示框 (Toast)，取代原生的 alert()
+    // 自訂的訊息提示框 (Toast)
     function showMessageBox(msg) {
       const toast = document.createElement('div');
       toast.className = 'fixed bottom-6 right-6 bg-gray-800 text-white px-5 py-3 rounded-lg shadow-xl transform transition-all duration-300 translate-y-10 opacity-0 z-[100] flex items-center gap-3 border-l-4 border-red-500';
@@ -851,12 +892,10 @@
       `;
       document.body.appendChild(toast);
 
-      // 動畫滑入
       requestAnimationFrame(() => {
         toast.classList.remove('translate-y-10', 'opacity-0');
       });
 
-      // 3秒後動畫滑出並移除DOM
       setTimeout(() => {
         toast.classList.add('translate-y-10', 'opacity-0');
         setTimeout(() => toast.remove(), 300);

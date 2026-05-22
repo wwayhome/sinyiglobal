@@ -39,10 +39,18 @@
         <p class="text-gray-500 mb-8">請輸入系統密碼以進入工具</p>
         
         <div class="space-y-4">
-            <input type="password" id="pwd-input" maxlength="8" 
-                   class="w-full px-5 py-3 text-center text-2xl tracking-[0.5em] font-mono border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
-                   placeholder="••••••••"
-                   onkeypress="if(event.key === 'Enter') checkPassword()">
+            <div class="relative w-full">
+                <input type="password" id="pwd-input" maxlength="8" 
+                       class="w-full px-5 py-3 text-center text-2xl tracking-[0.5em] font-mono border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                       placeholder="••••••••"
+                       onkeypress="if(event.key === 'Enter') checkPassword()">
+                
+                <!-- 顯示/隱藏密碼的眼睛按鈕 -->
+                <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-500 focus:outline-none transition-colors">
+                    <i id="eye-icon" data-lucide="eye" class="w-6 h-6"></i>
+                    <i id="eye-off-icon" data-lucide="eye-off" class="w-6 h-6 hidden"></i>
+                </button>
+            </div>
             
             <p id="error-msg" class="text-red-500 text-sm font-bold opacity-0 transition-opacity">密碼錯誤或驗證失敗！</p>
             
@@ -62,7 +70,7 @@
 
         <main class="w-full max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
             <!-- 模組連結列表 -->
-            <a href="https://wwayhome.github.io/sinyiglobal/luyz/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T1/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-blue-100 text-blue-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all">
@@ -72,7 +80,7 @@
                 </div>
             </a>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/dcab/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T2/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-emerald-100 text-emerald-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all">
@@ -82,7 +90,7 @@
                 </div>
             </a>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/dnb6/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T3/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-purple-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-purple-100 text-purple-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all">
@@ -92,7 +100,7 @@
                 </div>
             </a>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/ucng/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T4/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-amber-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-amber-100 text-amber-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all">
@@ -102,7 +110,7 @@
                 </div>
             </a>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/6qeb/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T5/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-indigo-100 text-indigo-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all">
@@ -112,7 +120,7 @@
                 </div>
             </a>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/liaf/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T6/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-orange-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-orange-100 text-orange-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all">
@@ -122,7 +130,7 @@
                 </div>
             </a>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/ad94/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T7/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-cyan-100 text-cyan-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-cyan-600 group-hover:text-white transition-all">
@@ -133,7 +141,7 @@
             </a>
 
             <!-- 模組 8 (PDF調整) -->
-            <a href="https://wwayhome.github.io/sinyiglobal/wr3b/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+            <a href="https://wwayhome.github.io/sinyiglobal/T8/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="absolute inset-0 bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10 flex flex-col items-center text-center">
                     <div class="p-4 bg-red-100 text-red-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-red-600 group-hover:text-white transition-all">
@@ -147,12 +155,44 @@
                 </div>
             </a>
 
+            <!-- 模組 9 (大型交易) -->
+            <a href="https://wwayhome.github.io/sinyiglobal/tv2s/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="absolute inset-0 bg-teal-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative z-10 flex flex-col items-center text-center">
+                    <div class="p-4 bg-teal-100 text-teal-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-teal-600 group-hover:text-white transition-all">
+                        <i data-lucide="handshake" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-teal-700">大型交易</span>
+                </div>
+            </a>
+
+            <!-- 模組 10 (施工中) -->
             <div class="group relative bg-white rounded-3xl shadow-sm cursor-not-allowed aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
                 <div class="relative z-10 flex flex-col items-center text-center opacity-40">
                     <div class="p-4 bg-slate-100 text-slate-600 rounded-full mb-4">
-                        <i data-lucide="clock" class="w-10 h-10 md:w-12 md:h-12"></i>
+                        <i data-lucide="wrench" class="w-10 h-10 md:w-12 md:h-12"></i>
                     </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-400">製作中</span>
+                    <span class="text-xl md:text-2xl font-bold text-gray-400">施工中</span>
+                </div>
+            </div>
+
+            <!-- 模組 11 (施工中) -->
+            <div class="group relative bg-white rounded-3xl shadow-sm cursor-not-allowed aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="relative z-10 flex flex-col items-center text-center opacity-40">
+                    <div class="p-4 bg-slate-100 text-slate-600 rounded-full mb-4">
+                        <i data-lucide="hammer" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-400">施工中</span>
+                </div>
+            </div>
+
+            <!-- 模組 12 (施工中) -->
+            <div class="group relative bg-white rounded-3xl shadow-sm cursor-not-allowed aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
+                <div class="relative z-10 flex flex-col items-center text-center opacity-40">
+                    <div class="p-4 bg-slate-100 text-slate-600 rounded-full mb-4">
+                        <i data-lucide="more-horizontal" class="w-10 h-10 md:w-12 md:h-12"></i>
+                    </div>
+                    <span class="text-xl md:text-2xl font-bold text-gray-400">施工中</span>
                 </div>
             </div>
         </main>
@@ -174,6 +214,23 @@
                 showMainContent(false);
             }
         });
+
+        // 切換密碼顯示狀態的邏輯
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('pwd-input');
+            const eyeIcon = document.getElementById('eye-icon');
+            const eyeOffIcon = document.getElementById('eye-off-icon');
+
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                eyeIcon.classList.add('hidden');
+                eyeOffIcon.classList.remove('hidden');
+            } else {
+                pwdInput.type = 'password';
+                eyeOffIcon.classList.add('hidden');
+                eyeIcon.classList.remove('hidden');
+            }
+        }
 
         function checkPassword() {
             const pwdInput = document.getElementById('pwd-input');

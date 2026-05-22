@@ -121,6 +121,14 @@
           </div>
         </div>
 
+        <!-- 新增條件：標的名稱篩選 -->
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">標的名稱</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="filterTargetName" placeholder="輸入標的名稱關鍵字..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+          </div>
+        </div>
+
         <!-- 條件：產品別 (改為大型切換按鈕) -->
         <div class="flex flex-col gap-2 md:col-span-2 lg:col-span-3 mt-2">
           <label class="text-sm font-medium text-gray-700 mb-1">產品類型 (可複選)</label>
@@ -309,9 +317,9 @@
       district: document.getElementById('filterDistrict'),
       amountMin: document.getElementById('filterAmountMin'),
       amountMax: document.getElementById('filterAmountMax'),
-      // 新增買賣方篩選 UI 參考
       partyType: document.getElementById('filterPartyType'),
       partyKeyword: document.getElementById('filterPartyKeyword'),
+      targetNameKeyword: document.getElementById('filterTargetName'), // 新增參照
       productCheckboxes: document.querySelectorAll('.product-checkbox'),
       resetBtn: document.getElementById('resetBtn'),
       applyFilterBtn: document.getElementById('applyFilterBtn'),
@@ -566,6 +574,13 @@
         }
       });
 
+      // 在標的名稱輸入框按下 Enter 也可以送出篩選
+      ui.targetNameKeyword.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          ui.applyFilterBtn.click();
+        }
+      });
+
       ui.city.addEventListener('change', (e) => {
         const city = e.target.value;
         ui.district.innerHTML = '<option value="">所有行政區</option>';
@@ -597,9 +612,9 @@
         ui.district.classList.add('bg-gray-50', 'disabled:opacity-50');
         ui.productCheckboxes.forEach(cb => cb.checked = false);
         
-        // 清空新增的買賣方篩選
         ui.partyType.value = 'both';
         ui.partyKeyword.value = '';
+        ui.targetNameKeyword.value = ''; // 重設標的名稱
         
         currentSortColumn = '交易金額';
         currentSortOrder = 'desc';
@@ -646,9 +661,9 @@
                                .filter(cb => cb.checked)
                                .map(cb => cb.value);
 
-      // 取得買賣方篩選條件
-      const partyType = ui.partyType.value; // 'both', 'buyer', 'seller'
-      const partyKeyword = ui.partyKeyword.value.trim();
+      const partyType = ui.partyType.value; 
+      const partyKeyword = ui.partyKeyword.value.trim().toLowerCase();
+      const targetNameKeyword = ui.targetNameKeyword.value.trim().toLowerCase(); // 取得標的名稱關鍵字
 
       filteredData = rawData.filter(row => {
         const rowYear = parseInt(row['年']) || 0;
@@ -663,6 +678,12 @@
         if (selProducts.length > 0) { if (!selProducts.includes(rowProd)) return false; }
         if (selCity && rowCity !== selCity) return false;
         if (selDist && rowDist !== selDist) return false;
+
+        // 標的名稱模糊搜尋
+        if (targetNameKeyword !== '') {
+          const rowTargetName = String(row['標的名稱'] || '').toLowerCase();
+          if (!rowTargetName.includes(targetNameKeyword)) return false;
+        }
 
         // 買賣方/代號進階篩選邏輯 (全面模糊搜尋)
         if (partyKeyword !== '') {

@@ -107,6 +107,10 @@
         /* 強制狀態覆蓋 */
         .cursor-col-resize-force { cursor: col-resize !important; }
         .select-none-force { user-select: none !important; }
+        
+        /* 標籤輸入框隱藏原生箭頭 */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 
@@ -299,18 +303,24 @@
                 const headerColor = isMain ? 'bg-red-50 border-red-200 text-red-800' : 'bg-white border-slate-200 text-slate-800';
                 const badgeColor = isMain ? 'bg-red-600' : 'bg-blue-600';
 
+                // 本案：文字框(限8字)；案例：數字框(限1~99)
+                const labelInputHtml = isMain 
+                    ? `<input type="text" id="in-label-${data.id}" maxlength="8" value="${data.label}" class="ml-2 px-2 py-0.5 text-sm font-normal text-red-700 bg-white border border-red-300 rounded focus:ring-2 focus:ring-red-500 focus:outline-none w-28 placeholder-red-300 shadow-inner" placeholder="標籤(限8字)" title="自訂地圖顯示標籤">`
+                    : `<input type="number" id="in-label-${data.id}" min="1" max="99" oninput="if(this.value.length > 2) this.value = this.value.slice(0, 2);" value="${data.label}" class="ml-2 px-2 py-0.5 text-sm font-normal text-blue-700 bg-white border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none w-16 text-center placeholder-blue-300 shadow-inner" placeholder="數字" title="自訂地圖顯示數字(1~99)">`;
+
                 const copyButtonHtml = isMain ?
                     `<button onclick="copyTitlesToAll(this)" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 font-bold px-2 py-1 rounded shadow-sm border border-red-200 transition-all flex items-center gap-1" title="將此案的6個屬性標題同步至其他案例">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                        複製標題至全案
+                        複製標題
                     </button>` : '';
 
                 grid.innerHTML += `
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-md">
                         <div class="${headerColor} px-4 py-3 border-b flex justify-between items-center">
                             <span class="font-bold flex items-center gap-2 text-lg">
-                                <span class="${badgeColor} text-white text-sm w-6 h-6 flex items-center justify-center rounded-full shadow-inner">${isMain ? '★' : data.label}</span>
-                                ${data.title}
+                                <span class="${badgeColor} text-white text-sm w-6 h-6 flex shrink-0 items-center justify-center rounded-full shadow-inner">${isMain ? '★' : data.label}</span>
+                                <span class="whitespace-nowrap">${data.title}</span>
+                                ${labelInputHtml}
                             </span>
                             ${copyButtonHtml}
                         </div>
@@ -361,13 +371,17 @@
             leftPanel.innerHTML = '';
             rightPanel.innerHTML = '';
 
+            // 每次重新渲染時，確保面板恢復顯示，避免上次隱藏後無法出現
+            leftPanel.style.display = '';
+            rightPanel.style.display = '';
+
             propertyData.forEach((data, index) => {
                 const isEmpty = !data.address.trim() && data.type !== 'main';
 
                 if (isEmpty) {
                     const emptyHtml = `
                         <div id="empty-card-${data.id}" class="bg-slate-300/30 border border-slate-300 rounded-xl p-3 flex flex-col shrink-0 border-dashed min-h-[170px] cursor-grab relative group">
-                            <button onclick="document.getElementById('empty-card-${data.id}').style.visibility='hidden'" class="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-white/60 hover:bg-red-50 p-1.5 rounded-full transition z-10 cursor-pointer" title="隱藏此預留區">
+                            <button onclick="hideCard('empty-card-${data.id}')" class="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-white/60 hover:bg-red-50 p-1.5 rounded-full transition z-10 cursor-pointer" title="隱藏此預留區">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                             <div class="flex items-center gap-2 opacity-50 mb-1 pointer-events-none">
@@ -467,11 +481,50 @@
                 swapClass: 'sortable-swap-highlight', 
                 ghostClass: 'sortable-ghost',
                 delay: 50,
-                delayOnTouchOnly: true
+                delayOnTouchOnly: true,
+                onEnd: function () {
+                    // 拖曳結束後，也檢查是否有面板被清空
+                    checkPanelsEmpty();
+                }
             };
 
             leftSortable = new Sortable(leftPanel, sortableOptions);
             rightSortable = new Sortable(rightPanel, sortableOptions);
+        }
+
+        // 新增：隱藏卡片並檢查面板是否為空
+        function hideCard(cardId) {
+            const card = document.getElementById(cardId);
+            if (card) {
+                card.style.display = 'none'; // 徹底不佔空間
+                checkPanelsEmpty();
+            }
+        }
+
+        // 新增：檢查左右面板是否已經沒有可見卡片，若無則隱藏整個面板使地圖延展
+        function checkPanelsEmpty() {
+            ['left-panel', 'right-panel'].forEach(panelId => {
+                const panel = document.getElementById(panelId);
+                if (!panel) return;
+                
+                // 檢查是否還有 display !== 'none' 且非拖曳殘影的子元素
+                const hasVisible = Array.from(panel.children).some(child => 
+                    child.style.display !== 'none' && 
+                    !child.classList.contains('sortable-ghost') && 
+                    !child.classList.contains('sortable-drag')
+                );
+                
+                if (!hasVisible) {
+                    panel.style.display = 'none'; // 隱藏面板
+                } else {
+                    panel.style.display = ''; // 恢復顯示
+                }
+            });
+            
+            // 面板消失後，觸發地圖重繪以完美填滿新空間
+            if (map) {
+                setTimeout(() => map.invalidateSize(), 150);
+            }
         }
 
         function copyTitlesToAll(btn) {
@@ -521,6 +574,8 @@
 
         function updateDataFromInputs() {
             propertyData.forEach(data => {
+                // 讀取新的地圖標籤設定
+                data.label = document.getElementById(`in-label-${data.id}`).value;
                 data.name = document.getElementById(`in-name-${data.id}`).value;
                 const rawAddress = document.getElementById(`in-address-${data.id}`).value;
                 data.address = formatCoordinateString(rawAddress);
@@ -543,9 +598,10 @@
         function exportCSV() {
             updateDataFromInputs(); 
 
-            const headers = ['ID', '標題', '案名', '地址或座標', '面積標題', '面積內容', '分區標題', '分區內容', '總價標題', '總價內容', '自訂1標題', '自訂1內容', '自訂2標題', '自訂2內容', '自訂3標題', '自訂3內容'];
+            // 將地圖標籤加在 C 欄 (標題之後，案名之前)
+            const headers = ['ID', '標題', '地圖標籤', '案名', '地址或座標', '面積標題', '面積內容', '分區標題', '分區內容', '總價標題', '總價內容', '自訂1標題', '自訂1內容', '自訂2標題', '自訂2內容', '自訂3標題', '自訂3內容'];
             const rows = propertyData.map(d => [
-                d.id, d.title, d.name, d.address, d.area_name, d.area, d.zoning_name, d.zoning, d.price_name, d.price, d.c1_name, d.c1_val, d.c2_name, d.c2_val, d.c3_name, d.c3_val
+                d.id, d.title, d.label, d.name, d.address, d.area_name, d.area, d.zoning_name, d.zoning, d.price_name, d.price, d.c1_name, d.c1_val, d.c2_name, d.c2_val, d.c3_name, d.c3_val
             ]);
 
             const csvContent = [
@@ -633,32 +689,65 @@
             }
             if (currentRow.length > 0) rows.push(currentRow);
 
+            if (rows.length < 2) {
+                showToast('找不到有效的資料，請確認 CSV 格式是否正確。', true);
+                return;
+            }
+
+            // 動態解析標題欄位索引，完美相容新舊版與欄位變動
+            const hRow = rows[0];
+            const getIdx = (name, defaultIdx) => hRow.indexOf(name) !== -1 ? hRow.indexOf(name) : defaultIdx;
+            
+            const iTitle = getIdx('標題', 1);
+            const iLabel = getIdx('地圖標籤', -1); // 新版在索引 2，舊版可能在 16 或沒有
+            const iName = getIdx('案名', 2);
+            const iAddr = getIdx('地址或座標', 3);
+            const iAreaN = getIdx('面積標題', 4);
+            const iAreaV = getIdx('面積內容', 5);
+            const iZonN = getIdx('分區標題', 6);
+            const iZonV = getIdx('分區內容', 7);
+            const iPriceN = getIdx('總價標題', 8);
+            const iPriceV = getIdx('總價內容', 9);
+            const iC1N = getIdx('自訂1標題', 10);
+            const iC1V = getIdx('自訂1內容', 11);
+            const iC2N = getIdx('自訂2標題', 12);
+            const iC2V = getIdx('自訂2內容', 13);
+            const iC3N = getIdx('自訂3標題', 14);
+            const iC3V = getIdx('自訂3內容', 15);
+
             let updatedCount = 0;
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                if (row.length < 16) continue; 
+                // 只要有基本ID和標題就處理，避免 Excel 裁掉後方空白欄位導致錯誤
+                if (row.length < 3) continue; 
                 
                 let id = parseInt(row[0]);
                 // 處理舊版匯出時 0 變成空字串的問題，若為空且標題為本案則視為 0
-                if (isNaN(id) && row[1] === '本案') {
+                if (isNaN(id) && row[iTitle] === '本案') {
                     id = 0;
                 }
                 if (isNaN(id) || id < 0 || id > 5) continue; 
 
-                document.getElementById(`in-name-${id}`).value = row[2] || '';
-                document.getElementById(`in-address-${id}`).value = row[3] || '';
-                document.getElementById(`in-area-name-${id}`).value = row[4] || '';
-                document.getElementById(`in-area-${id}`).value = row[5] || '';
-                document.getElementById(`in-zoning-name-${id}`).value = row[6] || '';
-                document.getElementById(`in-zoning-${id}`).value = row[7] || '';
-                document.getElementById(`in-price-name-${id}`).value = row[8] || '';
-                document.getElementById(`in-price-${id}`).value = row[9] || '';
-                document.getElementById(`in-c1name-${id}`).value = row[10] || '';
-                document.getElementById(`in-c1val-${id}`).value = row[11] || '';
-                document.getElementById(`in-c2name-${id}`).value = row[12] || '';
-                document.getElementById(`in-c2val-${id}`).value = row[13] || '';
-                document.getElementById(`in-c3name-${id}`).value = row[14] || '';
-                document.getElementById(`in-c3val-${id}`).value = row[15] || '';
+                document.getElementById(`in-name-${id}`).value = row[iName] || '';
+                document.getElementById(`in-address-${id}`).value = row[iAddr] || '';
+                document.getElementById(`in-area-name-${id}`).value = row[iAreaN] || '';
+                document.getElementById(`in-area-${id}`).value = row[iAreaV] || '';
+                document.getElementById(`in-zoning-name-${id}`).value = row[iZonN] || '';
+                document.getElementById(`in-zoning-${id}`).value = row[iZonV] || '';
+                document.getElementById(`in-price-name-${id}`).value = row[iPriceN] || '';
+                document.getElementById(`in-price-${id}`).value = row[iPriceV] || '';
+                document.getElementById(`in-c1name-${id}`).value = row[iC1N] || '';
+                document.getElementById(`in-c1val-${id}`).value = row[iC1V] || '';
+                document.getElementById(`in-c2name-${id}`).value = row[iC2N] || '';
+                document.getElementById(`in-c2val-${id}`).value = row[iC2V] || '';
+                document.getElementById(`in-c3name-${id}`).value = row[iC3N] || '';
+                document.getElementById(`in-c3val-${id}`).value = row[iC3V] || '';
+                
+                // 載入自訂地圖標籤 (若無則保持預設值不覆寫)
+                if (iLabel !== -1 && row[iLabel] !== undefined && row[iLabel] !== '') {
+                    document.getElementById(`in-label-${id}`).value = row[iLabel];
+                }
+
                 updatedCount++;
             }
 

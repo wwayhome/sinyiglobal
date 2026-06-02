@@ -11,6 +11,9 @@
     <!-- 引入 Lucide Icons 圖示庫 -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- 引入 JSZip 用於打包下載 (新增) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
     <style>
         /* 隱藏預設捲軸，讓畫面更乾淨 */
         body { overflow-x: hidden; }
@@ -47,24 +50,101 @@
     <!-- Main Content Area -->
     <main class="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
         
-        <!-- Upload Area (初始顯示) -->
-        <div id="upload-section" class="p-12 flex flex-col items-center justify-center border-2 border-dashed border-blue-200 bg-blue-50/50 m-6 rounded-xl hover:bg-blue-50 transition-colors">
-            <input type="file" accept="image/*" class="hidden" id="image-upload" />
-            <label for="image-upload" class="cursor-pointer flex flex-col items-center gap-4">
-                <div class="p-4 bg-white rounded-full shadow-sm text-blue-500">
-                    <i data-lucide="upload-cloud" class="w-12 h-12"></i>
-                </div>
-                <div class="text-center">
-                    <p class="text-lg font-medium text-slate-700">拖曳圖片至此，或點擊上傳</p>
-                    <p class="text-sm text-slate-500 mt-1">支援 JPG, PNG 格式</p>
-                </div>
-                <div class="mt-4 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">
-                    選擇圖片
-                </div>
-            </label>
+        <!-- Upload Wrapper (新增：包覆單張與批次區塊，方便一起隱藏) -->
+        <div id="upload-wrapper" class="flex flex-col m-6 gap-4">
+            
+            <!-- Upload Area (恢復原狀：單張上傳與拖曳區) -->
+            <div id="upload-section" class="p-8 md:p-12 flex flex-col items-center justify-center border-2 border-dashed border-blue-200 bg-blue-50/50 rounded-xl hover:bg-blue-50 transition-colors">
+                <input type="file" accept="image/*" class="hidden" id="image-upload" />
+                <label for="image-upload" class="cursor-pointer flex flex-col items-center w-full">
+                    <div class="p-4 bg-white rounded-full shadow-sm text-blue-500 mb-4">
+                        <i data-lucide="upload-cloud" class="w-12 h-12"></i>
+                    </div>
+                    <div class="text-center mb-6">
+                        <p class="text-lg font-medium text-slate-700">拖曳圖片至此，或點擊上傳</p>
+                        <p class="text-sm text-slate-500 mt-1">支援 JPG, PNG 格式</p>
+                    </div>
+                    <div class="px-8 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center gap-2">
+                        選擇圖片
+                    </div>
+                </label>
+            </div>
+
+            <!-- 批次處理按鈕 (移至下方置中，加上 title 浮動說明) -->
+            <div class="flex justify-center">
+                <input type="file" accept="image/*" multiple class="hidden" id="batch-upload" />
+                <label for="batch-upload" title="一次選取多張照片(最多10張)，統一套用最佳化設定後，將自動打包成 ZIP 檔下載。" class="cursor-pointer flex items-center justify-center px-6 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 border border-indigo-200 transition shadow-sm">
+                    <i data-lucide="images" class="w-5 h-5 mr-2 text-indigo-600"></i>
+                    批次處理 (上限10張)
+                </label>
+            </div>
+            
         </div>
 
-        <!-- Editor Area (初始隱藏，上傳後顯示) -->
+        <!-- Batch Processing Area (新增：批次處理專區) -->
+        <div id="batch-section" class="hidden flex flex-col p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="layers" class="w-6 h-6 text-indigo-500"></i>
+                    批次處理佇列
+                </h2>
+                <span id="batch-count" class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-bold">0 / 10</span>
+            </div>
+            
+            <!-- 縮圖預覽網格 -->
+            <div id="batch-preview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6 max-h-64 overflow-y-auto p-2 bg-slate-50 rounded-lg border border-slate-200">
+                <!-- 動態生成縮圖 -->
+            </div>
+
+            <!-- 批次設定區 -->
+            <div class="px-6 py-4 bg-slate-50 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-200 mb-6">
+                <!-- 色調切換 -->
+                <div class="flex items-center gap-3 w-full md:w-auto justify-center">
+                    <span class="text-slate-700 font-medium text-sm flex items-center gap-1">
+                        <i data-lucide="palette" class="w-4 h-4 text-indigo-500"></i>
+                        統一風格
+                    </span>
+                    <div class="flex items-center bg-slate-200/60 p-1 rounded-lg">
+                        <button id="batch-tone-warm" class="px-3 py-1.5 text-sm font-medium rounded-md bg-white text-orange-500 shadow-sm transition">暖色溫馨</button>
+                        <button id="batch-tone-cool" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition">冷色通透</button>
+                    </div>
+                </div>
+
+                <!-- 調整幅度 -->
+                <div class="flex items-center gap-4 w-full md:w-1/2">
+                    <label class="text-slate-700 font-medium text-sm whitespace-nowrap flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-4 h-4 text-blue-500"></i>
+                        統一強度
+                    </label>
+                    <input type="range" id="batch-intensity-slider" min="0" max="100" value="50" class="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    <span id="batch-intensity-val" class="text-slate-600 font-mono w-12 text-right text-sm">50%</span>
+                </div>
+            </div>
+
+            <!-- 處理進度條 -->
+            <div id="batch-progress-container" class="hidden mb-6">
+                <div class="flex justify-between text-sm mb-1 font-medium text-slate-600">
+                    <span id="batch-progress-text">準備中...</span>
+                    <span id="batch-progress-percent">0%</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5">
+                    <div id="batch-progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="flex justify-between items-center border-t border-slate-200 pt-4">
+                <button id="batch-cancel-btn" class="px-4 py-2 flex items-center gap-2 text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition font-medium">
+                    取消並返回
+                </button>
+                <button id="batch-start-btn" class="px-6 py-2.5 flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 shadow-md transition font-medium">
+                    <i data-lucide="play" class="w-5 h-5"></i>
+                    開始處理並打包 ZIP
+                </button>
+            </div>
+        </div>
+
+        <!-- Editor Area (初始隱藏，單張上傳後顯示) -->
         <div id="editor-section" class="hidden flex flex-col">
             
             <!-- 圖片預覽與比較滑桿區 -->
@@ -90,6 +170,31 @@
                 <div id="labels" style="display: none;">
                     <div class="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm font-medium rounded backdrop-blur-sm pointer-events-none">原圖 (Before)</div>
                     <div class="absolute top-4 right-4 px-3 py-1 bg-blue-600/80 text-white text-sm font-medium rounded backdrop-blur-sm pointer-events-none">最佳化後 (After)</div>
+                </div>
+            </div>
+
+            <!-- 設定與強度調整區 (修改) -->
+            <div id="settings-section" class="hidden px-6 py-4 bg-white flex flex-col md:flex-row items-center justify-between gap-6 border-t border-slate-200">
+                <!-- 色調切換 -->
+                <div class="flex items-center gap-3 w-full md:w-auto justify-center">
+                    <span class="text-slate-700 font-medium text-sm flex items-center gap-1">
+                        <i data-lucide="palette" class="w-4 h-4 text-indigo-500"></i>
+                        風格
+                    </span>
+                    <div class="flex items-center bg-slate-100 p-1 rounded-lg">
+                        <button id="btn-tone-warm" class="px-3 py-1.5 text-sm font-medium rounded-md bg-white text-orange-500 shadow-sm transition">暖色溫馨</button>
+                        <button id="btn-tone-cool" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition">冷色通透</button>
+                    </div>
+                </div>
+
+                <!-- 調整幅度 -->
+                <div class="flex items-center gap-4 w-full md:w-1/2">
+                    <label for="intensity-slider" class="text-slate-700 font-medium text-sm whitespace-nowrap flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-4 h-4 text-blue-500"></i>
+                        強度
+                    </label>
+                    <input type="range" id="intensity-slider" min="0" max="100" value="50" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    <span id="intensity-val" class="text-slate-600 font-mono w-12 text-right text-sm">50%</span>
                 </div>
             </div>
 
@@ -143,7 +248,8 @@
         // 初始化 Lucide 圖示
         lucide.createIcons();
 
-        // 取得 DOM 元素
+        // 取得 DOM 元素 (共用與單張模式)
+        const uploadWrapper = document.getElementById('upload-wrapper'); // 新增
         const uploadInput = document.getElementById('image-upload');
         const uploadSection = document.getElementById('upload-section');
         const editorSection = document.getElementById('editor-section');
@@ -168,8 +274,132 @@
         let processedDataUrl = null;
         let isProcessed = false;
         let exportFileName = 'optimized_architecture.jpg'; // 新增變數來儲存下載檔名
+        
+        // 新增強度與色調控制狀態變數
+        let originalImageData = null;
+        let imageAverages = null;
+        let currentToneMode = 'warm'; // 'warm' 或 'cool'
+        
+        const settingsSection = document.getElementById('settings-section');
+        const intensitySlider = document.getElementById('intensity-slider');
+        const intensityVal = document.getElementById('intensity-val');
+        const btnToneWarm = document.getElementById('btn-tone-warm');
+        const btnToneCool = document.getElementById('btn-tone-cool');
 
-        // 獨立出檔案處理邏輯，讓點擊和拖曳都能共用
+        // 新增：批次處理 DOM 元素與狀態
+        const batchUploadInput = document.getElementById('batch-upload');
+        const batchSection = document.getElementById('batch-section');
+        const batchPreviewGrid = document.getElementById('batch-preview-grid');
+        const batchCountText = document.getElementById('batch-count');
+        const batchCancelBtn = document.getElementById('batch-cancel-btn');
+        const batchStartBtn = document.getElementById('batch-start-btn');
+        
+        const batchToneWarm = document.getElementById('batch-tone-warm');
+        const batchToneCool = document.getElementById('batch-tone-cool');
+        const batchIntensitySlider = document.getElementById('batch-intensity-slider');
+        const batchIntensityVal = document.getElementById('batch-intensity-val');
+        
+        const batchProgressContainer = document.getElementById('batch-progress-container');
+        const batchProgressText = document.getElementById('batch-progress-text');
+        const batchProgressPercent = document.getElementById('batch-progress-percent');
+        const batchProgressBar = document.getElementById('batch-progress-bar');
+        
+        let batchFiles = [];
+        let batchToneMode = 'warm';
+
+        // -------- 重構：將核心演算法獨立出來 --------
+        // 計算全圖平均值 (用於灰世界白平衡)
+        const calculateAverages = (data) => {
+            let rSum = 0, gSum = 0, bSum = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                rSum += data[i]; gSum += data[i+1]; bSum += data[i+2];
+            }
+            const pixelCount = data.length / 4;
+            return {
+                rAvg: rSum / pixelCount,
+                gAvg: gSum / pixelCount,
+                bAvg: bSum / pixelCount,
+                avgGray: ((rSum + gSum + bSum) / 3) / pixelCount
+            };
+        };
+
+        // 套用像素運算 (直接修改傳入的 data 陣列)
+        const applyAlgorithmToPixels = (data, averages, intensityValue, toneMode) => {
+            const ratio = intensityValue / 100;
+            
+            let effectMultiplier = 0;
+            if (intensityValue <= 50) {
+                effectMultiplier = intensityValue / 50;
+            } else {
+                effectMultiplier = 1.0 + ((intensityValue - 50) / 50) * 0.4;
+            }
+            
+            const baseWbStrength = 0.4;     
+            const baseShadowStrength = 0.6; 
+            const baseCurveStrength = 0.3;  
+            const baseSatBoost = 0.2;       
+            
+            let curToneR = 1, curToneB = 1;
+            if (toneMode === 'warm') {
+                const baseWarmBoost = 0.02; 
+                curToneR = 1 + (baseWarmBoost * effectMultiplier);
+                curToneB = 1 - (baseWarmBoost * effectMultiplier);
+            } else {
+                const baseCoolBoostR = -0.015; 
+                const baseCoolBoostB = 0.025;  
+                curToneR = 1 + (baseCoolBoostR * effectMultiplier);
+                curToneB = 1 + (baseCoolBoostB * effectMultiplier);
+            }
+
+            const curWbStrength = baseWbStrength * effectMultiplier;
+            const curShadowStrength = baseShadowStrength * effectMultiplier;
+            const curCurveStrength = baseCurveStrength * effectMultiplier;
+            const curSatBoost = 1 + (baseSatBoost * effectMultiplier);
+
+            const rWb = ((averages.avgGray / averages.rAvg) - 1) * curWbStrength + 1;
+            const gWb = ((averages.avgGray / averages.gAvg) - 1) * curWbStrength + 1;
+            const bWb = ((averages.avgGray / averages.bAvg) - 1) * curWbStrength + 1;
+
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i+1];
+                let b = data[i+2];
+
+                r *= rWb; g *= gWb; b *= bWb;
+                r *= curToneR; b *= curToneB;
+
+                let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                lum = Math.min(255, Math.max(0, lum));
+
+                const shadowFactor = 1 + curShadowStrength * Math.pow(1 - (lum / 255), 2.5);
+                r *= shadowFactor;
+                g *= shadowFactor;
+                b *= shadowFactor;
+
+                const applySCurve = (val) => {
+                    val = Math.min(255, Math.max(0, val));
+                    let norm = val / 255;
+                    let curved = norm < 0.5 ? 2 * norm * norm : 1 - 2 * Math.pow(1 - norm, 2);
+                    let blended = norm * (1 - curCurveStrength) + curved * curCurveStrength;
+                    return blended * 255;
+                };
+                r = applySCurve(r);
+                g = applySCurve(g);
+                b = applySCurve(b);
+
+                const newLum = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = newLum + (r - newLum) * curSatBoost;
+                g = newLum + (g - newLum) * curSatBoost;
+                b = newLum + (b - newLum) * curSatBoost;
+
+                data[i] = Math.min(255, Math.max(0, r));
+                data[i+1] = Math.min(255, Math.max(0, g));
+                data[i+2] = Math.min(255, Math.max(0, b));
+            }
+        };
+        // -------- 重構結束 --------
+
+        // 獨立出檔案處理邏輯 (單張模式)
         const handleFileUpload = (file) => {
             if (file && file.type.startsWith('image/')) {
                 // 處理檔名：在副檔名前加上 _optimized
@@ -194,12 +424,20 @@
                     isProcessed = false;
                     
                     // 顯示/隱藏區塊
-                    uploadSection.classList.add('hidden');
+                    uploadWrapper.classList.add('hidden'); // 修改為隱藏 Wrapper
+                    batchSection.classList.add('hidden');
                     editorSection.classList.remove('hidden');
                     processBtn.classList.remove('hidden');
                     downloadBtn.classList.add('hidden');
                     sliderLine.style.display = 'none';
                     labels.style.display = 'none';
+                    
+                    // 重置強度相關狀態
+                    settingsSection.classList.add('hidden');
+                    intensitySlider.value = 50;
+                    intensityVal.innerText = '50%';
+                    originalImageData = null;
+                    imageAverages = null;
                     
                     // 重置滑桿位置
                     updateSlider(50);
@@ -251,25 +489,98 @@
         // 2. 處理返回/重置
         resetBtn.addEventListener('click', () => {
             uploadInput.value = ''; // 清除檔案
-            uploadSection.classList.remove('hidden');
+            uploadWrapper.classList.remove('hidden'); // 修改為顯示 Wrapper
             editorSection.classList.add('hidden');
             originalDataUrl = null;
             processedDataUrl = null;
+            
+            // 重置強度相關狀態
+            settingsSection.classList.add('hidden');
+            intensitySlider.value = 50;
+            intensityVal.innerText = '50%';
+            originalImageData = null;
+            imageAverages = null;
         });
 
-        // 3. 核心演算法：一鍵最佳化
-        processBtn.addEventListener('click', () => {
-            if (!originalDataUrl) return;
+        // 更新色調按鈕的 UI 顯示狀態
+        const updateToneUI = () => {
+            if (currentToneMode === 'warm') {
+                btnToneWarm.className = 'px-3 py-1.5 text-sm font-medium rounded-md bg-white text-orange-500 shadow-sm transition';
+                btnToneCool.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition';
+            } else {
+                btnToneCool.className = 'px-3 py-1.5 text-sm font-medium rounded-md bg-white text-blue-500 shadow-sm transition';
+                btnToneWarm.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition';
+            }
+        };
 
-            // 變更按鈕為處理中狀態
+        // 將影像處理核心邏輯獨立成函式，以支援拉桿動態調整 (單張模式)
+        const runImageProcessing = (intensityValue) => {
+            // 更新為處理中 UI
+            intensitySlider.disabled = true;
+            processBtn.classList.remove('hidden');
+            downloadBtn.classList.add('hidden');
             processBtn.disabled = true;
             processBtn.classList.add('opacity-70', 'cursor-not-allowed');
             processIcon.setAttribute('data-lucide', 'loader-2');
             processIcon.classList.add('animate-spin');
             processText.innerText = 'AI 處理中...';
-            lucide.createIcons(); // 重新渲染圖示
+            lucide.createIcons();
 
-            // 使用 setTimeout 讓瀏覽器有時間更新 UI (顯示 loading 狀態)
+            setTimeout(() => {
+                // 從原始影像資料複製一份出來處理，避免重複疊加失真
+                const imgData = new ImageData(
+                    new Uint8ClampedArray(originalImageData.data),
+                    originalImageData.width,
+                    originalImageData.height
+                );
+                const data = imgData.data;
+
+                // 套用已重構的核心演算法
+                applyAlgorithmToPixels(data, imageAverages, intensityValue, currentToneMode);
+
+                // 將算好的資料放回 Canvas
+                ctx.putImageData(imgData, 0, 0);
+                processedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                
+                // 更新 UI 顯示結果
+                processedImg.src = processedDataUrl;
+                isProcessed = true;
+                
+                // 顯示介面
+                sliderLine.style.display = 'flex';
+                labels.style.display = 'block';
+                settingsSection.classList.remove('hidden');
+                
+                // 切換按鈕
+                processBtn.classList.add('hidden');
+                downloadBtn.classList.remove('hidden');
+                downloadBtn.style.display = 'flex';
+                
+                // 恢復按鈕狀態
+                intensitySlider.disabled = false;
+                processBtn.disabled = false;
+                processBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                processIcon.setAttribute('data-lucide', 'wand-2');
+                processIcon.classList.remove('animate-spin');
+                processText.innerText = '一鍵行銷最佳化';
+                lucide.createIcons();
+
+            }, 50);
+        };
+
+        // 3. 核心演算法：初次點擊一鍵最佳化
+        processBtn.addEventListener('click', () => {
+            if (!originalDataUrl) return;
+
+            // 初次點擊，變更按鈕為處理中狀態
+            processBtn.disabled = true;
+            processBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            processIcon.setAttribute('data-lucide', 'loader-2');
+            processIcon.classList.add('animate-spin');
+            processText.innerText = 'AI 處理中...';
+            lucide.createIcons(); 
+
+            // 使用 setTimeout 讓瀏覽器有時間更新 UI
             setTimeout(() => {
                 const img = new Image();
                 img.onload = () => {
@@ -278,101 +589,57 @@
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
                     
-                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const data = imgData.data;
+                    // 快取原始影像資料，供後續拖動拉桿反覆使用
+                    originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = originalImageData.data;
 
-                    // A. 計算全圖平均值 (用於灰世界白平衡)
-                    let rSum = 0, gSum = 0, bSum = 0;
-                    for (let i = 0; i < data.length; i += 4) {
-                        rSum += data[i]; gSum += data[i+1]; bSum += data[i+2];
-                    }
-                    const pixelCount = data.length / 4;
-                    const rAvg = rSum / pixelCount;
-                    const gAvg = gSum / pixelCount;
-                    const bAvg = bSum / pixelCount;
-                    const avgGray = (rAvg + gAvg + bAvg) / 3;
+                    // 計算全圖平均值
+                    imageAverages = calculateAverages(data);
 
-                    // 白平衡乘數 (只套用 40% 的強度)
-                    const wbStrength = 0.4;
-                    const rWb = ((avgGray / rAvg) - 1) * wbStrength + 1;
-                    const gWb = ((avgGray / gAvg) - 1) * wbStrength + 1;
-                    const bWb = ((avgGray / bAvg) - 1) * wbStrength + 1;
-
-                    for (let i = 0; i < data.length; i += 4) {
-                        let r = data[i];
-                        let g = data[i+1];
-                        let b = data[i+2];
-
-                        // 1. 白平衡調整 & 微暖色調
-                        r *= rWb; g *= gWb; b *= bWb;
-                        r *= 1.02; b *= 0.98;
-
-                        // 計算亮度 (Luminance) 並限制範圍，避免白雲(高光)出現 NaN 變成黑色
-                        let lum = 0.299 * r + 0.587 * g + 0.114 * b;
-                        lum = Math.min(255, Math.max(0, lum));
-
-                        // 2. HDR 陰影提亮 (非線性) - 調降強度讓過渡更自然
-                        const shadowStrength = 0.6; 
-                        const shadowFactor = 1 + shadowStrength * Math.pow(1 - (lum / 255), 2.5);
-                        r *= shadowFactor;
-                        g *= shadowFactor;
-                        b *= shadowFactor;
-
-                        // 3. S-Curve 曲線對比度調整
-                        const applySCurve = (val) => {
-                            // 進入 S 曲線前，強制限制在 255 以內，防止數學曲線反轉導致高光變黑
-                            val = Math.min(255, Math.max(0, val));
-                            let norm = val / 255;
-                            let curved = norm < 0.5 ? 2 * norm * norm : 1 - 2 * Math.pow(1 - norm, 2);
-                            let blended = norm * 0.7 + curved * 0.3; // 強度從 0.35 降至 0.3
-                            return blended * 255;
-                        };
-                        r = applySCurve(r);
-                        g = applySCurve(g);
-                        b = applySCurve(b);
-
-                        // 4. 飽和度提升 - 稍微調降避免過度鮮豔
-                        const newLum = 0.299 * r + 0.587 * g + 0.114 * b;
-                        const satBoost = 1.20; 
-                        r = newLum + (r - newLum) * satBoost;
-                        g = newLum + (g - newLum) * satBoost;
-                        b = newLum + (b - newLum) * satBoost;
-
-                        // 寫回並限制在 0-255 範圍內
-                        data[i] = Math.min(255, Math.max(0, r));
-                        data[i+1] = Math.min(255, Math.max(0, g));
-                        data[i+2] = Math.min(255, Math.max(0, b));
-                    }
-
-                    // 將算好的資料放回 Canvas
-                    ctx.putImageData(imgData, 0, 0);
-                    processedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
-                    
-                    // 更新 UI 顯示結果
-                    processedImg.src = processedDataUrl;
-                    isProcessed = true;
-                    
-                    // 顯示滑桿與下載按鈕
-                    sliderLine.style.display = 'flex';
-                    labels.style.display = 'block';
-                    processBtn.classList.add('hidden');
-                    downloadBtn.classList.remove('hidden');
-                    downloadBtn.style.display = 'flex';
-                    
-                    // 恢復處理按鈕狀態 (隱藏前先復原，避免下次顯示異常)
-                    processBtn.disabled = false;
-                    processBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-                    processIcon.setAttribute('data-lucide', 'wand-2');
-                    processIcon.classList.remove('animate-spin');
-                    processText.innerText = '一鍵行銷最佳化';
-                    lucide.createIcons();
-
+                    // 開始影像處理，預設強度 50%
+                    intensitySlider.value = 50;
+                    intensityVal.innerText = '50%';
+                    runImageProcessing(50);
                 };
                 img.src = originalDataUrl;
-            }, 100);
+            }, 50);
+        });
+        
+        // 4. 強度拉桿事件監聽
+        // 即時顯示數值
+        intensitySlider.addEventListener('input', (e) => {
+            intensityVal.innerText = `${e.target.value}%`;
         });
 
-        // 4. 處理滑鼠/觸控拖曳比較滑桿
+        // 停止拖曳時，觸發重新運算
+        intensitySlider.addEventListener('change', (e) => {
+            if (originalImageData && imageAverages) {
+                runImageProcessing(parseInt(e.target.value, 10));
+            }
+        });
+
+        // 4-1. 色調按鈕事件監聽
+        btnToneWarm.addEventListener('click', () => {
+            if (currentToneMode !== 'warm') {
+                currentToneMode = 'warm';
+                updateToneUI();
+                if (originalImageData && imageAverages) {
+                    runImageProcessing(parseInt(intensitySlider.value, 10));
+                }
+            }
+        });
+
+        btnToneCool.addEventListener('click', () => {
+            if (currentToneMode !== 'cool') {
+                currentToneMode = 'cool';
+                updateToneUI();
+                if (originalImageData && imageAverages) {
+                    runImageProcessing(parseInt(intensitySlider.value, 10));
+                }
+            }
+        });
+
+        // 5. 處理滑鼠/觸控拖曳比較滑桿
         const updateSlider = (percent) => {
             // clip-path: inset(top right bottom left)
             originalImg.style.clipPath = `inset(0 ${100 - percent}% 0 0)`;
@@ -408,6 +675,165 @@
             link.href = processedDataUrl;
             link.click();
         });
+
+        // -------- 批次處理相關邏輯 --------
+
+        // 批次檔案選擇事件
+        batchUploadInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files).filter(file => file.type.startsWith('image/'));
+            
+            if (files.length === 0) return;
+            if (files.length > 10) {
+                alert('為了保持最佳效能，批次處理上限為 10 張照片！請重新選擇。');
+                batchUploadInput.value = '';
+                return;
+            }
+
+            batchFiles = files;
+            
+            // UI 切換
+            uploadWrapper.classList.add('hidden'); // 修改為隱藏 Wrapper
+            editorSection.classList.add('hidden');
+            batchSection.classList.remove('hidden');
+            batchProgressContainer.classList.add('hidden');
+            batchStartBtn.disabled = false;
+            batchStartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            batchCountText.innerText = `${batchFiles.length} / 10`;
+            
+            // 產生縮圖預覽
+            batchPreviewGrid.innerHTML = '';
+            batchFiles.forEach((file) => {
+                const objectUrl = URL.createObjectURL(file);
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'aspect-[4/3] rounded overflow-hidden shadow-sm bg-slate-200';
+                
+                const img = document.createElement('img');
+                img.src = objectUrl;
+                img.className = 'w-full h-full object-cover';
+                
+                imgContainer.appendChild(img);
+                batchPreviewGrid.appendChild(imgContainer);
+                
+                // 注意：實務上 ObjectURL 需在不需要時 revoke 釋放記憶體，
+                // 這裡簡化處理，因為離開此頁面即會釋放。
+            });
+        });
+
+        // 批次取消
+        batchCancelBtn.addEventListener('click', () => {
+            batchFiles = [];
+            batchUploadInput.value = '';
+            batchSection.classList.add('hidden');
+            uploadWrapper.classList.remove('hidden'); // 修改為顯示 Wrapper
+        });
+
+        // 批次色調切換UI
+        const updateBatchToneUI = () => {
+            if (batchToneMode === 'warm') {
+                batchToneWarm.className = 'px-3 py-1.5 text-sm font-medium rounded-md bg-white text-orange-500 shadow-sm transition';
+                batchToneCool.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition';
+            } else {
+                batchToneCool.className = 'px-3 py-1.5 text-sm font-medium rounded-md bg-white text-blue-500 shadow-sm transition';
+                batchToneWarm.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition';
+            }
+        };
+
+        batchToneWarm.addEventListener('click', () => { batchToneMode = 'warm'; updateBatchToneUI(); });
+        batchToneCool.addEventListener('click', () => { batchToneMode = 'cool'; updateBatchToneUI(); });
+        
+        batchIntensitySlider.addEventListener('input', (e) => {
+            batchIntensityVal.innerText = `${e.target.value}%`;
+        });
+
+        // 封裝載入圖片為 Promise 以支援 async/await
+        const loadImageAsync = (file) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = URL.createObjectURL(file);
+            });
+        };
+
+        // 執行批次處理
+        batchStartBtn.addEventListener('click', async () => {
+            if (batchFiles.length === 0) return;
+
+            // 鎖定 UI 避免重複點擊
+            batchStartBtn.disabled = true;
+            batchStartBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            batchCancelBtn.disabled = true;
+            
+            // 顯示進度條
+            batchProgressContainer.classList.remove('hidden');
+            const intensity = parseInt(batchIntensitySlider.value, 10);
+            
+            const zip = new JSZip();
+            const imgFolder = zip.folder("Optimized_Photos");
+
+            for (let i = 0; i < batchFiles.length; i++) {
+                const file = batchFiles[i];
+                
+                // 更新進度
+                const progress = Math.round((i / batchFiles.length) * 100);
+                batchProgressPercent.innerText = `${progress}%`;
+                batchProgressBar.style.width = `${progress}%`;
+                batchProgressText.innerText = `處理中: ${file.name} (${i+1}/${batchFiles.length})`;
+                
+                try {
+                    // 1. 載入圖片 (使用 awaiting 確保循序處理，避免記憶體暴增)
+                    const img = await loadImageAsync(file);
+                    
+                    // 2. 畫上 Canvas
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // 3. 取得像素並運算
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const avgs = calculateAverages(imgData.data);
+                    
+                    // 放開主執行緒，讓 UI 可以更新進度條
+                    await new Promise(resolve => setTimeout(resolve, 50)); 
+                    
+                    applyAlgorithmToPixels(imgData.data, avgs, intensity, batchToneMode);
+                    ctx.putImageData(imgData, 0, 0);
+                    
+                    // 4. 將 canvas 轉換為 Blob (比 Base64 節省記憶體)
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+                    
+                    // 5. 加入 ZIP 檔案，自動處理檔名
+                    const originalName = file.name || 'image.jpg';
+                    const lastDotIndex = originalName.lastIndexOf('.');
+                    const nameBase = lastDotIndex !== -1 ? originalName.substring(0, lastDotIndex) : originalName;
+                    imgFolder.file(`${nameBase}_optimized.jpg`, blob);
+
+                } catch (err) {
+                    console.error("處理圖片失敗:", file.name, err);
+                }
+            }
+
+            // 完成，準備打包 ZIP
+            batchProgressText.innerText = "正在打包 ZIP 檔案...";
+            batchProgressPercent.innerText = "100%";
+            batchProgressBar.style.width = "100%";
+            
+            // 給 UI 一點時間渲染 100% 狀態
+            setTimeout(async () => {
+                const zipContent = await zip.generateAsync({type: "blob"});
+                const downloadLink = document.createElement("a");
+                downloadLink.href = URL.createObjectURL(zipContent);
+                downloadLink.download = "Optimized_RealEstate_Photos.zip";
+                downloadLink.click();
+                
+                // 恢復 UI 狀態
+                batchProgressText.innerText = "完成！已啟動下載";
+                batchCancelBtn.disabled = false;
+                batchCancelBtn.innerText = "處理下一批";
+            }, 300);
+        });
+
     </script>
 </body>
 </html>

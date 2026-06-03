@@ -262,6 +262,7 @@
 
         // 紀錄各欄位的全域顯示狀態
         let fieldVisibility = { area: true, zoning: true, price: true, c1: true, c2: true, c3: true };
+        let hiddenEmptyCards = new Set(); // 紀錄被單獨隱藏的預留區卡片 ID
 
         const mapStyles = {
             voyager: {
@@ -333,6 +334,7 @@
             });
             // 還原欄位顯示狀態 (將所有隱藏的欄位打開)
             fieldVisibility = { area: true, zoning: true, price: true, c1: true, c2: true, c3: true };
+            hiddenEmptyCards.clear(); // 清除已隱藏的空卡片紀錄
             
             // 重新渲染並更新圖表
             renderInputForm();
@@ -433,9 +435,13 @@
                 const isEmpty = !data.address.trim() && data.type !== 'main';
 
                 if (isEmpty) {
+                    const isHidden = hiddenEmptyCards.has(data.id);
+                    const hiddenClass = isHidden ? 'is-hidden-card' : 'cursor-grab';
+                    const hiddenStyle = isHidden ? 'visibility: hidden; pointer-events: none;' : '';
+
                     const emptyHtml = `
-                        <div id="empty-card-${data.id}" class="bg-slate-300/30 border border-slate-300 rounded-xl p-3 flex flex-col shrink-0 border-dashed min-h-[170px] cursor-grab relative group">
-                            <button onclick="hideCard('empty-card-${data.id}')" class="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-white/60 hover:bg-red-50 p-1.5 rounded-full transition z-10 cursor-pointer" title="隱藏此預留區">
+                        <div id="empty-card-${data.id}" class="bg-slate-300/30 border border-slate-300 rounded-xl p-3 flex flex-col shrink-0 border-dashed min-h-[170px] relative group ${hiddenClass}" style="${hiddenStyle}">
+                            <button onclick="hideCard(${data.id})" class="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-white/60 hover:bg-red-50 p-1.5 rounded-full transition z-10 cursor-pointer pointer-events-auto" title="隱藏此預留區">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                             <div class="flex items-center gap-2 opacity-50 mb-1 pointer-events-none">
@@ -504,6 +510,7 @@
             });
             
             initDragAndDrop();
+            checkPanelsEmpty(); // 渲染後立即檢查是否有整排隱藏的情況
         }
 
         let leftSortable, rightSortable;
@@ -520,6 +527,7 @@
                 swap: true, 
                 swapClass: 'sortable-swap-highlight', 
                 ghostClass: 'sortable-ghost',
+                filter: '.is-hidden-card', // 禁止拖曳已變成透明留白的卡片
                 delay: 50,
                 delayOnTouchOnly: true,
                 onEnd: function () {
@@ -532,11 +540,15 @@
             rightSortable = new Sortable(rightPanel, sortableOptions);
         }
 
-        // 新增：隱藏卡片並檢查面板是否為空
-        function hideCard(cardId) {
-            const card = document.getElementById(cardId);
+        // 新增：隱藏卡片 (改為透明留白) 並檢查面板是否全空
+        function hideCard(id) {
+            hiddenEmptyCards.add(id);
+            const card = document.getElementById(`empty-card-${id}`);
             if (card) {
-                card.style.display = 'none'; // 徹底不佔空間
+                card.classList.add('is-hidden-card');
+                card.classList.remove('cursor-grab');
+                card.style.visibility = 'hidden'; 
+                card.style.pointerEvents = 'none'; // 讓它在該位置保留留白空間，但無法互動
                 checkPanelsEmpty();
             }
         }
@@ -547,17 +559,18 @@
                 const panel = document.getElementById(panelId);
                 if (!panel) return;
                 
-                // 檢查是否還有 display !== 'none' 且非拖曳殘影的子元素
+                // 檢查是否還有可見的子元素 (非拖曳殘影 且 非隱藏的留白卡片)
                 const hasVisible = Array.from(panel.children).some(child => 
                     child.style.display !== 'none' && 
                     !child.classList.contains('sortable-ghost') && 
-                    !child.classList.contains('sortable-drag')
+                    !child.classList.contains('sortable-drag') &&
+                    !child.classList.contains('is-hidden-card')
                 );
                 
-                if (!hasVisible) {
-                    panel.style.display = 'none'; // 隱藏面板
+                if (!hasVisible && panel.children.length > 0) {
+                    panel.style.display = 'none'; // 如果全部卡片都隱藏了，才將整個面板收合
                 } else {
-                    panel.style.display = ''; // 恢復顯示
+                    panel.style.display = ''; // 只要有一張可見，就維持面板顯示 (隱藏的卡片會變透明留白)
                 }
             });
             

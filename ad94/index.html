@@ -122,8 +122,12 @@
                 <h1 class="text-2xl font-bold text-slate-800 tracking-wide">不動產定位與競品分析展示圖</h1>
                 <p class="text-sm text-slate-500 mt-1">在上方輸入資料，點擊按鈕即可於下方地圖呈現結果。</p>
             </div>
-            <div class="flex items-center w-full md:w-auto justify-between md:justify-end">
-                <button onclick="scrollToMap()" class="text-blue-600 font-bold hover:text-blue-800 transition mr-4 whitespace-nowrap">
+            <div class="flex items-center w-full md:w-auto justify-between md:justify-end gap-3">
+                <button onclick="promptRestoreDefaults()" class="text-slate-500 hover:text-red-600 font-bold transition flex items-center gap-1 text-sm whitespace-nowrap bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-lg" title="清除所有資料並恢復為初始狀態">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+                    恢復預設值
+                </button>
+                <button onclick="scrollToMap()" class="text-blue-600 font-bold hover:text-blue-800 transition whitespace-nowrap px-2">
                     ↓ 前往展示區
                 </button>
                 <button onclick="generatePresentation()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all inline-flex items-center gap-2 whitespace-nowrap">
@@ -221,6 +225,21 @@
     <!-- Toast 容器 (取代 alert) -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
+    <!-- 自訂確認視窗 Modal (取代 confirm 防呆) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[3000] flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all">
+            <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                確認恢復預設值？
+            </h3>
+            <p class="text-sm text-slate-500 mb-6">這將會清除您目前輸入的「所有資料」並恢復成初始狀態，此動作無法復原。建議您先匯出資料備份。</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">取消</button>
+                <button onclick="executeRestoreDefaults()" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm">確定恢復</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 引入 Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
@@ -234,9 +253,15 @@
             { id: 5, type: 'comp', title: '案例 5', label: '5', name: '', address: '', area_name: '面積', area: '', zoning_name: '分區', zoning: '', price_name: '總價', price: '', c1_name: '單價', c1_val: '', c2_name: '年月', c2_val: '', c3_name: '買方', c3_val: '' },
         ];
 
+        // 備份初始狀態，用於恢復預設值
+        const initialDataBackup = JSON.parse(JSON.stringify(propertyData));
+
         let map = null;
         let markerLayerGroup = null;
         let currentTileLayer = null; 
+
+        // 紀錄各欄位的全域顯示狀態
+        let fieldVisibility = { area: true, zoning: true, price: true, c1: true, c2: true, c3: true };
 
         const mapStyles = {
             voyager: {
@@ -290,6 +315,33 @@
             }, 3000);
         }
 
+        // 新增：恢復預設值相關邏輯
+        function promptRestoreDefaults() {
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        function executeRestoreDefaults() {
+            closeConfirmModal();
+            // 深拷貝還原資料
+            const backup = JSON.parse(JSON.stringify(initialDataBackup));
+            backup.forEach((defItem, i) => {
+                Object.assign(propertyData[i], defItem);
+            });
+            // 還原欄位顯示狀態 (將所有隱藏的欄位打開)
+            fieldVisibility = { area: true, zoning: true, price: true, c1: true, c2: true, c3: true };
+            
+            // 重新渲染並更新圖表
+            renderInputForm();
+            generatePresentation();
+            showToast('已成功清除資料並恢復預設值！');
+            // 將畫面自動捲動到最上方方便填寫
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         function scrollToMap() {
             document.getElementById('map-section').scrollIntoView({ behavior: 'smooth' });
         }
@@ -314,6 +366,26 @@
                         複製標題
                     </button>` : '';
 
+                // 動態生成帶有「顯示/隱藏切換按鈕」的輸入列
+                const getFieldHtml = (key, nameId, valId, defaultName, vName, vVal, placeholderVal) => {
+                    const isVis = fieldVisibility[key];
+                    const opClass = isVis ? '' : 'opacity-40 grayscale';
+                    const disableAttr = isVis ? '' : 'disabled';
+                    const btnIcon = isVis 
+                        ? '<svg class="w-4 h-4 text-slate-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'
+                        : '<svg class="w-4 h-4 text-emerald-500 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
+                    
+                    return `
+                        <div class="col-span-2 flex gap-2 items-center ${opClass} transition-all duration-300">
+                            <input type="text" id="${nameId}" value="${vName || defaultName}" class="w-1/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-100 text-slate-600 font-medium" placeholder="${defaultName}" ${disableAttr}>
+                            <input type="text" id="${valId}" value="${vVal}" class="flex-1 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="${placeholderVal}" ${disableAttr}>
+                            <button onclick="toggleGlobalField('${key}')" class="group shrink-0 p-1.5 rounded-full hover:bg-slate-200 transition-colors bg-white shadow-sm border border-slate-200 flex items-center justify-center" title="${isVis ? '全域隱藏此欄位' : '全域恢復此欄位'}">
+                                ${btnIcon}
+                            </button>
+                        </div>
+                    `;
+                };
+
                 grid.innerHTML += `
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-md">
                         <div class="${headerColor} px-4 py-3 border-b flex justify-between items-center">
@@ -334,30 +406,12 @@
                                     <label class="block text-xs font-bold text-slate-500 mb-1">地址或座標 (緯度,經度)</label>
                                     <input type="text" id="in-address-${data.id}" value="${data.address}" class="w-full border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
                                 </div>
-                                <div class="col-span-2 flex gap-2">
-                                    <input type="text" id="in-area-name-${data.id}" value="${data.area_name || '面積'}" class="w-1/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-100 text-slate-600 font-medium" placeholder="面積">
-                                    <input type="text" id="in-area-${data.id}" value="${data.area}" class="w-2/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="內容">
-                                </div>
-                                <div class="col-span-2 flex gap-2">
-                                    <input type="text" id="in-zoning-name-${data.id}" value="${data.zoning_name || '分區'}" class="w-1/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-100 text-slate-600 font-medium" placeholder="分區">
-                                    <input type="text" id="in-zoning-${data.id}" value="${data.zoning}" class="w-2/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="內容">
-                                </div>
-                                <div class="col-span-2 flex gap-2">
-                                    <input type="text" id="in-price-name-${data.id}" value="${data.price_name || '總價'}" class="w-1/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-100 text-slate-600 font-medium" placeholder="總價">
-                                    <input type="text" id="in-price-${data.id}" value="${data.price}" class="w-2/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="內容">
-                                </div>
-                                <div class="col-span-2 flex gap-2">
-                                    <input type="text" id="in-c1name-${data.id}" value="${data.c1_name || '單價'}" class="w-1/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-100 text-slate-600 font-medium" placeholder="單價">
-                                    <input type="text" id="in-c1val-${data.id}" value="${data.c1_val}" class="w-2/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="內容">
-                                </div>
-                                <div class="col-span-2 flex gap-2">
-                                    <input type="text" id="in-c2name-${data.id}" value="${data.c2_name || '年月'}" class="w-1/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-100 text-slate-600 font-medium" placeholder="年月">
-                                    <input type="text" id="in-c2val-${data.id}" value="${data.c2_val}" class="w-2/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="內容">
-                                </div>
-                                <div class="col-span-2 flex gap-2">
-                                    <input type="text" id="in-c3name-${data.id}" value="${data.c3_name || '買方'}" class="w-1/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-100 text-slate-600 font-medium" placeholder="買方">
-                                    <input type="text" id="in-c3val-${data.id}" value="${data.c3_val}" class="w-2/3 border border-slate-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="內容">
-                                </div>
+                                ${getFieldHtml('area', `in-area-name-${data.id}`, `in-area-${data.id}`, '面積', data.area_name, data.area, '內容')}
+                                ${getFieldHtml('zoning', `in-zoning-name-${data.id}`, `in-zoning-${data.id}`, '分區', data.zoning_name, data.zoning, '內容')}
+                                ${getFieldHtml('price', `in-price-name-${data.id}`, `in-price-${data.id}`, '總價', data.price_name, data.price, '內容')}
+                                ${getFieldHtml('c1', `in-c1name-${data.id}`, `in-c1val-${data.id}`, '單價', data.c1_name, data.c1_val, '內容')}
+                                ${getFieldHtml('c2', `in-c2name-${data.id}`, `in-c2val-${data.id}`, '年月', data.c2_name, data.c2_val, '內容')}
+                                ${getFieldHtml('c3', `in-c3name-${data.id}`, `in-c3val-${data.id}`, '買方', data.c3_name, data.c3_val, '內容')}
                             </div>
                         </div>
                     </div>
@@ -416,6 +470,15 @@
                 const vC3Name = data.c3_name || '買方';
                 const vC3Val = data.c3_val || '-';
 
+                // 根據顯示狀態動態組裝卡片內的欄位 HTML
+                let fieldsHtml = '';
+                if (fieldVisibility.area) fieldsHtml += `<div class="flex items-center justify-between overflow-hidden w-full"><span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vAreaName}</span><span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vArea}">${vArea}</span></div>`;
+                if (fieldVisibility.zoning) fieldsHtml += `<div class="flex items-center justify-between overflow-hidden w-full"><span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vZoningName}</span><span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vZoning}">${vZoning}</span></div>`;
+                if (fieldVisibility.price) fieldsHtml += `<div class="flex items-center justify-between overflow-hidden w-full"><span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vPriceName}</span><span class="font-bold text-red-600 text-[13px] leading-tight truncate ml-1 text-right" title="${vPrice}">${vPrice}</span></div>`;
+                if (fieldVisibility.c1) fieldsHtml += `<div class="flex items-center justify-between overflow-hidden w-full"><span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vC1Name}</span><span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vC1Val}">${vC1Val}</span></div>`;
+                if (fieldVisibility.c2) fieldsHtml += `<div class="flex items-center justify-between overflow-hidden w-full"><span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vC2Name}</span><span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vC2Val}">${vC2Val}</span></div>`;
+                if (fieldVisibility.c3) fieldsHtml += `<div class="flex items-center justify-between overflow-hidden w-full"><span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vC3Name}</span><span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vC3Val}">${vC3Val}</span></div>`;
+
                 const html = `
                     <div class="${cardBg} rounded-xl shadow border border-slate-200 ${borderColor} p-3 relative overflow-hidden flex flex-col shrink-0 hover:shadow-lg transition min-h-[170px] cursor-grab">
                         <div class="flex items-center gap-2 mb-1.5 pointer-events-none">
@@ -431,30 +494,7 @@
                         </div>
                         
                         <div class="w-full bg-white/80 rounded-lg p-2 grid grid-cols-2 gap-x-2 gap-y-2 border border-slate-100 content-start mt-auto pointer-events-none">
-                            <div class="flex items-center justify-between overflow-hidden w-full">
-                                <span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vAreaName}</span>
-                                <span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vArea}">${vArea}</span>
-                            </div>
-                            <div class="flex items-center justify-between overflow-hidden w-full">
-                                <span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vZoningName}</span>
-                                <span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vZoning}">${vZoning}</span>
-                            </div>
-                            <div class="flex items-center justify-between overflow-hidden w-full">
-                                <span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vPriceName}</span>
-                                <span class="font-bold text-red-600 text-[13px] leading-tight truncate ml-1 text-right" title="${vPrice}">${vPrice}</span>
-                            </div>
-                            <div class="flex items-center justify-between overflow-hidden w-full">
-                                <span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vC1Name}</span>
-                                <span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vC1Val}">${vC1Val}</span>
-                            </div>
-                            <div class="flex items-center justify-between overflow-hidden w-full">
-                                <span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vC2Name}</span>
-                                <span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vC2Val}">${vC2Val}</span>
-                            </div>
-                            <div class="flex items-center justify-between overflow-hidden w-full">
-                                <span class="text-slate-500 text-xs font-medium shrink-0 truncate max-w-[60%]">${vC3Name}</span>
-                                <span class="font-bold text-slate-800 text-[13px] leading-tight truncate ml-1 text-right" title="${vC3Val}">${vC3Val}</span>
-                            </div>
+                            ${fieldsHtml}
                         </div>
                     </div>
                 `;
@@ -525,6 +565,14 @@
             if (map) {
                 setTimeout(() => map.invalidateSize(), 150);
             }
+        }
+
+        // 新增：切換全域欄位顯示狀態
+        function toggleGlobalField(fieldKey) {
+            updateDataFromInputs(); // 先儲存目前使用者輸入的內容 (包含已輸入但尚未更新圖表的字)
+            fieldVisibility[fieldKey] = !fieldVisibility[fieldKey]; // 切換 true / false
+            renderInputForm();      // 重繪上方表單（讓被關閉的輸入框變灰且無法輸入）
+            renderDisplayCards();   // 立即重繪下方展示卡片
         }
 
         function copyTitlesToAll(btn) {
@@ -616,7 +664,7 @@
             link.download = '不動產競品資料範本.csv';
             link.click();
             URL.revokeObjectURL(url);
-            showToast('CSV 匯出成功！請直接使用 Excel 開啟編輯。');
+            showToast('CSV 匯出成功！已完整備份所有資料（包含目前隱藏的欄位）。');
         }
 
         function triggerImport() {

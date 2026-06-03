@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app-shell">
+    <main class="app-shell" id="appShell" data-orientation="portrait">
       <section class="top-panel" aria-label="拍攝設定">
         <div class="brand-row">
           <div>
@@ -23,6 +23,11 @@
           <button class="subject-tab" type="button" data-subject="land">土地</button>
           <button class="subject-tab" type="button" data-subject="factory">廠房</button>
         </div>
+
+        <div class="orientation-tabs" role="group" aria-label="選擇拍攝方向">
+          <button class="orientation-tab active" type="button" data-orientation="portrait">直拍</button>
+          <button class="orientation-tab" type="button" data-orientation="landscape">橫拍</button>
+        </div>
       </section>
 
       <section class="camera-panel" aria-label="相機預覽">
@@ -31,7 +36,7 @@
 
         <div class="camera-placeholder" id="cameraPlaceholder">
           <div class="placeholder-mark"></div>
-          <p>開啟相機後會顯示即時預覽</p>
+          <p id="cameraStatus">正在開啟相機，請允許瀏覽器使用鏡頭。</p>
         </div>
 
         <div class="guide-overlay" id="guideOverlay" data-guide="facade" aria-hidden="true">

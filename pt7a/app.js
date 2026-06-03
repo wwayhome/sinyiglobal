@@ -1,172 +1,50 @@
 const MIN_REQUIRED_SHOTS = 8;
 
+function shot(title, hint, guide, orientation = "portrait") {
+  return { title, hint, guide, orientation };
+}
+
 const subjects = {
   office: {
     label: "辦公",
     filePrefix: "office",
     tasks: [
-      {
-        title: "大樓主視覺",
-        hint: "站到對街或稍遠處，讓整棟建築完整入鏡，注意垂直線不要歪。",
-        guide: "facade"
-      },
-      {
-        title: "45 度外觀",
-        hint: "移到建物斜前方，讓正面與側面都入鏡，拍出立體感。",
-        guide: "perspective"
-      },
-      {
-        title: "入口與招牌",
-        hint: "把入口放在畫面中央，招牌和門口不要被裁切。",
-        guide: "symmetry"
-      },
-      {
-        title: "大廳或門廳",
-        hint: "站在入口中軸線上，讓左右牆面或柱子看起來平衡。",
-        guide: "symmetry"
-      },
-      {
-        title: "街道環境",
-        hint: "帶到道路、人行道和鄰近建物，讓看照片的人理解位置感。",
-        guide: "street"
-      },
-      {
-        title: "立面細節",
-        hint: "靠近拍玻璃、窗格、材質或外牆紋理，補一張有質感的近景。",
-        guide: "detail"
-      },
-      {
-        title: "車道或停車",
-        hint: "用道路線條帶出車輛進出的方向，避免只拍到局部。",
-        guide: "street"
-      },
-      {
-        title: "低角度仰拍",
-        hint: "靠近建築底部往上拍，保留一點天空，呈現高度與氣勢。",
-        guide: "highrise"
-      },
-      {
-        title: "周邊機能",
-        hint: "拍附近商店、捷運、公車站或重要道路，補足地段印象。",
-        guide: "street"
-      },
-      {
-        title: "補充亮點",
-        hint: "找一個最有特色的角度，例如夜間燈光、景觀、公共藝術或開闊視野。",
-        guide: "facade"
-      }
+      shot("大樓主視覺", "站到對街或稍遠處，讓整棟建築完整入鏡，注意垂直線不要歪。", "facade", "portrait"),
+      shot("45 度外觀", "移到建物斜前方，讓正面與側面都入鏡，拍出立體感。", "perspective", "landscape"),
+      shot("入口與招牌", "把入口放在畫面中央，招牌和門口不要被裁切。", "symmetry", "portrait"),
+      shot("街道環境", "帶到道路、人行道和鄰近建物，讓看照片的人理解位置感。", "street", "landscape"),
+      shot("大廳或門廳", "站在入口中軸線上，讓左右牆面或柱子看起來平衡。", "symmetry", "portrait"),
+      shot("立面細節", "靠近拍玻璃、窗格、材質或外牆紋理，補一張有質感的近景。", "detail", "portrait"),
+      shot("車道或停車", "用道路線條帶出車輛進出的方向，避免只拍到局部。", "street", "landscape"),
+      shot("低角度仰拍", "靠近建築底部往上拍，保留一點天空，呈現高度與氣勢。", "highrise", "portrait")
     ]
   },
   land: {
     label: "土地",
     filePrefix: "land",
     tasks: [
-      {
-        title: "土地全貌",
-        hint: "站在對面或稍高的位置，把基地和周邊環境一起拍進來。",
-        guide: "land"
-      },
-      {
-        title: "臨路面",
-        hint: "沿著道路方向拍，讓道路寬度、出入口和基地關係清楚。",
-        guide: "street"
-      },
-      {
-        title: "左側邊界",
-        hint: "用畫面左側線條對齊邊界，讓人看得出基地範圍。",
-        guide: "land"
-      },
-      {
-        title: "右側邊界",
-        hint: "換到另一側補拍，和左側照片形成完整對照。",
-        guide: "land"
-      },
-      {
-        title: "由內往外",
-        hint: "站在基地內往道路拍，表現視野、出口和進出感。",
-        guide: "horizon"
-      },
-      {
-        title: "由外往內",
-        hint: "從道路往基地內拍，讓人理解進入基地後看到的空間。",
-        guide: "land"
-      },
-      {
-        title: "周邊環境",
-        hint: "帶到鄰地、建物、景觀或使用狀況，讓照片更有故事。",
-        guide: "horizon"
-      },
-      {
-        title: "地勢高低差",
-        hint: "保持水平線，讓坡度、落差或填土狀況更容易判斷。",
-        guide: "horizon"
-      },
-      {
-        title: "公共設施",
-        hint: "拍水溝、電桿、消防栓、排水或道路設施，作為補充細節。",
-        guide: "detail"
-      },
-      {
-        title: "開闊全景",
-        hint: "橫向取景，讓天空少一點、土地多一點，呈現基地尺度。",
-        guide: "land"
-      }
+      shot("土地全貌", "站在對面或稍高的位置，把基地和周邊環境一起拍進來。", "land", "landscape"),
+      shot("臨路面", "沿著道路方向拍，讓道路寬度、出入口和基地關係清楚。", "street", "landscape"),
+      shot("左側邊界", "用畫面左側線條對齊邊界，讓人看得出基地範圍。", "land", "portrait"),
+      shot("右側邊界", "換到另一側補拍，和左側照片形成完整對照。", "land", "portrait"),
+      shot("由內往外", "站在基地內往道路拍，表現視野、出口和進出感。", "horizon", "landscape"),
+      shot("由外往內", "從道路往基地內拍，讓人理解進入基地後看到的空間。", "land", "landscape"),
+      shot("周邊環境", "帶到鄰地、建物、景觀或使用狀況，讓照片更有故事。", "horizon", "landscape"),
+      shot("地勢高低差", "保持水平線，讓坡度、落差或填土狀況更容易判斷。", "horizon", "landscape")
     ]
   },
   factory: {
     label: "廠房",
     filePrefix: "factory",
     tasks: [
-      {
-        title: "廠房主外觀",
-        hint: "從正面或斜前方拍，讓建物高度、寬度和入口一起入鏡。",
-        guide: "facade"
-      },
-      {
-        title: "大門與招牌",
-        hint: "把門口放中央，招牌、門牌和出入口動線要清楚。",
-        guide: "symmetry"
-      },
-      {
-        title: "車道動線",
-        hint: "沿著車道拍，表現貨車進出是否順暢。",
-        guide: "street"
-      },
-      {
-        title: "裝卸區或月台",
-        hint: "拍出裝卸位置、遮雨棚、月台高度和貨車停靠空間。",
-        guide: "facade"
-      },
-      {
-        title: "內部大空間",
-        hint: "站在角落或入口往內拍，讓空間深度、寬度和地坪完整呈現。",
-        guide: "wide"
-      },
-      {
-        title: "柱距與挑高",
-        hint: "保持垂直線，讓柱子、天花板和梁的位置清楚。",
-        guide: "wide"
-      },
-      {
-        title: "倉儲區",
-        hint: "用斜向角度拍出深度，避免只拍一面牆或一小塊地面。",
-        guide: "perspective"
-      },
-      {
-        title: "辦公或員工區",
-        hint: "補拍辦公室、休息區、會議室或員工動線，讓機能更完整。",
-        guide: "symmetry"
-      },
-      {
-        title: "設備細節",
-        hint: "拍電力、消防、空調、天車或其他關鍵設備，畫面要清楚不晃。",
-        guide: "detail"
-      },
-      {
-        title: "周邊腹地",
-        hint: "拍空地、迴車空間、鄰近道路或擴充區域，呈現使用彈性。",
-        guide: "land"
-      }
+      shot("廠房主外觀", "從正面或斜前方拍，讓建物高度、寬度和入口一起入鏡。", "facade", "landscape"),
+      shot("大門與招牌", "把門口放中央，招牌、門牌和出入口動線要清楚。", "symmetry", "portrait"),
+      shot("車道動線", "沿著車道拍，表現貨車進出是否順暢。", "street", "landscape"),
+      shot("裝卸區或月台", "拍出裝卸位置、遮雨棚、月台高度和貨車停靠空間。", "facade", "landscape"),
+      shot("內部大空間", "站在角落或入口往內拍，讓空間深度、寬度和地坪完整呈現。", "wide", "landscape"),
+      shot("柱距與挑高", "保持垂直線，讓柱子、天花板和梁的位置清楚。", "wide", "portrait"),
+      shot("設備細節", "拍電力、消防、空調、天車或其他關鍵設備，畫面要清楚不晃。", "detail", "portrait"),
+      shot("周邊腹地", "拍空地、迴車空間、鄰近道路或擴充區域，呈現使用彈性。", "land", "landscape")
     ]
   }
 };
@@ -178,13 +56,17 @@ const state = {
   stream: null,
   lastPhotoBlob: null,
   lastPhotoUrl: "",
-  levelEnabled: false
+  levelEnabled: false,
+  isCameraReady: false,
+  shotOrientation: "portrait"
 };
 
 const els = {
+  appShell: document.querySelector("#appShell"),
   cameraView: document.querySelector("#cameraView"),
   photoCanvas: document.querySelector("#photoCanvas"),
   cameraPlaceholder: document.querySelector("#cameraPlaceholder"),
+  cameraStatus: document.querySelector("#cameraStatus"),
   guideOverlay: document.querySelector("#guideOverlay"),
   levelMeter: document.querySelector("#levelMeter"),
   permissionBtn: document.querySelector("#permissionBtn"),
@@ -214,7 +96,11 @@ document.querySelectorAll(".subject-tab").forEach((button) => {
   button.addEventListener("click", () => switchSubject(button.dataset.subject));
 });
 
-els.permissionBtn.addEventListener("click", startCamera);
+document.querySelectorAll(".orientation-tab").forEach((button) => {
+  button.addEventListener("click", () => setOrientation(button.dataset.orientation));
+});
+
+els.permissionBtn.addEventListener("click", () => startCamera({ auto: false }));
 els.levelBtn.addEventListener("click", enableLevel);
 els.captureBtn.addEventListener("click", capturePhoto);
 els.prevBtn.addEventListener("click", () => moveTask(-1));
@@ -231,7 +117,9 @@ window.addEventListener("beforeunload", () => {
   stopCamera();
 });
 
+setOrientation(currentTask().orientation);
 render();
+window.setTimeout(() => startCamera({ auto: true }), 250);
 
 function createShotState(subjectKey) {
   return subjects[subjectKey].tasks.map(() => ({
@@ -249,6 +137,7 @@ function switchSubject(subjectKey) {
   state.taskIndex = 0;
   state.shots = createShotState(subjectKey);
   clearLastPhoto();
+  setOrientation(currentTask().orientation);
 
   document.querySelectorAll(".subject-tab").forEach((button) => {
     button.classList.toggle("active", button.dataset.subject === subjectKey);
@@ -257,32 +146,98 @@ function switchSubject(subjectKey) {
   render();
 }
 
-async function startCamera() {
+async function startCamera({ auto = false } = {}) {
   if (!navigator.mediaDevices?.getUserMedia) {
-    showMessage("這個瀏覽器不支援網頁相機。請改用手機上的 Chrome、Edge 或 Safari。");
+    const message = "這個瀏覽器不支援網頁相機。請改用手機上的 Chrome、Edge 或 Safari。";
+    setCameraStatus(message);
+    if (!auto) {
+      showMessage(message);
+    }
     return;
   }
 
   try {
     stopCamera();
+    state.isCameraReady = false;
+    els.permissionBtn.textContent = "開啟中";
+    els.cameraPlaceholder.hidden = false;
+    setCameraStatus("正在開啟相機，請允許瀏覽器使用鏡頭。");
+
     state.stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      }
+      video: cameraConstraints()
     });
 
     els.cameraView.srcObject = state.stream;
+    els.cameraView.muted = true;
+    els.cameraView.playsInline = true;
+    await waitForVideoReady(els.cameraView);
+    await els.cameraView.play();
+    await waitForVideoReady(els.cameraView);
+
+    state.isCameraReady = true;
     els.cameraPlaceholder.hidden = true;
     els.permissionBtn.textContent = "已開";
   } catch (error) {
-    showMessage("無法開啟相機。請確認瀏覽器已允許相機權限，且網頁是用 HTTPS 開啟。");
+    const message = auto
+      ? "瀏覽器沒有自動開啟相機。請按左上角「相機」重試，並允許鏡頭權限。"
+      : "無法開啟相機。請確認瀏覽器已允許相機權限，且網頁是用 HTTPS 開啟。";
+    state.isCameraReady = false;
+    els.permissionBtn.textContent = "相機";
+    els.cameraPlaceholder.hidden = false;
+    setCameraStatus(message);
+    if (!auto) {
+      showMessage(message);
+    }
   }
 }
 
+function setCameraStatus(message) {
+  els.cameraStatus.textContent = message;
+}
+
+function cameraConstraints() {
+  const isPortrait = state.shotOrientation === "portrait";
+  return {
+    facingMode: { ideal: "environment" },
+    width: { ideal: isPortrait ? 1080 : 1440 },
+    height: { ideal: isPortrait ? 1440 : 1080 },
+    aspectRatio: { ideal: isPortrait ? 0.75 : 1.333 }
+  };
+}
+
+function waitForVideoReady(video) {
+  if (video.videoWidth > 0 && video.readyState >= 2) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("camera preview timeout"));
+    }, 6000);
+
+    const check = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        cleanup();
+        resolve();
+      }
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.removeEventListener("loadedmetadata", check);
+      video.removeEventListener("canplay", check);
+    };
+
+    video.addEventListener("loadedmetadata", check);
+    video.addEventListener("canplay", check);
+    check();
+  });
+}
+
 function stopCamera() {
+  state.isCameraReady = false;
   if (!state.stream) {
     return;
   }
@@ -320,8 +275,13 @@ function updateLevel(event) {
 }
 
 function capturePhoto() {
-  if (!state.stream || !els.cameraView.videoWidth) {
+  if (!state.stream) {
     showMessage("請先開啟相機，再按拍照。");
+    return;
+  }
+
+  if (!state.isCameraReady || !els.cameraView.videoWidth) {
+    showMessage("相機已開啟，但預覽影像還沒出現。請等畫面出現後再拍。");
     return;
   }
 
@@ -428,6 +388,7 @@ function skipCurrentTask() {
 function moveTask(direction) {
   const total = currentSubject().tasks.length;
   state.taskIndex = (state.taskIndex + direction + total) % total;
+  setOrientation(currentTask().orientation);
   render();
 }
 
@@ -437,9 +398,24 @@ function moveToNextPendingTask() {
     const nextIndex = (state.taskIndex + offset) % total;
     if (state.shots[nextIndex].status !== "done") {
       state.taskIndex = nextIndex;
+      setOrientation(currentTask().orientation);
       return;
     }
   }
+}
+
+function setOrientation(orientation) {
+  const nextOrientation = orientation === "landscape" ? "landscape" : "portrait";
+  state.shotOrientation = nextOrientation;
+  els.appShell.dataset.orientation = nextOrientation;
+
+  document.querySelectorAll(".orientation-tab").forEach((button) => {
+    button.classList.toggle("active", button.dataset.orientation === nextOrientation);
+  });
+}
+
+function orientationLabel(orientation) {
+  return orientation === "landscape" ? "橫拍" : "直拍";
 }
 
 function currentSubject() {
@@ -461,12 +437,12 @@ function render() {
   const total = subject.tasks.length;
 
   els.progressPill.textContent = `${done} / ${total}`;
-  els.taskStep.textContent = `第 ${state.taskIndex + 1} 張`;
+  els.taskStep.textContent = `第 ${state.taskIndex + 1} 張 · 建議${orientationLabel(task.orientation)}`;
   els.taskTitle.textContent = task.title;
   els.taskHint.textContent = task.hint;
   els.subjectName.textContent = subject.label;
   els.completionText.textContent = done >= MIN_REQUIRED_SHOTS
-    ? `已完成 ${done} 張，可以收工，也可以補到 10 張`
+    ? `已完成 ${done} 張，這組照片已達標`
     : `已完成 ${done} 張，建議至少 ${MIN_REQUIRED_SHOTS} 張`;
   els.progressFill.style.width = `${Math.round((done / total) * 100)}%`;
   els.guideOverlay.dataset.guide = task.guide;
@@ -487,6 +463,7 @@ function renderShotList() {
     item.classList.toggle("done", shot.status === "done");
     item.addEventListener("click", () => {
       state.taskIndex = index;
+      setOrientation(currentTask().orientation);
       render();
     });
 
@@ -496,7 +473,7 @@ function renderShotList() {
       <span class="shot-index">${index + 1}</span>
       <span class="shot-copy">
         <strong>${task.title}</strong>
-        <span>${task.hint}</span>
+        <span>${orientationLabel(task.orientation)}</span>
       </span>
       <span class="shot-state">${statusText}</span>
     `;

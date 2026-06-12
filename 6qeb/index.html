@@ -80,20 +80,39 @@
             const [selectedItem, setSelectedItem] = useState(null);
             const [showDropdown, setShowDropdown] = useState(false);
             
+            const [searchGroupTerm, setSearchGroupTerm] = useState('');
+            const [filteredGroupData, setFilteredGroupData] = useState([]);
+            const [selectedGroupParams, setSelectedGroupParams] = useState(null);
+            const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+            
+            const [searchZoneTerm, setSearchZoneTerm] = useState('');
+            const [filteredZoneData, setFilteredZoneData] = useState([]);
+            const [selectedZoneParams, setSelectedZoneParams] = useState(null);
+            const [showZoneDropdown, setShowZoneDropdown] = useState(false);
+            
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [modalContent, setModalContent] = useState(null);
             
             const dropdownRef = useRef(null);
+            const groupDropdownRef = useRef(null);
+            const zoneDropdownRef = useRef(null);
 
             useEffect(() => {
                 function handleClickOutside(event) {
                     if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                         setShowDropdown(false);
                     }
+                    if (groupDropdownRef.current && !groupDropdownRef.current.contains(event.target)) {
+                        setShowGroupDropdown(false);
+                    }
+                    if (zoneDropdownRef.current && !zoneDropdownRef.current.contains(event.target)) {
+                        setShowZoneDropdown(false);
+                    }
                 }
                 document.addEventListener("mousedown", handleClickOutside);
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, []);
+
 
             const fetchJsonData = async (type) => {
                 if (!GAS_URL) return [];
@@ -147,6 +166,10 @@
                 const value = e.target.value;
                 setSearchTerm(value);
                 setSelectedItem(null);
+                setSelectedGroupParams(null);
+                setSelectedZoneParams(null);
+                setSearchGroupTerm('');
+                setSearchZoneTerm('');
 
                 if (value.trim() === '') {
                     setFilteredData([]);
@@ -166,9 +189,140 @@
             };
 
             const selectItem = (item) => {
-                setSearchTerm(item['營業項目代碼']);
+                setSearchTerm(`${item['營業項目代碼']} - ${item['營業項目']}`);
                 setSelectedItem(item);
+                setSelectedGroupParams(null);
+                setSelectedZoneParams(null);
+                setSearchGroupTerm('');
+                setSearchZoneTerm('');
                 setShowDropdown(false);
+            };
+
+            const handleGroupSearch = (e) => {
+                const value = e.target.value;
+                setSearchGroupTerm(value);
+                setSelectedItem(null);
+                setSelectedGroupParams(null);
+                setSelectedZoneParams(null);
+                setSearchTerm('');
+                setSearchZoneTerm('');
+
+                if (value.trim() === '') {
+                    setFilteredGroupData([]);
+                    setShowGroupDropdown(false);
+                    return;
+                }
+
+                if (!groupData || groupData.length === 0) return;
+                
+                const groupKeyName = Object.keys(groupData[0])[0];
+                const displayKeys = Object.keys(groupData[0]).filter(k => k !== groupKeyName);
+                
+                const groupInfoMap = new Map();
+                groupData.forEach(g => {
+                    const num = String(g[groupKeyName]).trim();
+                    if(num && !groupInfoMap.has(num)) {
+                        groupInfoMap.set(num, String(g[displayKeys[0]] || ''));
+                    }
+                });
+
+                const results = [];
+                groupInfoMap.forEach((name, num) => {
+                    const fullStr = `第${num}組`;
+                    const searchStr = `${fullStr} ${name}`.toUpperCase();
+                    if (searchStr.includes(value.toUpperCase())) {
+                        results.push({
+                            groupNum: num,
+                            groupName: name
+                        });
+                    }
+                });
+
+                setFilteredGroupData(results);
+                setShowGroupDropdown(true);
+            };
+
+            const selectGroupItem = (groupNum, groupName) => {
+                const cleanName = groupName ? groupName.replace(/^第.*?組[：:]?\s*/, '') : '';
+                setSearchGroupTerm(`第 ${groupNum} 組${cleanName ? ' - ' + cleanName : ''}`);
+                setSelectedGroupParams(groupNum);
+                setSelectedItem(null);
+                setSelectedZoneParams(null);
+                setSearchTerm('');
+                setSearchZoneTerm('');
+                setShowGroupDropdown(false);
+            };
+
+            const handleZoneSearch = (e) => {
+                const value = e.target.value;
+                setSearchZoneTerm(value);
+                setSelectedItem(null);
+                setSelectedGroupParams(null);
+                setSelectedZoneParams(null);
+                setSearchTerm('');
+                setSearchGroupTerm('');
+
+                if (value.trim() === '') {
+                    setFilteredZoneData([]);
+                    setShowZoneDropdown(false);
+                    return;
+                }
+
+                let allZones = new Set();
+                if (rulesData.length > 0) {
+                    Object.keys(rulesData[0]).forEach((k, i) => {
+                        if (i > 0) allZones.add(k);
+                    });
+                }
+                if (extraData.length > 0) {
+                    Object.keys(extraData[0]).forEach((k, i) => {
+                        if (i > 0) allZones.add(k);
+                    });
+                }
+                const uniqueZones = Array.from(allZones).filter(v => v);
+
+                const upperTerm = value.toUpperCase();
+                const results = uniqueZones.filter(z => {
+                    const upperZ = z.toUpperCase();
+                    if (upperZ.includes(upperTerm)) return true;
+                    
+                    const abbr = upperZ
+                        .replace(/第一種/g, '一')
+                        .replace(/第二種/g, '二')
+                        .replace(/第三種/g, '三')
+                        .replace(/第四種/g, '四')
+                        .replace(/住宅區/g, '住')
+                        .replace(/商業區/g, '商')
+                        .replace(/工業區/g, '工')
+                        .replace(/特種/g, '特')
+                        .replace(/行政區/g, '行')
+                        .replace(/文教區/g, '文')
+                        .replace(/風景區/g, '風')
+                        .replace(/農業區/g, '農')
+                        .replace(/保護區/g, '保')
+                        .replace(/河川區/g, '河');
+                        
+                    const abbr2 = upperZ
+                        .replace(/第1種/g, '一')
+                        .replace(/第2種/g, '二')
+                        .replace(/第3種/g, '三')
+                        .replace(/第4種/g, '四');
+                        
+                    return abbr.includes(upperTerm) || abbr2.includes(upperTerm);
+                });
+
+                setFilteredZoneData(results);
+                setShowZoneDropdown(true);
+            };
+
+            const selectZoneItem = (zoneName) => {
+                setSearchZoneTerm(zoneName);
+                setSelectedZoneParams(zoneName);
+                setSelectedItem(null);
+                setSelectedGroupParams(null);
+                setSearchTerm('');
+                setSearchGroupTerm('');
+                setShowZoneDropdown(false);
             };
 
             // 處理點擊 △ 符號的事件 (T5D5) - 完全嚴格精準比對版
@@ -176,6 +330,14 @@
                 if (!conditionsData || conditionsData.length === 0) {
                     alert("條件資料載入異常或為空，無法查詢。");
                     return;
+                }
+
+                let searchZone = zone;
+                let overrideNote = null;
+
+                if (/科技工業區[A-D]區/.test(zone)) {
+                    searchZone = '第三種工業區';
+                    overrideNote = '依本市土地使用分區管制規則第三種工業區附條件允許使用。';
                 }
 
                 const keys = Object.keys(conditionsData[0]);
@@ -196,11 +358,26 @@
                     const itemZone = String(item[zoneKey] || '').trim();
                     const itemGroup = String(item[groupKey] || '').trim();
                     
-                    // 1. 將點擊的表頭 (如 "住三之一、住三之二") 切成陣列
-                    const clickZones = zone.split(/[、,，\n/／|｜及與和&]+/).map(z => normalizeZoneStr(z.replace(/\s+/g, '')));
+                    const toAbbrZone = (str) => {
+                        return str.replace(/第一種住宅區/g, '住一')
+                                  .replace(/第二種住宅區/g, '住二')
+                                  .replace(/第三種住宅區/g, '住三')
+                                  .replace(/第四種住宅區/g, '住四')
+                                  .replace(/第一種商業區/g, '商一')
+                                  .replace(/第二種商業區/g, '商二')
+                                  .replace(/第三種商業區/g, '商三')
+                                  .replace(/第四種商業區/g, '商四')
+                                  .replace(/第二種工業區/g, '工二')
+                                  .replace(/第三種工業區/g, '工三')
+                                  .replace(/科技工業區/g, '科工')
+                                  .replace(/特定專用區/g, '特專');
+                    };
+
+                    const cleanClickZoneStr = searchZone.replace(/[\n\r\s]+/g, '');
+                    const clickZones = cleanClickZoneStr.split(/[、,，/／|｜及與和&]+/).map(z => normalizeZoneStr(z));
                     
-                    // 2. 將 T5D5 表內的法規區 (如 "住三之一、之二") 切成陣列，並還原縮寫
-                    const itemZonesRaw = itemZone.split(/[、,，\n/／|｜及與和&]+/).map(z => normalizeZoneStr(z.replace(/\s+/g, '')));
+                    const cleanItemZoneStr = itemZone.replace(/[\n\r\s]+/g, '');
+                    const itemZonesRaw = cleanItemZoneStr.split(/[、,，/／|｜及與和&]+/).map(z => normalizeZoneStr(z));
                     const itemZones = itemZonesRaw.map((z, index, arr) => {
                         // 如果有「之二」縮寫，去抓陣列前一個項目的母區 (例如從"住三之一"抓出"住三")
                         if (z.startsWith('之') && index > 0) {
@@ -215,21 +392,21 @@
                     
                     const zoneMatch = itemZones.some(z => {
                         const strippedZ = z.replace(/\(.*\)|\（.*\）|\[.*\]|【.*】|「.*」/g, '').trim();
-                        const abbrZ = strippedZ.replace(/第一種住宅區/g, '住一')
-                                             .replace(/第二種住宅區/g, '住二')
-                                             .replace(/第三種住宅區/g, '住三')
-                                             .replace(/第四種住宅區/g, '住四')
-                                             .replace(/第一種商業區/g, '商一')
-                                             .replace(/第二種商業區/g, '商二')
-                                             .replace(/第三種商業區/g, '商三')
-                                             .replace(/第四種商業區/g, '商四')
-                                             .replace(/第二種工業區/g, '工二')
-                                             .replace(/第三種工業區/g, '工三');
+                        const abbrZ = toAbbrZone(strippedZ);
 
-                        // 【嚴格精準比對】：只有在切出來的項目「完全相等」時才算符合，不再用 startsWith 模糊包容
+                        // 【嚴格精準比對】：只有在切出來的項目「完全相等」時才算符合。新增對點擊分區(cz)的縮寫處理
                         return clickZones.some(cz => {
                             const strippedCz = cz.replace(/\(.*\)|\（.*\）|\[.*\]|【.*】|「.*」/g, '').trim();
-                            return z === cz || strippedZ === cz || abbrZ === cz || abbrZ === strippedCz || z === strippedCz || strippedZ === strippedCz;
+                            const abbrCz = toAbbrZone(strippedCz);
+
+                            return z === cz || 
+                                   strippedZ === cz || 
+                                   abbrZ === cz || 
+                                   abbrZ === strippedCz || 
+                                   z === strippedCz || 
+                                   strippedZ === strippedCz ||
+                                   abbrZ === abbrCz ||
+                                   strippedZ === abbrCz;
                         });
                     });
                     
@@ -247,7 +424,7 @@
                                 groupMatch = true;
                                 break;
                             }
-                            const rangeMatch = cleanG.match(/^(\d+)(-|~|～|至)(\d+)$/);
+                            const rangeMatch = cleanG.match(/^(\d+)(-|~|～|至|－|—)(\d+)$/);
                             if (rangeMatch && !isNaN(target)) {
                                 const start = parseInt(rangeMatch[1], 10);
                                 const end = parseInt(rangeMatch[3], 10);
@@ -268,7 +445,8 @@
                     zone,
                     group,
                     details: matchedDetails,
-                    keys: { c: cKey, d: dKey, e: eKey }
+                    keys: { c: cKey, d: dKey, e: eKey },
+                    overrideNote
                 });
                 setIsModalOpen(true);
             };
@@ -299,7 +477,7 @@
                         const cleanG = g.replace(/\(.*\)|\（.*\）|\[.*\]|【.*】/g, '').trim();
                         if (cleanG === cleanGroup) return true;
                         
-                        const rangeMatch = cleanG.match(/^(\d+)(-|~|～|至)(\d+)$/);
+                        const rangeMatch = cleanG.match(/^(\d+)(-|~|～|至|－|—)(\d+)$/);
                         if (rangeMatch && !isNaN(target)) {
                             const start = parseInt(rangeMatch[1], 10);
                             const end = parseInt(rangeMatch[3], 10);
@@ -417,48 +595,242 @@
                         <p className="text-xs text-gray-400 mt-1">透過 Google API 同步 | 主資料: {mainData.length} 筆</p>
                     </div>
 
-                    <div className="relative mb-8 z-50" ref={dropdownRef}>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <SearchIcon />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 z-50">
+                        {/* 搜尋一：代碼與名稱 */}
+                        <div className="relative" ref={dropdownRef}>
+                            <div className="text-sm font-bold text-gray-700 mb-2">登記營業項目查詢</div>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <SearchIcon />
+                                </div>
+                                <input
+                                    type="text"
+                                    className="block w-full pl-12 pr-4 py-4 bg-white border-2 border-transparent shadow-sm rounded-xl text-lg focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                                    placeholder="輸入公司營業項目代碼或名稱... (例如: I301010)"
+                                    value={searchTerm}
+                                    onChange={handleSearch}
+                                    onFocus={() => { if (searchTerm) setShowDropdown(true); }}
+                                />
                             </div>
-                            <input
-                                type="text"
-                                className="block w-full pl-12 pr-4 py-4 bg-white border-2 border-transparent shadow-sm rounded-xl text-lg focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
-                                placeholder="輸入代碼或名稱..."
-                                value={searchTerm}
-                                onChange={handleSearch}
-                                onFocus={() => { if (searchTerm) setShowDropdown(true); }}
-                            />
+
+                            {showDropdown && filteredData.length > 0 && (
+                                <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 max-h-80 overflow-y-auto custom-scrollbar">
+                                    {filteredData.slice(0, 50).map((item, index) => (
+                                        <div 
+                                            key={index}
+                                            className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3"
+                                            onClick={() => selectItem(item)}
+                                        >
+                                            <span className="font-mono font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded text-sm">{item['營業項目代碼']}</span>
+                                            <span className="text-gray-700 font-medium">{item['營業項目']}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        {showDropdown && filteredData.length > 0 && (
-                            <div className="absolute w-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 max-h-80 overflow-y-auto custom-scrollbar">
-                                {filteredData.slice(0, 50).map((item, index) => (
-                                    <div 
-                                        key={index}
-                                        className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3"
-                                        onClick={() => selectItem(item)}
-                                    >
-                                        <span className="font-mono font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded text-sm">{item['營業項目代碼']}</span>
-                                        <span className="text-gray-700 font-medium">{item['營業項目']}</span>
-                                    </div>
-                                ))}
+                        {/* 搜尋二：土管組別 */}
+                        <div className="relative" ref={groupDropdownRef}>
+                            <div className="text-sm font-bold text-gray-700 mb-2">土地使用管制組別查詢</div>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <SearchIcon />
+                                </div>
+                                <input
+                                    type="text"
+                                    className="block w-full pl-12 pr-4 py-4 bg-white border-2 border-transparent shadow-sm rounded-xl text-lg focus:ring-4 focus:ring-green-100 focus:border-green-400 outline-none transition-all"
+                                    placeholder="輸入土管組別代碼或名稱... (例如: 22 或 服務)"
+                                    value={searchGroupTerm}
+                                    onChange={handleGroupSearch}
+                                    onFocus={() => { if (searchGroupTerm) setShowGroupDropdown(true); }}
+                                />
                             </div>
-                        )}
+
+                            {showGroupDropdown && filteredGroupData.length > 0 && (
+                                <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 max-h-80 overflow-y-auto custom-scrollbar">
+                                    {filteredGroupData.map((item, index) => {
+                                        const cleanName = item.groupName ? item.groupName.replace(/^第.*?組[：:]?\s*/, '') : '';
+                                        return (
+                                            <div 
+                                                key={index}
+                                                className="px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3"
+                                                onClick={() => selectGroupItem(item.groupNum, item.groupName)}
+                                            >
+                                                <span className="font-bold text-green-700 whitespace-nowrap">第 {item.groupNum} 組</span>
+                                                <span className="text-gray-700 text-sm truncate">{cleanName}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 搜尋三：使用分區 */}
+                        <div className="relative" ref={zoneDropdownRef}>
+                            <div className="text-sm font-bold text-gray-700 mb-2">使用分區查詢</div>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <SearchIcon />
+                                </div>
+                                <input
+                                    type="text"
+                                    className="block w-full pl-12 pr-4 py-4 bg-white border-2 border-transparent shadow-sm rounded-xl text-lg focus:ring-4 focus:ring-orange-100 focus:border-orange-400 outline-none transition-all"
+                                    placeholder="輸入土地使用分區... (例如: 住三)"
+                                    value={searchZoneTerm}
+                                    onChange={handleZoneSearch}
+                                    onFocus={() => { if (searchZoneTerm) setShowZoneDropdown(true); }}
+                                />
+                            </div>
+
+                            {showZoneDropdown && filteredZoneData.length > 0 && (
+                                <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 max-h-80 overflow-y-auto custom-scrollbar">
+                                    {filteredZoneData.map((zone, index) => (
+                                        <div 
+                                            key={index}
+                                            className="px-4 py-3 hover:bg-orange-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3"
+                                            onClick={() => selectZoneItem(zone)}
+                                        >
+                                            <span className="font-bold text-orange-700">{zone}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {selectedItem && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-6 text-white">
-                                <span className="bg-white/20 text-white border border-white/30 px-3 py-1 rounded-lg font-mono text-xl font-bold block mb-2 w-fit">
-                                    {selectedItem['營業項目代碼']}
-                                </span>
-                                <h2 className="text-3xl font-extrabold">{selectedItem['營業項目']}</h2>
-                            </div>
+                    {(selectedItem || selectedGroupParams || selectedZoneParams) && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in mb-8">
+                            {selectedItem ? (
+                                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-6 text-white">
+                                    <span className="bg-white/20 text-white border border-white/30 px-3 py-1 rounded-lg font-mono text-xl font-bold block mb-2 w-fit">
+                                        {selectedItem['營業項目代碼']}
+                                    </span>
+                                    <h2 className="text-3xl font-extrabold">{selectedItem['營業項目']}</h2>
+                                </div>
+                            ) : selectedGroupParams ? (
+                                <div className="bg-gradient-to-r from-green-600 to-teal-700 px-6 py-6 text-white">
+                                    <span className="bg-white/20 text-white border border-white/30 px-3 py-1 rounded-lg font-mono text-xl font-bold block mb-2 w-fit">
+                                        土地使用管制
+                                    </span>
+                                    <h2 className="text-3xl font-extrabold">第 {selectedGroupParams} 組 規定內容</h2>
+                                </div>
+                            ) : (
+                                <div className="bg-gradient-to-r from-orange-600 to-red-700 px-6 py-6 text-white">
+                                    <span className="bg-white/20 text-white border border-white/30 px-3 py-1 rounded-lg font-mono text-xl font-bold block mb-2 w-fit">
+                                        土地使用分區
+                                    </span>
+                                    <h2 className="text-3xl font-extrabold">{selectedZoneParams} 允許使用組別</h2>
+                                </div>
+                            )}
 
                             <div className="p-6 md:p-8">
-                                {(() => {
+                                {/* 查詢分區：T5D3 & T5D4 中該分區允許的組別 */}
+                                {selectedZoneParams && (() => {
+                                    let allowedGroups = [];
+                                    
+                                    if (rulesData.length > 0) {
+                                        const rKeyName = Object.keys(rulesData[0])[0];
+                                        rulesData.forEach(rule => {
+                                            const groupNum = rule[rKeyName];
+                                            const val = rule[selectedZoneParams];
+                                            if (val && /[○△□＃※]/.test(val)) {
+                                                allowedGroups.push({ source: 'rules', group: groupNum, value: val });
+                                            }
+                                        });
+                                    }
+                                    
+                                    if (extraData.length > 0) {
+                                        const rKeyName = Object.keys(extraData[0])[0];
+                                        extraData.forEach(rule => {
+                                            if (selectedZoneParams in rule) {
+                                                const groupNum = rule[rKeyName];
+                                                const val = rule[selectedZoneParams];
+                                                if (val && /[○△□＃※]/.test(val)) {
+                                                    allowedGroups.push({ source: 'extra', group: groupNum, value: val });
+                                                }
+                                            }
+                                        });
+                                    }
+
+                                    if (allowedGroups.length === 0) {
+                                        return <div className="text-gray-500 text-center py-10 bg-gray-50 rounded-xl">此分區無特別允許之組別設定，或全為不允許 (×)。</div>;
+                                    }
+
+                                    const groupInfoMap = new Map();
+                                    if (groupData.length > 0) {
+                                        const groupKeyName = Object.keys(groupData[0])[0];
+                                        const displayKeys = Object.keys(groupData[0]).filter(k => k !== groupKeyName);
+                                        groupData.forEach(g => {
+                                            groupInfoMap.set(String(g[groupKeyName]).trim(), String(g[displayKeys[0]] || ''));
+                                        });
+                                    }
+
+                                    // Sort by group length then numerically
+                                    allowedGroups.sort((a, b) => {
+                                        const aIsNum = !isNaN(a.group);
+                                        const bIsNum = !isNaN(b.group);
+                                        if (aIsNum && bIsNum) return Number(a.group) - Number(b.group);
+                                        if (aIsNum) return -1;
+                                        if (bIsNum) return 1;
+                                        return String(a.group).localeCompare(String(b.group));
+                                    });
+
+                                    return (
+                                        <div className="bg-orange-50 rounded-xl border border-orange-200 overflow-hidden">
+                                            <div className="px-6 py-4 bg-orange-100/60 font-bold text-orange-800 flex justify-between items-center">
+                                                <span>{selectedZoneParams} - 允許使用組別一覽</span>
+                                            </div>
+                                            <div className="px-6 py-3 bg-white border-b border-orange-100 text-sm text-gray-700">
+                                                <span className="font-bold text-orange-800 mr-3 block mb-2 md:inline-block md:mb-0">符號圖例：</span>
+                                                <div className="flex flex-col md:flex-row flex-wrap gap-y-2 gap-x-4 items-start md:items-center">
+                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none">○</span> 允許</span>
+                                                    <span className="flex items-center gap-1"><span className="text-lg font-bold text-orange-600 leading-none -mt-1">△</span> <span className="underline decoration-dashed decoration-orange-400 underline-offset-4 cursor-pointer">附條件(可點擊)</span></span>
+                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-orange-600 leading-none">※</span> 原合法建築</span>
+                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-teal-600 leading-none">□</span> <span className="underline decoration-dashed decoration-teal-400 underline-offset-4 cursor-pointer">內科附條件(可點擊)</span></span>
+                                                    <span className="flex items-center gap-1"><span className="text-base font-bold text-teal-600 leading-none">＃</span> 繳納回饋</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="overflow-x-auto custom-scrollbar">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="bg-orange-200/50 text-orange-800">
+                                                        <tr>
+                                                            <th className="px-4 py-4 border-b border-orange-200 min-w-[80px]">組別</th>
+                                                            <th className="px-4 py-4 border-b border-orange-200 min-w-[200px]">組別名稱</th>
+                                                            <th className="px-4 py-4 border-b border-orange-200 w-32 text-center text-nowrap">允許規定</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-orange-100 bg-white">
+                                                        {allowedGroups.map((item, idx) => {
+                                                            const isSpecial = item.group === '策略' || item.group === '其他';
+                                                            const groupName = isSpecial 
+                                                                ? item.group 
+                                                                : groupInfoMap.get(String(item.group)) || '-';
+                                                            
+                                                            const formattedText = String(item.value).replace(/;/g, ';\n').replace(/；/g, '；\n');
+                                                            
+                                                            return (
+                                                                <tr key={idx} className="hover:bg-orange-50/50 transition-colors">
+                                                                    <td className="px-4 py-3 font-bold text-orange-700 whitespace-nowrap align-middle">
+                                                                        {isSpecial ? item.group : `第 ${item.group} 組`}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-gray-700 font-medium align-middle">
+                                                                        {groupName}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-center text-lg whitespace-pre-wrap leading-relaxed align-middle">
+                                                                        {renderTextWithClick(formattedText, selectedZoneParams, item.group, item.source === 'extra' ? 'text-teal-600' : 'text-orange-600')}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {selectedItem && (() => {
                                     const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
                                     const landValue = landKey ? selectedItem[landKey] : null;
                                     
@@ -552,9 +924,14 @@
 
                                 {/* 土管歸組資料 */}
                                 {(() => {
-                                    const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
-                                    const landValue = landKey ? selectedItem[landKey] : null;
-                                    const targetGroupNums = extractGroupNumbers(landValue);
+                                    let targetGroupNums = [];
+                                    if (selectedItem) {
+                                        const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
+                                        const landValue = landKey ? selectedItem[landKey] : null;
+                                        targetGroupNums = extractGroupNumbers(landValue);
+                                    } else if (selectedGroupParams) {
+                                        targetGroupNums = [selectedGroupParams];
+                                    }
                                     
                                     if (targetGroupNums.length === 0 || groupData.length === 0) return null;
                                     
@@ -595,7 +972,7 @@
                                 })()}
 
                                 {/* 建管歸組說明 */}
-                                {(() => {
+                                {selectedItem && (() => {
                                     const buildKey = Object.keys(selectedItem).find(k => k.includes('建管') || k.includes('建築'));
                                     const buildValue = buildKey ? selectedItem[buildKey] : null;
                                     const targetBuildNums = extractGroupNumbers(buildValue);
@@ -640,18 +1017,24 @@
 
                                 {/* T5D3 使用規定一覽表 */}
                                 {(() => {
-                                    const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
-                                    const landValue = landKey ? selectedItem[landKey] : null;
-                                    const targetGroupNums = extractGroupNumbers(landValue);
+                                    let targetGroupNums = [];
+                                    let isStrategy = false;
+
+                                    if (selectedItem) {
+                                        const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
+                                        const landValue = landKey ? selectedItem[landKey] : null;
+                                        targetGroupNums = extractGroupNumbers(landValue);
+                                        const strategyValue = selectedItem['策略性產業'];
+                                        isStrategy = strategyValue && String(strategyValue).trim() !== '' && String(strategyValue).trim() !== '-';
+                                    } else if (selectedGroupParams) {
+                                        targetGroupNums = [selectedGroupParams];
+                                    }
                                     
                                     if (targetGroupNums.length === 0 || rulesData.length === 0) return null;
                                     
                                     return targetGroupNums.map(targetGroupNum => {
                                         const rKeyName = Object.keys(rulesData[0])[0];
                                         const matchedRules = rulesData.filter(r => String(r[rKeyName]) === String(targetGroupNum));
-                                        
-                                        const strategyValue = selectedItem['策略性產業'];
-                                        const isStrategy = strategyValue && String(strategyValue).trim() !== '' && String(strategyValue).trim() !== '-';
                                         
                                         if (matchedRules.length === 0 && !isStrategy) return null;
 
@@ -724,18 +1107,24 @@
 
                                 {/* T5D4 (extra) 內湖科技園區規定一覽表 */}
                                 {(() => {
-                                    const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
-                                    const landValue = landKey ? selectedItem[landKey] : null;
-                                    const targetGroupNums = extractGroupNumbers(landValue);
+                                    let targetGroupNums = [];
+                                    let isStrategy = false;
+
+                                    if (selectedItem) {
+                                        const landKey = Object.keys(selectedItem).find(k => k.includes('土管'));
+                                        const landValue = landKey ? selectedItem[landKey] : null;
+                                        targetGroupNums = extractGroupNumbers(landValue);
+                                        const strategyValue = selectedItem['策略性產業'];
+                                        isStrategy = strategyValue && String(strategyValue).trim() !== '' && String(strategyValue).trim() !== '-';
+                                    } else if (selectedGroupParams) {
+                                        targetGroupNums = [selectedGroupParams];
+                                    }
                                     
                                     if (targetGroupNums.length === 0 || extraData.length === 0) return null;
                                     
                                     return targetGroupNums.map(targetGroupNum => {
                                         const rKeyName = Object.keys(extraData[0])[0];
                                         const matchedRules = extraData.filter(r => String(r[rKeyName]) === String(targetGroupNum));
-                                        
-                                        const strategyValue = selectedItem['策略性產業'];
-                                        const isStrategy = strategyValue && String(strategyValue).trim() !== '' && String(strategyValue).trim() !== '-';
                                         
                                         if (matchedRules.length === 0 && !isStrategy) return null;
 
@@ -878,6 +1267,12 @@
                                         ) : (
                                             /* 原本 T5D5 附條件排版 */
                                             <div className="space-y-6">
+                                                {modalContent.overrideNote && (
+                                                    <div className="bg-orange-50 text-orange-800 p-4 rounded-xl border border-orange-200 text-base font-bold flex items-center gap-3">
+                                                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                        {modalContent.overrideNote}
+                                                    </div>
+                                                )}
                                                 {modalContent.details.map((detail, idx) => (
                                                     <div key={idx} className="bg-blue-50/40 border border-blue-100 rounded-xl overflow-hidden shadow-sm">
                                                         <div className="px-5 py-4 border-b border-blue-50/80 bg-white">

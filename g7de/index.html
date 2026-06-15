@@ -1,0 +1,904 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡易專案甘特圖</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-5YQY4RT9H2');
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .hidden { display: none !important; }
+        
+        /* 避免拖曳時文字被選取 */
+        .task-row { user-select: none; }
+        .resize-handle { touch-action: none; }
+        .drag-handle { touch-action: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-8 relative min-h-screen">
+
+    <!-- 自訂訊息提示框 -->
+    <div id="message-box" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 transition-opacity duration-300 opacity-0 pointer-events-none hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+        <span id="message-text" class="text-sm font-medium">訊息</span>
+    </div>
+
+    <!-- 自訂確認對話框 (加入起算日輸入) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 z-[200] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200" id="confirm-modal-content">
+            <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                確認載入範本？
+            </h3>
+            <p class="text-sm text-slate-500 mb-4">載入範本將會完全覆蓋目前的專案資料，確定要繼續嗎？</p>
+            
+            <div class="mb-6">
+                <label class="block text-xs font-medium text-slate-700 mb-1">請設定專案起算日</label>
+                <input type="date" id="modal-start-date" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700 shadow-sm">
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btn-confirm-cancel" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium p-2.5 rounded-lg transition-colors text-sm">取消</button>
+                <button id="btn-confirm-ok" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium p-2.5 rounded-lg transition-colors shadow-sm text-sm">確定載入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯任務的 Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200" id="edit-modal-content">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                編輯工作項目
+            </h3>
+            <form id="edit-task-form" class="space-y-4">
+                <input type="hidden" id="edit-task-id">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">選擇類別</label>
+                    <select id="edit-task-category" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">工作項目名稱</label>
+                    <input type="text" id="edit-task-name" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">開始日期</label>
+                        <input type="date" id="edit-task-start" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">結束日期</label>
+                        <input type="date" id="edit-task-end" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium p-2.5 rounded-lg transition-colors text-sm">取消</button>
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium p-2.5 rounded-lg transition-colors shadow-sm text-sm">儲存變更</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 拖曳提示浮動視窗 -->
+    <div id="drag-tooltip" class="fixed z-[300] bg-slate-900/90 text-white text-xs font-medium px-3 py-1.5 rounded-lg pointer-events-none hidden shadow-lg whitespace-nowrap transform -translate-x-1/2 -translate-y-4 transition-none mt-[-10px]">
+    </div>
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- 標題與工具列 -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 12 12 17 22 12"></polyline><polyline points="2 17 12 22 22 17"></polyline></svg>
+                    簡易專案甘特圖
+                </h1>
+                <p class="text-sm text-slate-500 mt-1">快速輸入項目，一鍵產出精美進度表，適合與客戶溝通</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="bg-slate-100 p-1 rounded-lg flex text-sm" id="view-mode-container">
+                    <button data-mode="day" class="view-btn px-4 py-2 rounded-md transition-colors text-slate-600 hover:bg-slate-200">日視角</button>
+                    <button data-mode="month" class="view-btn bg-white shadow text-blue-600 font-medium px-4 py-2 rounded-md transition-colors">月視角</button>
+                    <button data-mode="quarter" class="view-btn px-4 py-2 rounded-md transition-colors text-slate-600 hover:bg-slate-200">季視角</button>
+                    <button data-mode="year" class="view-btn px-4 py-2 rounded-md transition-colors text-slate-600 hover:bg-slate-200">年視角</button>
+                </div>
+                
+                <select id="template-select" class="text-sm border border-slate-200 text-slate-600 rounded-md px-3 py-2 bg-white hover:bg-slate-50 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 shadow-sm font-medium">
+                    <option value="" disabled selected>📂 載入範本...</option>
+                    <option value="demo">預設範例 (含資料)</option>
+                    <option value="blank">完全空白專案</option>
+                    <option value="realEstate">不動產標售範本</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 快速輸入區與自訂類別區 -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+            <div>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>
+                        快速新增工作項目
+                    </h2>
+                    
+                    <!-- 輸入模式切換 -->
+                    <div class="flex items-center gap-4 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                        <label class="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-slate-600">
+                            <input type="radio" name="input-mode" value="absolute" checked class="accent-blue-600" onchange="toggleInputMode()"> 絕對日期區間
+                        </label>
+                        <label class="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-slate-600">
+                            <input type="radio" name="input-mode" value="relative" class="accent-blue-600" onchange="toggleInputMode()"> 相對天數 (依專案起算)
+                        </label>
+                    </div>
+                </div>
+
+                <form id="add-task-form" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-medium text-slate-500 mb-1">選擇類別</label>
+                        <select id="task-category" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"></select>
+                    </div>
+                    <div class="md:col-span-4">
+                        <label class="block text-xs font-medium text-slate-500 mb-1">工作項目名稱</label>
+                        <input type="text" id="task-name" placeholder="例如：項目1" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                    </div>
+
+                    <!-- 絕對日期區塊 (預設顯示) -->
+                    <div id="absolute-inputs" class="md:col-span-4 grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">開始日期</label>
+                            <input type="date" id="task-start" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">結束日期</label>
+                            <input type="date" id="task-end" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- 相對天數區塊 (預設隱藏) -->
+                    <div id="relative-inputs" class="md:col-span-4 grid grid-cols-3 gap-2 hidden">
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="專案起算日">專案起算日</label>
+                            <input type="date" id="proj-start-date" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm px-1">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="第幾天開始">第幾天開始</label>
+                            <input type="number" id="task-offset" min="1" value="1" placeholder="1" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="工期(需要天數)">工期(天)</label>
+                            <input type="number" id="task-duration" min="1" value="5" placeholder="5" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium p-2.5 rounded-lg transition-colors shadow-sm text-sm">
+                            加入圖表
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 類別名稱直接編輯列 -->
+            <div class="pt-3 border-t border-slate-100">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-semibold text-slate-500">⚙️ 類別名稱自訂 (直接點擊修改名稱，拖曳區塊可調整排序)：</span>
+                </div>
+                <div id="category-editor" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                    <!-- 動態生成類別輸入框 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 甘特圖控制與呈現區 -->
+        <div class="flex flex-col sm:flex-row justify-between items-end gap-3 px-1 mt-2">
+            <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                專案進度預覽
+            </h2>
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- 隱藏的檔案上傳欄位 -->
+                <input type="file" id="file-import" accept=".json" class="hidden">
+                
+                <button id="btn-import" class="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm" title="讀取先前儲存的專案檔 (.json)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    讀取專案
+                </button>
+                <button id="btn-save" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm" title="將目前專案存為檔案，以便日後繼續編輯">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    儲存專案
+                </button>
+                
+                <div class="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+                
+                <button id="btn-sort" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm" title="依類別名稱與開始時間自動重新排序">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg>
+                    自動排序
+                </button>
+                
+                <button id="btn-export" class="relative flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm overflow-hidden" title="截圖並下載完整甘特圖">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+                    <span>截圖匯出</span>
+                    <div id="export-loading" class="hidden absolute inset-0 bg-blue-700 flex items-center justify-center z-10">
+                        <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <div id="chart-export-area" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col" style="min-height: 300px;">
+            <!-- 圖表內容由 JavaScript 動態生成 -->
+        </div>
+
+    </div>
+
+    <script>
+        // === 狀態與資料定義 ===
+        const todayStr = new Date().toISOString().slice(0, 10);
+        
+        function addDaysToDateString(dateStr, days) {
+            const d = new Date(dateStr + 'T00:00:00');
+            d.setDate(d.getDate() + days);
+            return d.toISOString().split('T')[0];
+        }
+
+        // 定義範本資料庫
+        const getTemplates = () => ({
+            'demo': {
+                categories: {
+                    'catA': { name: '類別A', color: 'bg-blue-500' },
+                    'catB': { name: '類別B', color: 'bg-purple-500' },
+                    'catC': { name: '類別C', color: 'bg-emerald-500' },
+                    'catD': { name: '類別D', color: 'bg-orange-500' },
+                    'catE': { name: '類別E', color: 'bg-pink-500' },
+                    'catF': { name: '類別F', color: 'bg-gray-500' }
+                },
+                tasks: [
+                    { id: 1, category: 'catA', name: '項目1', startDate: addDaysToDateString(todayStr, 0), endDate: addDaysToDateString(todayStr, 5) },
+                    { id: 2, category: 'catA', name: '項目2', startDate: addDaysToDateString(todayStr, 6), endDate: addDaysToDateString(todayStr, 15) },
+                    { id: 3, category: 'catB', name: '項目3', startDate: addDaysToDateString(todayStr, 10), endDate: addDaysToDateString(todayStr, 35) },
+                    { id: 4, category: 'catC', name: '項目4', startDate: addDaysToDateString(todayStr, 30), endDate: addDaysToDateString(todayStr, 70) },
+                    { id: 5, category: 'catC', name: '項目5', startDate: addDaysToDateString(todayStr, 45), endDate: addDaysToDateString(todayStr, 75) },
+                    { id: 6, category: 'catD', name: '項目6', startDate: addDaysToDateString(todayStr, 76), endDate: addDaysToDateString(todayStr, 90) },
+                    { id: 7, category: 'catE', name: '項目7', startDate: addDaysToDateString(todayStr, 91), endDate: addDaysToDateString(todayStr, 95) }
+                ]
+            },
+            'blank': {
+                categories: {
+                    'cat1': { name: '預設類別', color: 'bg-slate-500' }
+                },
+                tasks: []
+            },
+            'realEstate': {
+                categories: {
+                    'c1': { name: '前置期', color: 'bg-indigo-600' },
+                    'c2': { name: '潛銷期', color: 'bg-rose-500' },
+                    'c3': { name: '公告期', color: 'bg-amber-500' },
+                    'c4': { name: '結案期', color: 'bg-teal-600' }
+                },
+                tasks: [
+                    // 策略及工作計畫擬定: 第 1 天開始，為期 30 天 (1 ~ 30)
+                    { id: 1, category: 'c1', name: '策略及工作計畫擬定', offset: 1, duration: 30 },
+                    // 簽立委託: 向後推一天改為 17，為期 14 天 (17 ~ 30)，剛好對齊前一個任務的結束日
+                    { id: 2, category: 'c1', name: '簽立委託', offset: 17, duration: 14 },
+                    // 潛在客戶拜訪及推廣: 接續前置期(c1)結束(第30天)，第 31 天開始，為期 45 天 (31 ~ 75)
+                    { id: 3, category: 'c2', name: '潛在客戶拜訪及推廣', offset: 31, duration: 104 },
+                    // 標售前置作業: 與潛銷期(c2)第一個工作(31)同日開始，但延遲 15 天 (31 + 15 = 46)，為期 30 天 (46 ~ 75)
+                    { id: 4, category: 'c2', name: '標售前置作業', offset: 46, duration: 30 },
+                    // 標售公告及決標日: 接續潛銷期(c2)結束(第75天)，第 76 天開始，為期 60 天 (76 ~ 135)
+                    { id: 5, category: 'c3', name: '標售公告及決標日', offset: 76, duration: 60 },
+                    // 廣告或媒體曝光: 與公告期同步進行，第 76 天開始，為期 60 天 (76 ~ 135)
+                    { id: 6, category: 'c3', name: '廣告或媒體曝光', offset: 76, duration: 60 },
+                    // 地政過戶及產權移轉: 決標後接續(第135天)，第 136 天開始，為期 45 天 (136 ~ 180)
+                    { id: 7, category: 'c4', name: '地政過戶及產權移轉', offset: 136, duration: 45 }
+                ]
+            }
+        });
+
+        // 預設載入 'demo' 範本
+        let currentTemplate = getTemplates()['demo'];
+        let categories = JSON.parse(JSON.stringify(currentTemplate.categories));
+        let tasks = JSON.parse(JSON.stringify(currentTemplate.tasks));
+
+        document.getElementById('proj-start-date').value = todayStr;
+
+        let viewMode = 'month'; 
+        let inputMode = 'absolute'; 
+        let msgTimeout = null;
+        let categoryDragSrcEl = null; 
+        const LEFT_COLUMN_WIDTH = "w-[300px]";
+
+        function showMessage(msg) {
+            const msgBox = document.getElementById('message-box');
+            document.getElementById('message-text').innerText = msg;
+            msgBox.classList.remove('hidden');
+            setTimeout(() => msgBox.classList.remove('opacity-0'), 10);
+            clearTimeout(msgTimeout);
+            msgTimeout = setTimeout(() => {
+                msgBox.classList.add('opacity-0');
+                setTimeout(() => msgBox.classList.add('hidden'), 300);
+            }, 3000);
+        }
+
+        window.toggleInputMode = function() {
+            inputMode = document.querySelector('input[name="input-mode"]:checked').value;
+            const absInputs = document.getElementById('absolute-inputs');
+            const relInputs = document.getElementById('relative-inputs');
+            if (inputMode === 'relative') {
+                absInputs.classList.add('hidden');
+                relInputs.classList.remove('hidden');
+            } else {
+                relInputs.classList.add('hidden');
+                absInputs.classList.remove('hidden');
+            }
+        };
+
+        const getIcons = () => ({
+            grip: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1.5"></circle><circle cx="9" cy="5" r="1.5"></circle><circle cx="9" cy="19" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="15" cy="5" r="1.5"></circle><circle cx="15" cy="19" r="1.5"></circle></svg>`,
+            trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>`,
+            pencil: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`,
+            calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-20"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>`
+        });
+
+        function renderCategories(selectElementId = 'task-category') {
+            const selectEl = document.getElementById(selectElementId);
+            const currentSelected = selectEl.value;
+            selectEl.innerHTML = '';
+            Object.entries(categories).forEach(([key, cat]) => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = cat.name;
+                selectEl.appendChild(option);
+            });
+            if (currentSelected && categories[currentSelected]) selectEl.value = currentSelected;
+
+            if(selectElementId === 'task-category') {
+                const editorEl = document.getElementById('category-editor');
+                editorEl.innerHTML = '';
+                Object.entries(categories).forEach(([key, cat]) => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 cursor-move transition-colors";
+                    div.draggable = true;
+                    div.dataset.categoryKey = key;
+                    div.innerHTML = `<div class="text-slate-400 shrink-0">${getIcons().grip}</div><span class="w-2.5 h-2.5 rounded-full shrink-0 ${cat.color}"></span><input type="text" data-key="${key}" value="${cat.name}" class="bg-transparent font-semibold text-xs text-slate-700 focus:outline-none w-full border-b border-transparent focus:border-slate-400 py-0.5">`;
+                    
+                    div.addEventListener('dragstart', function(e) {
+                        if(e.target.tagName === 'INPUT') { e.preventDefault(); return; }
+                        categoryDragSrcEl = this;
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', key);
+                        setTimeout(() => this.style.opacity = '0.4', 0);
+                    });
+                    
+                    div.addEventListener('dragover', (e) => e.preventDefault());
+                    
+                    div.addEventListener('dragenter', function(e) {
+                        e.preventDefault();
+                        if (this !== categoryDragSrcEl && categoryDragSrcEl) {
+                            const items = Array.from(editorEl.children);
+                            const srcIndex = items.indexOf(categoryDragSrcEl);
+                            const targetIndex = items.indexOf(this);
+                            if (srcIndex < targetIndex) this.after(categoryDragSrcEl);
+                            else this.before(categoryDragSrcEl);
+                        }
+                    });
+                    
+                    div.addEventListener('dragend', function(e) {
+                        this.style.opacity = '1';
+                        const newCategories = {};
+                        editorEl.querySelectorAll('div[data-category-key]').forEach(el => {
+                            const k = el.dataset.categoryKey;
+                            newCategories[k] = categories[k];
+                        });
+                        categories = newCategories;
+                        
+                        renderCategories('task-category');
+                        renderCategories('edit-task-category');
+                        renderGantt();
+                    });
+
+                    editorEl.appendChild(div);
+                });
+                editorEl.querySelectorAll('input').forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const key = e.target.dataset.key;
+                        categories[key].name = e.target.value;
+                        renderCategories('task-category');
+                        renderCategories('edit-task-category');
+                        renderGantt();
+                        const activeInput = document.querySelector(`#category-editor input[data-key="${key}"]`);
+                        if(activeInput) { activeInput.focus(); const len = activeInput.value.length; activeInput.setSelectionRange(len, len); }
+                    });
+                });
+            }
+        }
+
+        function computeTimeline() {
+            if (tasks.length === 0) { const today = new Date(); return { timelineStart: today, timelineEnd: today, totalDays: 1, timeHeaders: [] }; }
+            let minDate = new Date(Math.min(...tasks.map(t => new Date(t.startDate))));
+            let maxDate = new Date(Math.max(...tasks.map(t => new Date(t.endDate))));
+            let start = new Date(minDate); let end = new Date(maxDate);
+            if (viewMode === 'day') { start.setDate(start.getDate() - 3); end.setDate(end.getDate() + 3); }
+            else if (viewMode === 'month') { start = new Date(start.getFullYear(), start.getMonth(), 1); end = new Date(end.getFullYear(), end.getMonth() + 1, 0); }
+            else if (viewMode === 'quarter') {
+                const startQuarterMonth = Math.floor(start.getMonth() / 3) * 3;
+                start = new Date(start.getFullYear(), startQuarterMonth, 1);
+                const endQuarterMonth = Math.floor(end.getMonth() / 3) * 3 + 2;
+                end = new Date(end.getFullYear(), endQuarterMonth + 1, 0);
+            }
+            else if (viewMode === 'year') {
+                start = new Date(start.getFullYear(), 0, 1);
+                end = new Date(end.getFullYear(), 11, 31);
+            }
+            const totalDays = (end - start) / (1000 * 60 * 60 * 24) + 1;
+            const headers = [];
+            let current = new Date(start);
+            while (current <= end) {
+                if (viewMode === 'day') { headers.push({ label: `${current.getMonth() + 1}/${current.getDate()}`, days: 1 }); current.setDate(current.getDate() + 1); }
+                else if (viewMode === 'month') {
+                    const year = current.getFullYear(); const month = current.getMonth();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    let activeDays = daysInMonth;
+                    let monthEnd = new Date(year, month, daysInMonth);
+                    if (monthEnd > end) activeDays = (end - current) / (1000 * 60 * 60 * 24) + 1;
+                    headers.push({ label: `${year}年${month + 1}月`, days: activeDays });
+                    current.setMonth(current.getMonth() + 1); current.setDate(1);
+                }
+                else if (viewMode === 'quarter') {
+                    const year = current.getFullYear(); const quarter = Math.floor(current.getMonth() / 3) + 1;
+                    const quarterStartMonth = (quarter - 1) * 3;
+                    const daysInQuarter = (new Date(year, quarterStartMonth + 3, 0) - new Date(year, quarterStartMonth, 1)) / (1000 * 60 * 60 * 24) + 1;
+                    headers.push({ label: `${year} Q${quarter}`, days: daysInQuarter });
+                    current.setMonth(current.getMonth() + 3); current.setDate(1);
+                }
+                else if (viewMode === 'year') {
+                    const year = current.getFullYear();
+                    const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+                    const daysInYear = isLeap ? 366 : 365;
+                    headers.push({ label: `${year}年`, days: daysInYear });
+                    current.setFullYear(current.getFullYear() + 1); current.setMonth(0); current.setDate(1);
+                }
+            }
+            return { timelineStart: start, timelineEnd: end, totalDays, timeHeaders: headers };
+        }
+
+        function getTaskStyle(startDateStr, endDateStr, timelineStart, timelineEnd, totalDays) {
+            const start = new Date(startDateStr); const end = new Date(endDateStr);
+            const effectiveStart = start < timelineStart ? timelineStart : start;
+            const effectiveEnd = end > timelineEnd ? timelineEnd : end;
+            const leftPercent = ((effectiveStart - timelineStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const widthPercent = ((effectiveEnd - effectiveStart) / (1000 * 60 * 60 * 24) + 1) / totalDays * 100;
+            return { left: `${Math.max(0, leftPercent)}%`, width: `${Math.min(100 - leftPercent, widthPercent)}%` };
+        }
+
+        function renderGantt() {
+            const container = document.getElementById('chart-export-area');
+            const icons = getIcons();
+            if (tasks.length === 0) { container.innerHTML = `<div class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 min-h-[250px]">${icons.calendar}<p class="text-base">目前沒有工作項目</p></div>`; return; }
+            const { timelineStart, timelineEnd, totalDays, timeHeaders } = computeTimeline();
+            const headersHtml = timeHeaders.map(h => `<div class="border-r border-slate-200 flex items-center justify-center text-[11px] font-medium text-slate-500 py-1.5" style="width: ${(h.days / totalDays) * 100}%">${h.label}</div>`).join('');
+            const gridHtml = timeHeaders.map(h => `<div class="border-r border-slate-100 h-full" style="width: ${(h.days / totalDays) * 100}%"></div>`).join('');
+            
+            // 安全取得預設分類
+            const fallbackCategory = Object.values(categories)[0] || { name: '未知類別', color: 'bg-slate-500' };
+            
+            const tasksHtml = tasks.map(task => {
+                const style = getTaskStyle(task.startDate, task.endDate, timelineStart, timelineEnd, totalDays);
+                const catConfig = categories[task.category] || fallbackCategory;
+                return `<div data-id="${task.id}" class="task-row flex border-b border-slate-100 hover:bg-slate-50 group relative transition-colors">
+                    <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-3 px-2 border-r border-slate-200 bg-white flex items-center justify-between z-10">
+                        <div class="flex items-center gap-2 w-full pr-1 overflow-hidden">
+                            <div class="drag-handle text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded cursor-grab opacity-40 group-hover:opacity-100 transition-all flex items-center justify-center" title="按住此處上下拖曳調整排序">
+                                ${icons.grip}
+                            </div>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-sm text-white shrink-0 ${catConfig.color}">${catConfig.name}</span>
+                            <div class="text-sm font-medium text-slate-800 truncate flex-1">${task.name}</div>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="openEditModal(${task.id})" class="text-slate-400 hover:text-blue-500 p-1">${icons.pencil}</button>
+                            <button onclick="removeTask(${task.id})" class="text-slate-400 hover:text-red-500 p-1">${icons.trash}</button>
+                        </div>
+                    </div>
+                    <div class="flex-1 relative py-3 px-1 z-0">
+                        <div class="absolute h-8 rounded shadow-sm flex items-center text-white text-sm font-medium cursor-grab active:cursor-grabbing hover:ring-2 ring-black/10 ${catConfig.color} task-bar-element" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：${task.name}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;操作：按住區塊左右平移，按住右側邊緣調整結束日">
+                            <span class="whitespace-nowrap pointer-events-none select-none z-10 pl-2 pr-1" style="text-shadow: -1px -1px 0 rgba(0,0,0,0.6), 1px -1px 0 rgba(0,0,0,0.6), -1px 1px 0 rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,0.6);">${task.name}</span>
+                            <div class="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-black/20 resize-handle rounded-r z-20" data-task-id="${task.id}" title="拖曳調整結束日期"></div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            // 重要：包含 chart-scroll-container 與 chart-content-wrapper class
+            container.innerHTML = `<div class="flex flex-col w-full overflow-x-auto relative pb-2 chart-scroll-container"><div class="min-w-[800px] chart-content-wrapper"><div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10"><div class="${LEFT_COLUMN_WIDTH} shrink-0 p-2 border-r border-slate-200 font-bold text-slate-600 text-sm">工作項目</div><div class="flex-1 relative flex">${headersHtml}</div></div><div class="relative" id="tasks-list"><div class="absolute top-0 bottom-0 right-0 flex pointer-events-none" style="left: 300px;">${gridHtml}</div>${tasksHtml}</div></div></div>`;
+            bindDragEvents();
+        }
+
+        window.removeTask = function(id) { tasks = tasks.filter(t => t.id !== id); renderGantt(); };
+        window.openEditModal = function(id) {
+            const task = tasks.find(t => t.id === id);
+            document.getElementById('edit-task-id').value = task.id;
+            document.getElementById('edit-task-name').value = task.name;
+            document.getElementById('edit-task-category').value = task.category;
+            document.getElementById('edit-task-start').value = task.startDate;
+            document.getElementById('edit-task-end').value = task.endDate;
+            document.getElementById('edit-modal').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('edit-modal').classList.remove('opacity-0'); document.getElementById('edit-modal-content').classList.remove('scale-95'); }, 10);
+        };
+        window.closeEditModal = function() {
+            document.getElementById('edit-modal').classList.add('opacity-0');
+            document.getElementById('edit-modal-content').classList.add('scale-95');
+            setTimeout(() => document.getElementById('edit-modal').classList.add('hidden'), 200);
+        };
+        document.getElementById('edit-task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('edit-task-id').value);
+            const taskIndex = tasks.findIndex(t => t.id === id);
+            tasks[taskIndex] = { id, category: document.getElementById('edit-task-category').value, name: document.getElementById('edit-task-name').value, startDate: document.getElementById('edit-task-start').value, endDate: document.getElementById('edit-task-end').value };
+            renderGantt(); closeEditModal();
+        });
+
+        document.getElementById('add-task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('task-name').value || '新項目';
+            const cat = document.getElementById('task-category').value;
+            let start, end;
+            if (inputMode === 'absolute') { 
+                start = document.getElementById('task-start').value; 
+                end = document.getElementById('task-end').value; 
+            } else { 
+                const projStart = document.getElementById('proj-start-date').value; 
+                start = addDaysToDateString(projStart, parseInt(document.getElementById('task-offset').value)-1); 
+                end = addDaysToDateString(start, parseInt(document.getElementById('task-duration').value)-1); 
+            }
+            tasks.push({ id: Date.now(), category: cat, name: name, startDate: start, endDate: end });
+            
+            document.getElementById('task-name').value = '';
+            if (inputMode === 'relative') {
+                const currentOffset = parseInt(document.getElementById('task-offset').value || 1, 10);
+                const currentDuration = parseInt(document.getElementById('task-duration').value || 1, 10);
+                document.getElementById('task-offset').value = currentOffset + currentDuration;
+            } else {
+                document.getElementById('task-start').value = '';
+                document.getElementById('task-end').value = '';
+            }
+            
+            renderGantt();
+        });
+
+        document.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', (e) => { viewMode = e.target.dataset.mode; renderGantt(); }));
+        
+        document.getElementById('btn-sort').addEventListener('click', () => { 
+            const catKeys = Object.keys(categories);
+            tasks.sort((a,b) => {
+                const indexA = catKeys.indexOf(a.category);
+                const indexB = catKeys.indexOf(b.category);
+                if (indexA !== indexB) return indexA - indexB;
+                return a.startDate.localeCompare(b.startDate);
+            }); 
+            renderGantt(); 
+            showMessage("已依自訂類別順序與日期重新排序");
+        });
+        
+        // 截圖匯出功能：自動展開並修復底部被切掉的問題
+        document.getElementById('btn-export').addEventListener('click', async () => { 
+            const chartArea = document.getElementById('chart-export-area');
+            const scrollContainer = chartArea.querySelector('.chart-scroll-container');
+            const contentWrapper = chartArea.querySelector('.chart-content-wrapper');
+            const btnLoading = document.getElementById('export-loading');
+
+            if (!scrollContainer || !contentWrapper) {
+                showMessage("圖表無法匯出，請先新增項目或切換視角重整畫面。");
+                return;
+            }
+
+            // 顯示載入動畫，防止重複點擊
+            if (btnLoading) btnLoading.classList.remove('hidden');
+            
+            try {
+                // 1. 取得實際內部內容的總寬度與總高度
+                const fullWidth = contentWrapper.scrollWidth;
+                const fullHeight = chartArea.scrollHeight;
+                
+                // 2. 暫時備份原本的樣式
+                const originalAreaStyle = chartArea.getAttribute('style') || '';
+                const originalContainerClass = scrollContainer.className;
+                const originalAreaClass = chartArea.className;
+                
+                // 3. 強制撐開最外層容器與滾動層的寬高，並移除隱藏裁切(overflow-hidden)
+                chartArea.style.width = `${fullWidth}px`;
+                chartArea.style.height = `${fullHeight}px`;
+                chartArea.style.maxWidth = 'none';
+                chartArea.classList.remove('overflow-hidden');
+                
+                // 移除滾動條設定，確保內容全部平鋪
+                scrollContainer.className = scrollContainer.className.replace('overflow-x-auto', 'overflow-visible');
+                
+                // 稍微等待 DOM 更新
+                await new Promise(resolve => setTimeout(resolve, 150));
+
+                // 4. 執行截圖 (明確指定寬高給套件，避免邊界被切掉)
+                const dataUrl = await window.htmlToImage.toPng(chartArea, {
+                    backgroundColor: '#ffffff',
+                    pixelRatio: 2,
+                    width: fullWidth,
+                    height: fullHeight,
+                    style: {
+                        margin: 0,
+                        transform: 'none'
+                    }
+                }); 
+                
+                // 5. 觸發下載
+                const link = document.createElement('a'); 
+                link.download = `專案甘特圖_${new Date().toISOString().slice(0,10)}.png`; 
+                link.href = dataUrl; 
+                link.click();
+                
+                // 6. 復原樣式
+                chartArea.setAttribute('style', originalAreaStyle);
+                chartArea.className = originalAreaClass;
+                scrollContainer.className = originalContainerClass;
+                
+                showMessage("圖表已成功匯出！");
+
+            } catch (error) {
+                console.error("匯出圖片時發生錯誤:", error);
+                showMessage("匯出圖片失敗，請重試。");
+            } finally {
+                // 隱藏載入動畫
+                if (btnLoading) btnLoading.classList.add('hidden');
+            }
+        });
+        
+        // --- 載入內建範本 ---
+        let pendingTemplateValue = '';
+        
+        document.getElementById('template-select').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (!val) return;
+            pendingTemplateValue = val;
+            
+            // 每次跳出確認視窗前，把視窗內的起算日預設為當前專案的起算日或今天
+            const currentProjStart = document.getElementById('proj-start-date').value || todayStr;
+            document.getElementById('modal-start-date').value = currentProjStart;
+
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('confirm-modal-content').classList.remove('scale-95');
+            }, 10);
+            e.target.value = '';
+        });
+
+        document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+            closeConfirmModal();
+            pendingTemplateValue = '';
+        });
+
+        document.getElementById('btn-confirm-ok').addEventListener('click', () => {
+            if (pendingTemplateValue) {
+                const tplData = getTemplates()[pendingTemplateValue];
+                if (tplData) {
+                    categories = JSON.parse(JSON.stringify(tplData.categories));
+                    
+                    // 從模態框(Modal)讀取使用者選擇的起算日
+                    const userChosenStartDate = document.getElementById('modal-start-date').value || todayStr;
+                    
+                    // 更新畫面上隱藏/顯示的專案起算日設定
+                    document.getElementById('proj-start-date').value = userChosenStartDate;
+
+                    // 依照使用者選擇的起算日，計算範本中所有任務的時間
+                    tasks = tplData.tasks.map(t => {
+                        if (t.offset !== undefined && t.duration !== undefined) {
+                            return {
+                                id: t.id,
+                                category: t.category,
+                                name: t.name,
+                                startDate: addDaysToDateString(userChosenStartDate, t.offset - 1),
+                                endDate: addDaysToDateString(userChosenStartDate, t.offset - 1 + t.duration - 1)
+                            };
+                        }
+                        return JSON.parse(JSON.stringify(t));
+                    });
+
+                    if (pendingTemplateValue === 'realEstate') {
+                        const radioRelative = document.querySelector('input[name="input-mode"][value="relative"]');
+                        if (radioRelative) { radioRelative.checked = true; toggleInputMode(); }
+                    }
+
+                    renderCategories('task-category');
+                    renderCategories('edit-task-category');
+                    renderGantt();
+                    showMessage("範本載入成功！");
+                }
+                pendingTemplateValue = '';
+            }
+            closeConfirmModal();
+        });
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.add('opacity-0');
+            document.getElementById('confirm-modal-content').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        document.getElementById('btn-save').addEventListener('click', () => {
+            const projectData = { categories: categories, tasks: tasks, projStartDate: document.getElementById('proj-start-date').value };
+            const dataStr = JSON.stringify(projectData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `專案備份_${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showMessage("專案已成功儲存！");
+        });
+
+        document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
+
+        document.getElementById('file-import').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    if (data.categories && data.tasks) {
+                        categories = data.categories; tasks = data.tasks;
+                        if (data.projStartDate) document.getElementById('proj-start-date').value = data.projStartDate;
+                        renderCategories('task-category'); renderCategories('edit-task-category'); renderGantt();
+                        showMessage("專案讀取成功！");
+                    } else showMessage("檔案格式不符，無法讀取。");
+                } catch (error) { showMessage("檔案解析失敗，請確定為有效的專案檔。"); }
+                e.target.value = '';
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        let dragAction = null; let activeTaskId = null; let startX = 0;
+        let initialStartDate = null; let initialEndDate = null;
+        let activeTaskBarEl = null; let initialWidthPx = 0; let initialLeftPx = 0; let pixelsPerDay = 0;
+
+        const dragTooltip = document.getElementById('drag-tooltip');
+        function updateDragTooltip(x, y, text) {
+            dragTooltip.style.left = x + 'px';
+            dragTooltip.style.top = (y - 15) + 'px';
+            dragTooltip.innerHTML = text;
+        }
+
+        document.addEventListener('mousedown', (e) => {
+            const resizeHandle = e.target.closest('.resize-handle');
+            const taskBar = e.target.closest('.task-bar-element');
+            const dragHandle = e.target.closest('.drag-handle');
+
+            if (resizeHandle) {
+                e.stopPropagation(); e.preventDefault(); 
+                dragAction = 'resize'; activeTaskId = parseInt(resizeHandle.dataset.taskId);
+                activeTaskBarEl = resizeHandle.closest('.task-bar-element'); startX = e.pageX;
+                const task = tasks.find(t => t.id === activeTaskId);
+                initialStartDate = task.startDate; initialEndDate = task.endDate;
+                initialWidthPx = activeTaskBarEl.getBoundingClientRect().width;
+                const { totalDays } = computeTimeline();
+                pixelsPerDay = activeTaskBarEl.parentElement.clientWidth / totalDays;
+                document.body.style.cursor = 'ew-resize';
+                
+                dragTooltip.classList.remove('hidden');
+                const diffDays = Math.round((new Date(initialEndDate) - new Date(initialStartDate)) / (1000 * 60 * 60 * 24)) + 1;
+                updateDragTooltip(e.clientX, e.clientY, `結束日: ${initialEndDate} (共 ${diffDays} 天)`);
+            } else if (taskBar) {
+                if (e.button !== 0) return;
+                e.stopPropagation(); e.preventDefault(); 
+                dragAction = 'move'; activeTaskId = parseInt(taskBar.dataset.taskId);
+                activeTaskBarEl = taskBar; startX = e.pageX;
+                const task = tasks.find(t => t.id === activeTaskId);
+                initialStartDate = task.startDate; initialEndDate = task.endDate;
+                const containerRect = activeTaskBarEl.parentElement.getBoundingClientRect();
+                const barRect = activeTaskBarEl.getBoundingClientRect();
+                initialLeftPx = barRect.left - containerRect.left;
+                const { totalDays } = computeTimeline();
+                pixelsPerDay = containerRect.width / totalDays;
+                document.body.style.cursor = 'grabbing'; activeTaskBarEl.style.cursor = 'grabbing';
+                
+                dragTooltip.classList.remove('hidden');
+                updateDragTooltip(e.clientX, e.clientY, `${initialStartDate} ~ ${initialEndDate}`);
+            } else if (dragHandle) {
+                const row = dragHandle.closest('.task-row');
+                if (row) row.setAttribute('draggable', 'true');
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!dragAction) return;
+            e.preventDefault();
+            const deltaX = e.pageX - startX;
+            let deltaDays = Math.round(deltaX / pixelsPerDay);
+            if (dragAction === 'resize') {
+                let tempEndDate = addDaysToDateString(initialEndDate, deltaDays);
+                if (new Date(tempEndDate) < new Date(initialStartDate)) {
+                    deltaDays = (new Date(initialStartDate) - new Date(initialEndDate)) / (1000 * 60 * 60 * 24);
+                    tempEndDate = initialStartDate;
+                }
+                const newWidthPx = Math.max(initialWidthPx + (deltaDays * pixelsPerDay), 10);
+                activeTaskBarEl.style.width = `${newWidthPx}px`;
+                
+                const diffDays = Math.round((new Date(tempEndDate) - new Date(initialStartDate)) / (1000 * 60 * 60 * 24)) + 1;
+                updateDragTooltip(e.clientX, e.clientY, `結束日: ${tempEndDate} (共 ${diffDays} 天)`);
+            } else if (dragAction === 'move') {
+                const newLeftPx = initialLeftPx + deltaX;
+                activeTaskBarEl.style.left = `${newLeftPx}px`;
+                
+                let tempStart = addDaysToDateString(initialStartDate, deltaDays);
+                let tempEnd = addDaysToDateString(initialEndDate, deltaDays);
+                updateDragTooltip(e.clientX, e.clientY, `${tempStart} ~ ${tempEnd}`);
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (!dragAction) return;
+            const deltaX = e.pageX - startX; let deltaDays = Math.round(deltaX / pixelsPerDay);
+            const task = tasks.find(t => t.id === activeTaskId);
+            if (dragAction === 'resize') {
+                let finalEndDate = addDaysToDateString(initialEndDate, deltaDays);
+                if (new Date(finalEndDate) < new Date(initialStartDate)) finalEndDate = initialStartDate;
+                if (task && task.endDate !== finalEndDate) task.endDate = finalEndDate;
+                else activeTaskBarEl.style.width = `${initialWidthPx}px`;
+            } else if (dragAction === 'move') {
+                if (deltaDays !== 0) {
+                    task.startDate = addDaysToDateString(initialStartDate, deltaDays);
+                    task.endDate = addDaysToDateString(initialEndDate, deltaDays);
+                }
+            }
+            dragAction = null; document.body.style.cursor = '';
+            if (activeTaskBarEl) activeTaskBarEl.style.cursor = '';
+            document.querySelectorAll('.task-row[draggable="true"]').forEach(row => row.removeAttribute('draggable'));
+            dragTooltip.classList.add('hidden');
+            renderGantt(); 
+        });
+
+        function bindDragEvents() {
+            const list = document.getElementById('tasks-list');
+            list.addEventListener('dragstart', (e) => { 
+                const row = e.target.closest('.task-row');
+                if (!row) return;
+                e.dataTransfer.setData('text/plain', row.dataset.id); 
+                setTimeout(() => row.style.opacity = '0.4', 0);
+            });
+            list.addEventListener('dragover', (e) => e.preventDefault());
+            list.addEventListener('drop', (e) => {
+                const target = e.target.closest('.task-row');
+                if (!target) return;
+                const srcId = e.dataTransfer.getData('text/plain');
+                const srcIndex = tasks.findIndex(t => t.id == srcId);
+                const targetIndex = tasks.findIndex(t => t.id == target.dataset.id);
+                if (srcIndex > -1 && targetIndex > -1 && srcIndex !== targetIndex) {
+                    const [movedTask] = tasks.splice(srcIndex, 1);
+                    tasks.splice(targetIndex, 0, movedTask);
+                    renderGantt();
+                }
+            });
+            list.addEventListener('dragend', (e) => {
+                const row = e.target.closest('.task-row');
+                if (row) { row.style.opacity = '1'; row.removeAttribute('draggable'); }
+            });
+        }
+        
+        renderCategories('task-category'); renderCategories('edit-task-category'); renderGantt();
+    </script>
+</body>
+</html>

@@ -45,7 +45,7 @@
     <script type="text/babel">
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        const { useState, useRef } = React;
+        const { useState, useRef, useEffect } = React;
         const { PDFDocument, degrees } = PDFLib;
 
         const makeId = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
@@ -166,8 +166,22 @@
             const [selectionRangeStart, setSelectionRangeStart] = useState('');
             const [selectionRangeEnd, setSelectionRangeEnd] = useState('');
             const [lastError, setLastError] = useState('');
-            const [dialog, setDialog] = useState(null); // 控制自訂對話框的狀態
-            const [previewPage, setPreviewPage] = useState(null); // 控制放大預覽的頁面
+            const [dialog, setDialog] = useState(null);
+            
+            // 放大預覽相關狀態
+            const [previewPage, setPreviewPage] = useState(null);
+            const [highResPreviewUrl, setHighResPreviewUrl] = useState(null);
+            const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+            const previewRequestRef = useRef(0);
+
+            // 預覽視窗滑動與縮放狀態
+            const [previewScale, setPreviewScale] = useState(1);
+            const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+            const [isDragging, setIsDragging] = useState(false);
+            const dragStart = useRef({ x: 0, y: 0 });
+            const totalDragMovement = useRef(0);
+            const modalRef = useRef(null);
+            
             const fileInputRef = useRef(null);
 
             const handleFileUpload = async (event) => {
@@ -211,7 +225,7 @@
 
                         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                             const page = await pdf.getPage(pageNum);
-                            const scale = 0.5;
+                            const scale = 0.5; // 工作區的縮圖維持小比例，節省記憶體
                             const viewport = page.getViewport({ scale });
                             const canvas = document.createElement('canvas');
                             const context = canvas.getContext('2d');
@@ -223,7 +237,6 @@
 
                             await page.render({ canvasContext: context, viewport }).promise;
 
-                            // 改用 Object URL 降低記憶體，避免 Base64 字串造成的 Memory 暴增
                             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
                             const objectUrl = URL.createObjectURL(blob);
 
@@ -252,20 +265,156 @@
                 }
             };
 
+            // 即時產出該頁的高畫質大圖
+            const openPreview = async (page) => {
+                setPreviewPage(page);
+                setHighResPreviewUrl(null);
+                setIsPreviewLoading(true);
+                setPreviewScale(1);
+                setPanOffset({ x: 0, y: 0 });
+
+                const currentRequestId = ++previewRequestRef.current;
+
+                try {
+                    const sourceRecord = sourceFiles[page.fileId];
+                    if (!sourceRecord) throw new Error('找不到來源檔案');
+
+                    const loadingTask = pdfjsLib.getDocument({ data: toUint8ArrayCopy(sourceRecord.bytes) });
+                    const pdf = await loadingTask.promise;
+                    const pdfPage = await pdf.getPage(page.originalPageNum + 1);
+
+                    // 計算適合螢幕高度的縮放比例，確保放大時依舊清晰 (考慮 Retina 等高 DPI 螢幕)
+                    const unscaledViewport = pdfPage.getViewport({ scale: 1.0 });
+                    const targetHeight = window.innerHeight * (window.devicePixelRatio || 1);
+                    let optimalScale = targetHeight / unscaledViewport.height;
+                    
+                    // 限制縮放比例在 1.5 倍到 5 倍之間，避免過度消耗記憶體
+                    optimalScale = Math.min(Math.max(optimalScale, 1.5), 5.0);
+
+                    const viewport = pdfPage.getViewport({ scale: optimalScale });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    // 填滿白色背景，避免 PDF 透明底色渲染成黑色
+                    context.fillStyle = 'white';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+
+                    await pdfPage.render({ canvasContext: context, viewport }).promise;
+
+                    // 使用 JPEG 格式以節省記憶體並加快產生速度
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+                    const objectUrl = URL.createObjectURL(blob);
+                    
+                    await pdf.destroy(); // 釋放文件記憶體
+
+                    // 確保沒有在載入過程中被使用者關閉
+                    if (previewRequestRef.current === currentRequestId) {
+                        setHighResPreviewUrl(objectUrl);
+                    } else {
+                        URL.revokeObjectURL(objectUrl);
+                    }
+                } catch (err) {
+                    console.error("高畫質預覽生成失敗", err);
+                    if (previewRequestRef.current === currentRequestId) {
+                        setHighResPreviewUrl(page.thumbnail); // 失敗則回退使用低畫質縮圖
+                    }
+                } finally {
+                    if (previewRequestRef.current === currentRequestId) {
+                        setIsPreviewLoading(false);
+                    }
+                }
+            };
+
+            const closePreview = () => {
+                previewRequestRef.current++; // 取消目前任何進行中的渲染請求
+                if (highResPreviewUrl && highResPreviewUrl !== previewPage?.thumbnail) {
+                    URL.revokeObjectURL(highResPreviewUrl);
+                }
+                setPreviewPage(null);
+                setHighResPreviewUrl(null);
+                setIsPreviewLoading(false);
+                setPreviewScale(1);
+                setPanOffset({ x: 0, y: 0 });
+                setIsDragging(false);
+            };
+
+            // 按下 ESC 鍵時自動關閉放大預覽
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'Escape' && previewPage) {
+                        closePreview();
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [previewPage, highResPreviewUrl]);
+
+            // 滑動/拖曳預覽大圖邏輯
+            const handleMouseDown = (e) => {
+                if (e.button !== 0) return; // 只允許滑動滑鼠左鍵
+                e.preventDefault();
+                setIsDragging(true);
+                totalDragMovement.current = 0;
+                dragStart.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
+            };
+
+            const handleMouseMove = (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                const nextX = e.clientX - dragStart.current.x;
+                const nextY = e.clientY - dragStart.current.y;
+                
+                const distanceMoved = Math.abs(nextX - panOffset.x) + Math.abs(nextY - panOffset.y);
+                totalDragMovement.current += distanceMoved;
+                
+                setPanOffset({ x: nextX, y: nextY });
+            };
+
+            const handleMouseUp = () => {
+                setIsDragging(false);
+            };
+
+            // 滾輪縮放監聽 (由於 Chrome/Safari 對於非 Passive 事件的限制，故使用標準 Effect 處理以預防視窗背景跟著滾動)
+            useEffect(() => {
+                const modalEl = modalRef.current;
+                if (!modalEl) return;
+
+                const handleWheelRaw = (e) => {
+                    e.preventDefault();
+                    const factor = 1.15;
+                    setPreviewScale(prev => {
+                        const newScale = e.deltaY < 0 ? prev * factor : prev / factor;
+                        return Math.min(Math.max(newScale, 0.5), 8.0); // 縮放限制：50% - 800%
+                    });
+                };
+
+                modalEl.addEventListener('wheel', handleWheelRaw, { passive: false });
+                return () => {
+                    modalEl.removeEventListener('wheel', handleWheelRaw);
+                };
+            }, [previewPage]);
+
+            // 點擊背景判定：只有「非拖曳行程（點擊）」且「點擊落在 backdrop 本身」才關閉視窗
+            const handleBackdropClick = (e) => {
+                if (e.target === e.currentTarget && totalDragMovement.current < 6) {
+                    closePreview();
+                }
+            };
+
             const performDelete = (idsToDelete) => {
                 withViewTransition(() => {
                     setPages(prev => {
                         const idsSet = new Set(idsToDelete);
                         const pagesToDelete = prev.filter(p => idsSet.has(p.id));
                         
-                        // 釋放縮圖的 Blob 記憶體
                         pagesToDelete.forEach(p => {
                             if (p.thumbnail) URL.revokeObjectURL(p.thumbnail);
                         });
                         
                         const newPages = prev.filter(p => !idsSet.has(p.id));
                         
-                        // 同步清理 sourceFiles 以避免 Memory Leak
                         setSourceFiles(currentFiles => {
                             const updatedFiles = { ...currentFiles };
                             let hasChanges = false;
@@ -301,7 +450,6 @@
             };
 
             const deletePage = (id) => {
-                // 如果目前是多選模式，且點擊的垃圾桶屬於「已選取」的頁面，且選了不只一頁，則觸發多選刪除
                 if (isMultiSelectMode && selectedPageIds.includes(id) && selectedPageIds.length > 1) {
                     deleteSelectedPages();
                 } else {
@@ -365,15 +513,12 @@
                 setPages(prev => prev.map(p => p.id === id ? { ...p, rotation: normalizeRotation(p.rotation + 90) } : p));
             };
 
-            // 建立過渡動畫的共用 Helper 函式
             const withViewTransition = (callback) => {
-                // 若瀏覽器支援 View Transitions API，則啟用平滑排版動畫
                 if (document.startViewTransition && typeof ReactDOM !== 'undefined' && ReactDOM.flushSync) {
                     document.startViewTransition(() => {
                         ReactDOM.flushSync(callback);
                     });
                 } else {
-                    // 不支援的舊版瀏覽器則優雅降級，直接執行狀態更新
                     callback();
                 }
             };
@@ -571,7 +716,6 @@
                     type: 'confirm',
                     message: '確定要清除所有頁面嗎？',
                     onConfirm: () => {
-                        // 釋放所有縮圖的記憶體
                         pages.forEach(page => {
                             if (page.thumbnail) URL.revokeObjectURL(page.thumbnail);
                         });
@@ -585,10 +729,17 @@
                         setSelectionRangeEnd('');
                         setIsMultiSelectMode(false);
                         setLastError('');
-                        setDialog(null); // 關閉對話框
+                        setDialog(null);
                     }
                 });
             };
+
+            // 預覽圖片與位置 CSS
+            const transformStyle = previewPage ? {
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewScale}) rotate(${previewPage.rotation}deg)`,
+                transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+                cursor: isDragging ? 'grabbing' : previewScale > 1 ? 'grab' : 'zoom-in',
+            } : {};
 
             return (
                 <div className="min-h-screen p-8 font-sans relative">
@@ -771,7 +922,7 @@
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
                                                     <div className="flex justify-end gap-1">
                                                         {/* 放大預覽按鈕 */}
-                                                        <button type="button" onClick={(e) => { e.stopPropagation(); setPreviewPage(page); }} className="p-1.5 bg-blue-100/90 hover:bg-blue-500 hover:text-white text-blue-600 rounded shadow-sm transition" title="放大預覽">
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); openPreview(page); }} className="p-1.5 bg-blue-100/90 hover:bg-blue-500 hover:text-white text-blue-600 rounded shadow-sm transition" title="放大預覽">
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                                         </button>
                                                         {/* 旋轉按鈕 */}
@@ -855,20 +1006,114 @@
                         {/* 放大預覽 Modal */}
                         {previewPage && (
                             <div 
-                                className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm p-6 cursor-zoom-out transition-opacity" 
-                                onClick={() => setPreviewPage(null)}
-                                title="點擊任意處關閉"
+                                ref={modalRef}
+                                className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm p-4 sm:p-8 select-none transition-opacity" 
+                                onMouseMove={handleMouseMove}
+                                onMouseUp={handleMouseUp}
+                                onMouseLeave={handleMouseUp}
+                                onClick={handleBackdropClick}
+                                title="滑鼠滾輪可縮放，按住滑鼠左鍵可拖曳圖片"
                             >
-                                <div className="relative max-h-full max-w-full flex items-center justify-center">
-                                    <img
-                                        src={previewPage.thumbnail}
-                                        alt={`第 ${previewPage.originalPageNum + 1} 頁放大預覽`}
-                                        className="max-h-[85vh] max-w-[90vw] object-contain rounded shadow-2xl bg-white transition-transform"
-                                        style={{ transform: `rotate(${previewPage.rotation}deg)` }}
-                                    />
+                                {/* 右上角獨立關閉按鈕 - 加大尺寸並增加文字提示與懸停紅底效果 */}
+                                <button 
+                                    onClick={closePreview} 
+                                    className="absolute top-6 right-6 bg-black/60 hover:bg-red-600 hover:scale-105 active:scale-95 text-white pl-5 pr-6 py-3.5 rounded-full shadow-2xl transition-all z-[110] border border-white/20 flex items-center gap-2 text-sm font-bold"
+                                    title="關閉預覽 (ESC)"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                    關閉預覽 (ESC)
+                                </button>
+
+                                {/* 底部控制器 - 完美整合主要關閉按鈕，操作完全不需大範圍移動滑鼠 */}
+                                <div 
+                                    className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/90 px-6 py-3 rounded-full flex items-center gap-4 text-white z-[110] shadow-2xl border border-white/15"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {/* 核心關閉按鈕：直接放在控制列最左側，與縮放、重設按鈕並列 */}
+                                    <button 
+                                        onClick={closePreview} 
+                                        className="bg-red-600 hover:bg-red-500 active:scale-95 text-white px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-1.5 shadow-md"
+                                        title="關閉預覽 (亦可點擊背景或按 ESC 鍵)"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                        關閉
+                                    </button>
+                                    
+                                    <div className="h-5 w-px bg-white/20"></div>
+
+                                    <button 
+                                        onClick={() => setPreviewScale(p => Math.max(p / 1.15, 0.5))} 
+                                        className="hover:bg-white/15 p-2 rounded-lg transition"
+                                        title="縮小"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg>
+                                    </button>
+                                    <span className="text-sm font-semibold select-none min-w-[3.5rem] text-center">
+                                        {Math.round(previewScale * 100)}%
+                                    </span>
+                                    <button 
+                                        onClick={() => setPreviewScale(p => Math.min(p * 1.15, 8.0))} 
+                                        className="hover:bg-white/15 p-2 rounded-lg transition"
+                                        title="放大"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                    </button>
+                                    
+                                    <div className="h-5 w-px bg-white/20"></div>
+                                    
+                                    <button 
+                                        onClick={() => { setPreviewScale(1); setPanOffset({ x: 0, y: 0 }); }} 
+                                        className="text-xs hover:bg-white/15 px-3 py-2 rounded-full transition font-semibold"
+                                        title="還原原始大小並置中"
+                                    >
+                                        重設
+                                    </button>
                                 </div>
-                                <div className="mt-6 text-white text-lg font-medium drop-shadow-md">
-                                    {previewPage.filename} - 第 {previewPage.originalPageNum + 1} 頁
+
+                                {/* 圖片顯示區域 */}
+                                <div 
+                                    className="relative flex-1 w-full flex items-center justify-center min-h-0 pointer-events-auto"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={handleMouseDown}
+                                >
+                                    {/* 載入高清之前的模糊預覽縮圖 */}
+                                    {!highResPreviewUrl && (
+                                        <img
+                                            src={previewPage.thumbnail}
+                                            className="h-full w-full object-contain rounded shadow-2xl bg-white blur-md opacity-60 pointer-events-none select-none"
+                                            style={transformStyle}
+                                        />
+                                    )}
+
+                                    {/* 高畫質原尺寸高清圖 */}
+                                    {highResPreviewUrl && (
+                                        <img
+                                            src={highResPreviewUrl}
+                                            alt={`第 ${previewPage.originalPageNum + 1} 頁放大預覽`}
+                                            className="h-full w-full object-contain rounded shadow-2xl bg-white select-none pointer-events-none"
+                                            style={transformStyle}
+                                        />
+                                    )}
+
+                                    {/* 載入高清動畫 */}
+                                    {isPreviewLoading && (
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <div className="bg-black/75 p-4 rounded-xl flex flex-col items-center shadow-lg">
+                                                <svg className="animate-spin h-8 w-8 text-white mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                <span className="text-white text-sm font-medium tracking-wide">正在載入高清原圖...</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="mt-4 text-white text-xs sm:text-sm font-medium drop-shadow-md flex-none bg-black/40 px-3 py-1 rounded-full pointer-events-none select-none">
+                                    {previewPage.filename} - 第 {previewPage.originalPageNum + 1} 頁 (滾輪縮放 · 滑鼠拖曳 · ESC關閉)
                                 </div>
                             </div>
                         )}

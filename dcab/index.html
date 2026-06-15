@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>辦公空間需求計算器 (beta版)</title>
-
+    
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
@@ -14,7 +13,6 @@
       gtag('js', new Date());
       gtag('config', 'G-5YQY4RT9H2');
     </script>
-
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -40,7 +38,7 @@
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #f8fafc;
             color: #1e293b;
-            overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+            overflow-x: hidden;
         }
 
         /* CAD Styling */
@@ -56,11 +54,15 @@
             border: 3px solid rgba(255,255,255,0.3);
             border-top: 3px solid #ffffff;
             border-radius: 50%;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
         
         /* Input styling */
         input[type=number] {
@@ -68,9 +70,9 @@
             font-weight: 700;
         }
         input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button {  
-           -webkit-appearance: none;
-           margin: 0;
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
         }
         input[type=number] {
             -moz-appearance: textfield;
@@ -101,7 +103,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useRef, useMemo } = React;
 
         // --- Component: Smart Control Input ---
         const SmartControl = ({ value, onChange, min = 0, step = 1, unit = "", large = false }) => {
@@ -127,12 +129,12 @@
 
             return (
                 <div className={`flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-sm ${large ? 'h-12 max-w-[160px]' : 'h-10 max-w-[120px]'} w-full`}>
-                    <button onClick={handleDecrement} className={`${large ? 'w-12' : 'w-10'} h-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 border-r border-slate-200 active:bg-slate-300 transition-colors touch-manipulation`} type="button"><i className="fas fa-minus text-xs"></i></button>
+                    <button onClick={handleDecrement} className={`${large ? 'w-12' : 'w-10'} h-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 border-r border-slate-200 active:bg-slate-300 transition-colors touch-manipulation`} type="button"><i className="fas fa-minus text-sm"></i></button>
                     <div className="flex-grow relative h-full min-w-[30px]">
-                        <input type="number" inputMode="decimal" value={value} onChange={handleInputChange} onBlur={handleBlur} className={`w-full h-full text-center font-bold text-slate-800 outline-none bg-white px-0 ${large ? 'text-lg' : 'text-sm'}`} placeholder="0"/>
-                        {unit && <span className="absolute right-0 top-1/2 transform -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none bg-white pr-2">{unit}</span>}
+                        <input type="number" inputMode="decimal" value={value} onChange={handleInputChange} onBlur={handleBlur} className={`w-full h-full text-center font-bold text-slate-800 outline-none bg-white px-0 ${large ? 'text-lg' : 'text-base'}`} placeholder="0"/>
+                        {unit && <span className="absolute right-0 top-1/2 transform -translate-y-1/2 text-xs font-medium text-slate-400 pointer-events-none bg-white pr-2">{unit}</span>}
                     </div>
-                    <button onClick={handleIncrement} className={`${large ? 'w-12' : 'w-10'} h-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 border-l border-slate-200 active:bg-slate-300 transition-colors touch-manipulation`} type="button"><i className="fas fa-plus text-xs"></i></button>
+                    <button onClick={handleIncrement} className={`${large ? 'w-12' : 'w-10'} h-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 border-l border-slate-200 active:bg-slate-300 transition-colors touch-manipulation`} type="button"><i className="fas fa-plus text-sm"></i></button>
                 </div>
             );
         };
@@ -142,21 +144,21 @@
             if (!total || total === 0) return null;
             return (
                 <div className="w-full mb-6">
-                    <div className="flex h-8 w-full rounded-lg overflow-hidden border border-slate-300 shadow-sm mb-4 bg-white">
+                    <div className="flex h-10 w-full rounded-xl overflow-hidden border border-slate-300 shadow-sm mb-4 bg-white">
                         {data.map((item, idx) => (
                             <div key={idx} className="h-full transition-all duration-500 relative group border-r border-white/20 last:border-0" style={{ width: `${(item.value / total) * 100}%`, backgroundColor: item.color }}></div>
                         ))}
                     </div>
-                    <div className="flex flex-col gap-y-2">
+                    <div className="flex flex-col gap-y-3">
                         {data.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm border-b border-dashed border-slate-200 pb-1">
+                            <div key={idx} className="flex justify-between items-center text-sm border-b border-dashed border-slate-200 pb-2">
                                 <div className="flex items-center">
-                                    <div className="w-3 h-3 rounded-full mr-3 shadow-sm flex-shrink-0" style={{ backgroundColor: item.color }}></div>
+                                    <div className="w-4 h-4 rounded-full mr-3 shadow-sm flex-shrink-0" style={{ backgroundColor: item.color }}></div>
                                     <span className="text-slate-700 font-bold">{item.label}</span>
                                 </div>
-                                <div className="text-slate-900 font-bold font-mono">
+                                <div className="text-slate-900 font-bold font-mono text-base">
                                     {item.value?.toFixed(0)} <span className="text-xs font-normal text-slate-500">m²</span>
-                                    <span className="ml-2 text-xs text-slate-600 font-bold w-12 inline-block text-right">{((item.value/total)*100).toFixed(0)}%</span>
+                                    <span className="ml-3 text-sm text-slate-600 font-bold w-12 inline-block text-right">{((item.value/total)*100).toFixed(0)}%</span>
                                 </div>
                             </div>
                         ))}
@@ -165,43 +167,41 @@
             );
         };
 
-        // --- Component: Hierarchy Area Treemap (Updated for Custom Styling) ---
+        // --- Component: Hierarchy Area Treemap ---
         const AreaTreemap = ({ results, containerClass, svgClass }) => {
-            if (!results.rentableArea) return null;
+            if (!results.rentableArea || results.rentableArea <= 0) return null;
             const w = 400; const h = 220; 
             const loadRatio = (results.rentableArea - results.usableArea) / results.rentableArea;
             const loadW = w * loadRatio; const usableW = w - loadW;
-            const circRatio = (results.usableArea - results.netArea) / results.usableArea;
+            const circRatio = results.usableArea > 0 ? (results.usableArea - results.netArea) / results.usableArea : 0;
             const circH = h * circRatio; const netH = h - circH;
-            const netArea = results.netArea;
+            const netArea = results.netArea > 0 ? results.netArea : 1;
             const deskRatio = results.areaDesk / netArea; const roomRatio = results.areaRooms / netArea; const supportRatio = results.areaSupport / netArea;
             const deskW = usableW * deskRatio; const roomW = usableW * roomRatio; const supportW = usableW * supportRatio;
             
             const cLoad = "#64748b"; const cCirc = "#8b5cf6"; const cDesk = "#3b82f6"; const cRoom = "#10b981"; const cSupp = "#f59e0b"; 
-            const getPct = (val) => `${((val / results.rentableArea) * 100).toFixed(0)}%`;
 
-            // Default classes if not provided
             const finalContainerClass = containerClass || "w-full select-none mt-6 pt-4 border-t border-slate-200";
-            const finalSvgClass = svgClass || "w-full h-auto rounded-lg shadow border border-slate-300 bg-white";
+            const finalSvgClass = svgClass || "w-full h-auto rounded-xl shadow-sm border border-slate-300 bg-white";
 
             return (
                 <div className={finalContainerClass}>
                     <h4 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">面積結構分佈 (Structure)</h4>
                     <svg viewBox={`0 0 ${w} ${h}`} className={finalSvgClass}>
                         <rect x={usableW} y={0} width={loadW} height={h} fill={cLoad} className="area-rect stroke-white stroke-[2px]" />
-                        <text x={usableW + loadW/2} y={h/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" transform={`rotate(90, ${usableW + loadW/2}, ${h/2})`} style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>公設 {(results.rentableArea - results.usableArea).toFixed(0)}m²</text>
+                        <text x={usableW + loadW/2} y={h/2} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" transform={`rotate(90, ${usableW + loadW/2}, ${h/2})`} style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>公設 {Math.max(0, results.rentableArea - results.usableArea).toFixed(0)}m²</text>
 
                         <rect x={0} y={netH} width={usableW} height={circH} fill={cCirc} className="area-rect stroke-white stroke-[2px]" />
-                        <text x={usableW/2} y={netH + circH/2 + 4} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>走道{(results.usableArea - results.netArea).toFixed(0)}m²</text>
+                        <text x={usableW/2} y={netH + circH/2 + 4} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>走道{Math.max(0, results.usableArea - results.netArea).toFixed(0)}m²</text>
 
                         <rect x={0} y={0} width={deskW} height={netH} fill={cDesk} className="area-rect stroke-white stroke-[2px]" />
-                        {deskW > 45 && (<text x={deskW/2} y={netH/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW/2} dy="-0.6em">座位</tspan><tspan x={deskW/2} dy="1.2em" fontSize="10">{results.areaDesk.toFixed(0)}m²</tspan></text>)}
+                        {deskW > 45 && (<text x={deskW/2} y={netH/2} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW/2} dy="-0.6em">座位</tspan><tspan x={deskW/2} dy="1.4em" fontSize="11">{results.areaDesk.toFixed(0)}m²</tspan></text>)}
                         
                         <rect x={deskW} y={0} width={roomW} height={netH} fill={cRoom} className="area-rect stroke-white stroke-[2px]" />
-                        {roomW > 45 && (<text x={deskW + roomW/2} y={netH/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW + roomW/2} dy="-0.6em">房間</tspan><tspan x={deskW + roomW/2} dy="1.2em" fontSize="10">{results.areaRooms.toFixed(0)}m²</tspan></text>)}
+                        {roomW > 45 && (<text x={deskW + roomW/2} y={netH/2} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW + roomW/2} dy="-0.6em">房間</tspan><tspan x={deskW + roomW/2} dy="1.4em" fontSize="11">{results.areaRooms.toFixed(0)}m²</tspan></text>)}
                         
                         <rect x={deskW + roomW} y={0} width={usableW - deskW - roomW} height={netH} fill={cSupp} className="area-rect stroke-white stroke-[2px]" />
-                        {(usableW - deskW - roomW) > 45 && (<text x={deskW + roomW + (usableW - deskW - roomW)/2} y={netH/2} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW + roomW + (usableW - deskW - roomW)/2} dy="-0.6em">支援</tspan><tspan x={deskW + roomW + (usableW - deskW - roomW)/2} dy="1.2em" fontSize="10">{results.areaSupport.toFixed(0)}m²</tspan></text>)}
+                        {(usableW - deskW - roomW) > 45 && (<text x={deskW + roomW + (usableW - deskW - roomW)/2} y={netH/2} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}><tspan x={deskW + roomW + (usableW - deskW - roomW)/2} dy="-0.6em">支援</tspan><tspan x={deskW + roomW + (usableW - deskW - roomW)/2} dy="1.4em" fontSize="11">{results.areaSupport.toFixed(0)}m²</tspan></text>)}
                     </svg>
                 </div>
             );
@@ -253,122 +253,130 @@
             }
         };
 
-        // --- New Component: Detailed Audit (Reusable) ---
+        // --- Component: Detailed Audit (Reusable) ---
         const DetailedAudit = ({ inputs, results, DATA }) => {
-            // Helper to render Staff rows
-            const renderStaffRows = () => {
-                 return inputs.staffGroups.map(g => {
-                   const count = g.headcount || 0;
-                   const growth = g.growth || 0;
-                   const ppl = Math.ceil((count * (100 + growth)) / 100);
-                   const desks = Math.ceil(ppl * g.sharing);
-                   const area = desks * DATA.desk[g.deskType].area;
-                   return (
-                       <div key={g.id} className="mb-2 pb-2 border-b border-slate-100 last:border-0">
-                           <div className="font-bold text-slate-700">{g.name} ({DATA.desk[g.deskType].label})</div>
-                           <div className="pl-2 text-xs text-slate-500">
-                               {count}人 x {1 + growth/100} = {ppl}人 ➜ {desks}席 ({area.toFixed(1)} m²)
-                           </div>
-                       </div>
-                   );
+            const renderStaffRows = () => { 
+                return inputs.staffGroups.map(g => {
+                    const count = g.headcount || 0;
+                    const growth = g.growth || 0;
+                    const ppl = Math.ceil((count * (100 + growth)) / 100);
+                    const desks = Math.ceil(ppl * g.sharing);
+                    const area = desks * (DATA.desk[g.deskType]?.area || 0);
+                    return (
+                        <div key={g.id} className="mb-3 pb-3 border-b border-slate-200 last:border-0">
+                            <div className="font-bold text-slate-800 text-sm md:text-base">{g.name} ({DATA.desk[g.deskType]?.label || ''})</div>
+                            <div className="pl-2 mt-1 text-sm text-slate-600">
+                                {count}人 x {1 + growth/100} = {ppl}人 ➜ <span className="font-bold text-slate-800">{desks}席 ({area.toFixed(1)} m²)</span>
+                            </div>
+                        </div>
+                    );
                 });
             };
 
-            // Helper to render Room text
             const renderRoomText = () => {
                 let parts = [];
                 const val = (key) => inputs[key] === '' ? 0 : parseFloat(inputs[key]);
-                if (val('roomStandard') > 0) parts.push(`${DATA.room.standardManager.label}(${inputs.roomStandard}間)`);
-                if (val('roomSenior') > 0) parts.push(`${DATA.room.seniorExec.label}(${inputs.roomSenior}間)`);
-                if (val('roomBoard') > 0) parts.push(`${DATA.room.boardOffice.label}(${inputs.roomBoard}間)`);
-                if (val('roomPhone') > 0) parts.push(`${DATA.room.phoneBooth.label}(${inputs.roomPhone}間)`);
-                if (val('meetSmall') > 0) parts.push(`${DATA.room.meetSmall.label}(${inputs.meetSmall}間)`);
-                if (val('meetMedium') > 0) parts.push(`${DATA.room.meetMedium.label}(${inputs.meetMedium}間)`);
-                if (val('meetLarge') > 0) parts.push(`${DATA.room.meetLarge.label}(${inputs.meetLarge}間)`);
-                return parts.length > 0 ? parts.join(' + ') + ` = ${results.areaRooms?.toFixed(0)} m²` : "0 m²";
+                if (val('roomStandard') > 0) parts.push(`${DATA.room.standardManager.label}(${inputs.roomStandard})`);
+                if (val('roomSenior') > 0) parts.push(`${DATA.room.seniorExec.label}(${inputs.roomSenior})`);
+                if (val('roomBoard') > 0) parts.push(`${DATA.room.boardOffice.label}(${inputs.roomBoard})`);
+                if (val('roomPhone') > 0) parts.push(`${DATA.room.phoneBooth.label}(${inputs.roomPhone})`);
+                if (val('meetSmall') > 0) parts.push(`${DATA.room.meetSmall.label}(${inputs.meetSmall})`);
+                if (val('meetMedium') > 0) parts.push(`${DATA.room.meetMedium.label}(${inputs.meetMedium})`);
+                if (val('meetLarge') > 0) parts.push(`${DATA.room.meetLarge.label}(${inputs.meetLarge})`);
+                return parts.length > 0 ? parts.join(' + ') + ` = ${(results.areaRooms || 0).toFixed(0)} m²` : "0 m²";
             };
 
             return (
                 <div className="font-sans text-slate-900">
-                    <div className="text-center mb-6 border-b-4 border-slate-900 pb-2">
-                        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">詳細驗算清單</h1>
-                        <div className="text-sm text-slate-500 font-bold mt-1">辦公空間需求預估</div>
+                    <div className="text-center mb-8 border-b-2 border-slate-100 pb-4">
+                        <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">詳細驗算清單</h2>
+                        <div className="text-sm font-medium text-slate-500 mt-2">辦公空間需求預估完整明細</div>
                     </div>
                     
-                    <div className="bg-red-50 border-l-4 border-red-600 p-3 mb-4 rounded-r shadow-sm">
-                        <p className="text-red-700 font-bold text-sm">⚠ 警語：以上計算僅供參考，因各建物的柱位、格局等利用效率有所差異，可使用面積會有所增減。</p>
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg shadow-sm">
+                        <p className="text-red-700 font-bold text-sm leading-relaxed">⚠ 警語：以上計算僅供參考，因各建物的柱位、格局等利用效率有所差異，可使用面積會有所增減。</p>
                     </div>
 
-                    <div className="space-y-6 text-sm leading-relaxed">
+                    <div className="space-y-8 text-base leading-relaxed">
                         {/* 1. Staffing */}
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-blue-600 pl-3 mb-2">1. 人員與座位需求 (Staffing)</h3>
-                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
-                                <p className="text-slate-600 font-bold mb-2">總人數: {results.totalPeople} / 總座位: {results.desksNeeded} / 總面積: {results.areaDesk?.toFixed(1)} m²</p>
-                                <div className="bg-slate-50 p-2 rounded text-xs">{renderStaffRows()}</div>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-blue-500 pl-3 mb-3">1. 人員與座位需求 (Staffing)</h3>
+                            <div className="ml-4 border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                                <p className="text-slate-700 font-medium mb-3 border-b border-slate-100 pb-2">總人數: <span className="font-bold text-slate-900">{results.totalPeople || 0}</span> / 總座位: <span className="font-bold text-slate-900">{results.desksNeeded || 0}</span> / 總面積: <span className="font-bold text-slate-900">{(results.areaDesk || 0).toFixed(1)} m²</span></p>
+                                <div className="bg-slate-50 p-3 rounded-lg">{renderStaffRows()}</div>
                             </div>
                         </div>
 
                         {/* 2. Rooms */}
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-emerald-600 pl-3 mb-2">2. 房間面積加總 (Rooms)</h3>
-                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
-                                <div className="font-mono text-xs text-slate-500 mb-2 bg-slate-50 p-2 rounded">{renderRoomText()}</div>
-                                <p className="text-slate-600 font-medium">房間總計 = <span className="font-bold text-slate-900">{results.areaRooms?.toFixed(1)} m²</span></p>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-emerald-500 pl-3 mb-3">2. 房間面積加總 (Rooms)</h3>
+                            <div className="ml-4 border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                                <div className="font-mono text-sm text-slate-600 mb-3 bg-slate-50 p-3 rounded-lg leading-relaxed">{renderRoomText()}</div>
+                                <p className="text-slate-700 font-medium">房間面積總計 = <span className="font-bold text-slate-900 text-lg">{(results.areaRooms || 0).toFixed(1)} m²</span></p>
                             </div>
                         </div>
 
                         {/* 3. Support */}
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-amber-600 pl-3 mb-2">3. 支援空間 (Support)</h3>
-                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
-                                <p className="text-slate-600 font-medium">
-                                    接待({inputs.reception}m²) + 茶水({inputs.pantry}m²) + 機房({inputs.server}m²) + 儲藏({inputs.storage}m²) + 其他({inputs.otherSupport}m²) = <span className="font-bold text-slate-900">{results.areaSupport?.toFixed(1)} m²</span>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-amber-500 pl-3 mb-3">3. 支援空間 (Support)</h3>
+                            <div className="ml-4 border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                                <p className="text-slate-700 font-medium leading-relaxed">
+                                    接待({inputs.reception || 0}m²) + 茶水({inputs.pantry || 0}m²) + 機房({inputs.server || 0}m²) + 儲藏({inputs.storage || 0}m²) + 其他({inputs.otherSupport || 0}m²)
                                 </p>
+                                <p className="mt-2 text-slate-700 font-medium border-t border-slate-100 pt-2">支援空間總計 = <span className="font-bold text-slate-900 text-lg">{(results.areaSupport || 0).toFixed(1)} m²</span></p>
                             </div>
                         </div>
 
                         {/* 4. Totals */}
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-purple-600 pl-3 mb-2">4. 係數與總需求 (Factors & Totals)</h3>
-                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
-                                <p className="text-slate-600 font-medium mb-1">A. 淨面積 (Net) = <span className="font-bold text-slate-900">{results.netArea?.toFixed(1)} m²</span></p>
-                                <p className="text-slate-600 font-medium mb-1">B. 使用面積 (Usable) = Net x {inputs.circulation} (走道) = <span className="font-bold text-slate-900">{results.usableArea?.toFixed(1)} m²</span></p>
-                                <p className="text-slate-600 font-medium mb-3">C. 總需求面積 = Usable ÷ (1 - {inputs.publicRatio}%) (公設) = <span className="font-bold text-slate-900">{results.rentableArea?.toFixed(1)} m²</span></p>
-                                <p className="pt-2 border-t border-slate-200 font-bold text-blue-900 text-lg">➜ {results.rentableArea?.toFixed(1)} m² x 0.3025 = {results.ping?.toFixed(1)} 坪</p>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-purple-500 pl-3 mb-3">4. 係數與總需求 (Factors & Totals)</h3>
+                            <div className="ml-4 border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                                <p className="text-slate-700 mb-2">A. 淨面積 (Net) = <span className="font-bold text-slate-900">{(results.netArea || 0).toFixed(1)} m²</span></p>
+                                <p className="text-slate-700 mb-2">B. 使用面積 (Usable) = 淨面積 x <span className="text-purple-600 font-bold">{inputs.circulation || 1}</span> (走道) = <span className="font-bold text-slate-900">{(results.usableArea || 0).toFixed(1)} m²</span></p>
+                                <p className="text-slate-700 mb-4">C. 總需求面積 = 使用面積 ÷ (1 - <span className="text-purple-600 font-bold">{inputs.publicRatio || 0}%</span>) (公設) = <span className="font-bold text-slate-900">{(results.rentableArea || 0).toFixed(1)} m²</span></p>
+                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                    <p className="font-bold text-blue-900 text-xl text-center">推算承租建坪 ➜ {(results.ping || 0).toFixed(1)} 坪</p>
+                                    <p className="text-center text-sm text-blue-700 mt-1">({(results.rentableArea || 0).toFixed(1)} m² x 0.3025)</p>
+                                </div>
                             </div>
                         </div>
 
-                        {/* 5. Financials - Updated to 3 columns visible with RANGES */}
+                        {/* 5. Financials */}
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-gray-600 pl-3 mb-2">5. 財務預算 (Financials - ±10% 區間)</h3>
-                            <div className="ml-4 border border-slate-200 rounded p-3 bg-white">
-                                <div className="grid grid-cols-3 gap-4 mb-4">
-                                    <div>
-                                        <div className="text-xs text-slate-500">預計租金</div>
-                                        <div className="font-bold text-slate-800">{inputs.rentPerPing} 元/坪</div>
+                            <h3 className="text-lg font-bold text-slate-800 border-l-4 border-gray-600 pl-3 mb-3">5. 財務預算區間 (Financials - ±10%)</h3>
+                            <div className="ml-4 border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                        <div className="text-sm text-slate-500 mb-1">輸入租金單價</div>
+                                        <div className="font-bold text-slate-800 text-lg">{inputs.rentPerPing || 0} <span className="text-sm font-normal">元/坪</span></div>
                                     </div>
-                                    <div>
-                                        <div className="text-xs text-slate-500">預計管理費</div>
-                                        <div className="font-bold text-slate-800">{inputs.mgmtPerPing} 元/坪</div>
+                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                        <div className="text-sm text-slate-500 mb-1">輸入管理費單價</div>
+                                        <div className="font-bold text-slate-800 text-lg">{inputs.mgmtPerPing || 0} <span className="text-sm font-normal">元/坪</span></div>
                                     </div>
-                                    <div>
-                                        <div className="text-xs text-slate-500">預計售價</div>
-                                        <div className="font-bold text-slate-800">{inputs.salePricePerPingWan} 萬/坪</div>
+                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                        <div className="text-sm text-slate-500 mb-1">輸入售價單價</div>
+                                        <div className="font-bold text-slate-800 text-lg">{inputs.salePricePerPingWan || 0} <span className="text-sm font-normal">萬/坪</span></div>
                                     </div>
                                 </div>
-                                <div className="pt-3 border-t border-slate-100 grid grid-cols-3 gap-4 text-center">
+                                <div className="pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
                                     <div>
-                                        <div className="text-xs text-slate-500 mb-1">月租金總計範圍</div>
-                                        <div className="font-bold text-sm text-blue-800 break-words">{Math.round(results.rentMin).toLocaleString()} ~ {Math.round(results.rentMax).toLocaleString()}</div>
+                                        <div className="text-sm text-slate-500 font-medium mb-2">月租金總計範圍</div>
+                                        <div className="font-bold text-base text-blue-700 bg-blue-50 py-2 px-1 rounded-lg border border-blue-100">
+                                            {Math.round(results.rentMin || 0).toLocaleString()} <span className="text-slate-400 font-normal mx-1">~</span> {Math.round(results.rentMax || 0).toLocaleString()}
+                                        </div>
                                     </div>
                                     <div>
-                                        <div className="text-xs text-slate-500 mb-1">月管理費總計範圍</div>
-                                        <div className="font-bold text-sm text-blue-800 break-words">{Math.round(results.mgmtMin).toLocaleString()} ~ {Math.round(results.mgmtMax).toLocaleString()}</div>
+                                        <div className="text-sm text-slate-500 font-medium mb-2">月管理費總計範圍</div>
+                                        <div className="font-bold text-base text-blue-700 bg-blue-50 py-2 px-1 rounded-lg border border-blue-100">
+                                            {Math.round(results.mgmtMin || 0).toLocaleString()} <span className="text-slate-400 font-normal mx-1">~</span> {Math.round(results.mgmtMax || 0).toLocaleString()}
+                                        </div>
                                     </div>
                                     <div>
-                                        <div className="text-xs text-slate-500 mb-1">總售價預估範圍</div>
-                                        <div className="font-bold text-sm text-blue-800 break-words">{Math.round(results.priceWanMin).toLocaleString()} ~ {Math.round(results.priceWanMax).toLocaleString()} 萬</div>
+                                        <div className="text-sm text-slate-500 font-medium mb-2">總售價預估範圍</div>
+                                        <div className="font-bold text-base text-blue-700 bg-blue-50 py-2 px-1 rounded-lg border border-blue-100">
+                                            {Math.round(results.priceWanMin || 0).toLocaleString()}萬 <span className="text-slate-400 font-normal mx-1">~</span> {Math.round(results.priceWanMax || 0).toLocaleString()}萬
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -384,114 +392,119 @@
                 <div className="flex flex-col h-full text-slate-900">
                     <div className="text-center mb-8 pb-4 border-b-4 border-blue-600">
                         <h1 className="text-4xl font-extrabold text-slate-900 mb-2">辦公空間需求預估報告</h1>
-                        <p className="text-slate-500 font-bold">日期: {new Date().toLocaleDateString()}</p>
+                        <p className="text-slate-500 font-bold text-base">日期: {new Date().toLocaleDateString()}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-8 mb-8">
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 flex flex-col justify-between">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-700 mb-4 border-b border-slate-200 pb-2">主要輸入參數</h3>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span className="text-slate-500">員工總數 (含成長)</span><span className="font-bold">{results.totalPeople} 人</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-500">辦公座位數</span><span className="font-bold">{results.desksNeeded} 席</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-500">走道係數</span><span className="font-bold">{inputs.circulation}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-500">預估公設比</span><span className="font-bold">{inputs.publicRatio}%</span></div>
+                                <h3 className="text-xl font-bold text-slate-700 mb-4 border-b border-slate-200 pb-2">主要輸入參數</h3>
+                                <div className="space-y-3 text-base">
+                                    <div className="flex justify-between"><span className="text-slate-500">員工總數 (含成長)</span><span className="font-bold">{results.totalPeople || 0} 人</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-500">辦公座位數</span><span className="font-bold">{results.desksNeeded || 0} 席</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-500">走道係數</span><span className="font-bold">{inputs.circulation || 0}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-500">預估公設比</span><span className="font-bold">{inputs.publicRatio || 0}%</span></div>
                                 </div>
-                            </div>
-                             <div className="mt-4 pt-4 border-t border-slate-200">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-slate-600 font-bold">建議搜尋面積區間</span>
-                                    <span className="bg-blue-100 text-blue-800 font-bold px-2 py-1 rounded text-sm">±10%</span>
+                            </div> 
+                            <div className="mt-4 pt-4 border-t border-slate-200">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-slate-600 font-bold text-base">建議搜尋面積區間</span>
+                                    <span className="bg-blue-100 text-blue-800 font-bold px-2 py-1 rounded text-xs">±10%</span>
                                 </div>
-                                <div className="font-bold text-lg text-slate-800 mt-1">{results.rangeMin?.toFixed(0)} ~ {results.rangeMax?.toFixed(0)} 坪</div>
+                                <div className="font-bold text-xl text-slate-800">{(results.rangeMin || 0).toFixed(0)} ~ {(results.rangeMax || 0).toFixed(0)} 坪</div>
                             </div>
                         </div>
+                        
                         <div className="bg-slate-900 text-white p-6 rounded-xl flex flex-col justify-center items-center text-center">
-                             <div className="text-yellow-400 text-xs font-bold uppercase tracking-widest mb-1">總需求預估</div>
-                             <div className="text-5xl font-extrabold mb-1">{results.ping?.toFixed(1)} <span className="text-2xl font-medium">坪</span></div>
-                             <div className="text-cyan-300 font-mono text-sm mb-4">(= {results.rentableArea?.toFixed(1)} m²)</div>
-                             <div className="w-full bg-slate-800 rounded p-2 border border-slate-600 mb-4">
-                                 <div className="text-[10px] text-slate-400 mb-1">建議搜尋區間 (±10%)</div>
-                                 <div className="font-bold text-lg">{results.rangeMin?.toFixed(0)} ~ {results.rangeMax?.toFixed(0)} 坪</div>
-                             </div>
-                             
-                             {/* Financial Summary in PDF - 3 Column Layout (RANGES) */}
-                             <div className="w-full border-t border-slate-700 pt-3">
-                                <div className="text-xs text-slate-400 font-bold uppercase mb-2">財務預估小計 (±10% 區間)</div>
-                                <div className="grid grid-cols-3 gap-2 text-center">
-                                    <div className="bg-slate-800/50 p-1 rounded">
-                                        <div className="text-[10px] text-slate-500">月租金總計</div>
-                                        <div className="text-[10px] font-bold text-white leading-tight mt-1">{Math.round(results.rentMin).toLocaleString()} ~<br/>{Math.round(results.rentMax).toLocaleString()}</div>
+                            <div className="text-yellow-400 text-sm font-bold uppercase tracking-widest mb-2">總需求預估</div>
+                            <div className="text-5xl font-extrabold mb-2">{(results.ping || 0).toFixed(1)} <span className="text-2xl font-medium">坪</span></div>
+                            <div className="text-cyan-300 font-mono text-base mb-6">(= {(results.rentableArea || 0).toFixed(1)} m²)</div>
+                            <div className="w-full bg-slate-800 rounded-lg p-3 border border-slate-600 mb-4">
+                                <div className="text-xs text-slate-400 mb-1">建議搜尋區間 (±10%)</div>
+                                <div className="font-bold text-lg text-white">{(results.rangeMin || 0).toFixed(0)} ~ {(results.rangeMax || 0).toFixed(0)} 坪</div>
+                            </div>
+                            
+                            <div className="w-full border-t border-slate-700 pt-4 mt-2">
+                                <div className="text-xs text-slate-400 font-bold uppercase mb-3">財務預估小計 (±10% 區間)</div>
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                    <div className="bg-slate-800/80 p-2 rounded-lg">
+                                        <div className="text-xs text-slate-400 mb-1">月租金總計</div>
+                                        <div className="text-sm font-bold text-white leading-tight">{Math.round(results.rentMin || 0).toLocaleString()}<br/><span className="text-slate-500 font-normal">~</span><br/>{Math.round(results.rentMax || 0).toLocaleString()}</div>
                                     </div>
-                                    <div className="bg-slate-800/50 p-1 rounded">
-                                        <div className="text-[10px] text-slate-500">月管理費</div>
-                                        <div className="text-[10px] font-bold text-white leading-tight mt-1">{Math.round(results.mgmtMin).toLocaleString()} ~<br/>{Math.round(results.mgmtMax).toLocaleString()}</div>
+                                    <div className="bg-slate-800/80 p-2 rounded-lg">
+                                        <div className="text-xs text-slate-400 mb-1">月管理費</div>
+                                        <div className="text-sm font-bold text-white leading-tight">{Math.round(results.mgmtMin || 0).toLocaleString()}<br/><span className="text-slate-500 font-normal">~</span><br/>{Math.round(results.mgmtMax || 0).toLocaleString()}</div>
                                     </div>
-                                    <div className="bg-slate-800/50 p-1 rounded">
-                                        <div className="text-[10px] text-slate-500">總售價預估</div>
-                                        <div className="text-[10px] font-bold text-white leading-tight mt-1">{Math.round(results.priceWanMin).toLocaleString()}萬 ~<br/>{Math.round(results.priceWanMax).toLocaleString()}萬</div>
+                                    <div className="bg-slate-800/80 p-2 rounded-lg">
+                                        <div className="text-xs text-slate-400 mb-1">總售價預估</div>
+                                        <div className="text-sm font-bold text-white leading-tight">{Math.round(results.priceWanMin || 0).toLocaleString()}萬<br/><span className="text-slate-500 font-normal">~</span><br/>{Math.round(results.priceWanMax || 0).toLocaleString()}萬</div>
                                     </div>
                                 </div>
-                             </div>
+                            </div>
                         </div>
                     </div>
 
                     <div className="flex-grow flex flex-col min-h-0">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4"><i className="fas fa-chart-pie mr-2"></i>空間配置分析</h3>
-                        <SpaceUsageBar data={chartData} total={results.rentableArea} />
-                        <AreaTreemap 
-                            results={results} 
-                            containerClass="w-full select-none mt-4 pt-2 border-t border-slate-200 flex flex-col items-center" 
-                            svgClass="h-[250px] w-auto rounded-lg shadow border border-slate-300 bg-white" 
-                        />
+                        <h3 className="text-xl font-bold text-slate-800 mb-4"><i className="fas fa-chart-pie mr-2 text-blue-600"></i>空間配置分析</h3>
+                        <div className="grid grid-cols-2 gap-8 items-start">
+                            <div className="w-full">
+                                <SpaceUsageBar data={chartData} total={results.rentableArea} />
+                            </div>
+                            <div className="w-full">
+                                <AreaTreemap 
+                                    results={results} 
+                                    containerClass="w-full select-none flex flex-col items-center" 
+                                    svgClass="w-full h-auto rounded-xl shadow-sm border border-slate-300 bg-white" 
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="bg-red-50 p-4 rounded-lg border border-red-100 mt-auto">
-                        <p className="text-red-800 text-xs font-bold"><i className="fas fa-info-circle mr-1"></i> 免責聲明：本報告之計算結果僅供空間規劃初期參考。實際租賃面積需求仍需視各辦公大樓之具體格局（如柱位位置、形狀是否方正）、公設比計算方式及消防法規要求而定。財務預算未含稅金。</p>
+                    <div className="bg-red-50 p-5 rounded-xl border border-red-100 mt-auto">
+                        <p className="text-red-800 text-sm font-bold leading-relaxed"><i className="fas fa-info-circle mr-2"></i> 免責聲明：本報告之計算結果僅供空間規劃初期參考。實際租賃面積需求仍需視各辦公大樓之具體格局（如柱位位置、形狀是否方正）、公設比計算方式及消防法規要求而定。財務預算未含稅金。</p>
                     </div>
                 </div>
             );
         };
 
-        // --- Extracted Components (Moved outside App to prevent re-creation/focus loss) ---
+        // --- Extracted Components ---
         
-        // Staff Card Component (Improved RWD)
         const StaffCard = ({ group, index, onChange, onRemove, showRemove }) => (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3 relative hover:border-blue-300 transition-colors">
-                <div className="flex justify-between items-center mb-3">
-                    <span className="font-bold text-slate-700 text-sm flex items-center">
-                        <span className="w-1.5 h-4 bg-blue-500 rounded-full mr-2"></span>{group.name}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-4 relative hover:border-blue-400 transition-all shadow-sm">
+                <div className="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-800 text-base flex items-center">
+                        <span className="w-2 h-5 bg-blue-500 rounded-full mr-3"></span>{group.name}
                     </span>
                     {showRemove && (
-                        <button onClick={onRemove} className="text-slate-400 hover:text-red-500 transition-colors px-2"><i className="fas fa-trash-alt"></i></button>
+                        <button onClick={onRemove} className="text-slate-400 hover:text-red-500 transition-colors p-2 bg-white rounded-lg border border-slate-200 shadow-sm"><i className="fas fa-trash-alt"></i></button>
                     )}
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-2 gap-6 mb-5">
                     <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">現有人數</label>
-                        <SmartControl value={group.headcount} onChange={(val)=>onChange(index, 'headcount', val)} min={0} />
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">現有人數</label>
+                        <SmartControl value={group.headcount} onChange={(val)=>onChange(index, 'headcount', val)} min={0} large={true} />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">成長 %</label>
-                        <SmartControl value={group.growth} onChange={(val)=>onChange(index, 'growth', val)} min={0} unit="%" />
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">預估成長率</label>
+                        <SmartControl value={group.growth} onChange={(val)=>onChange(index, 'growth', val)} min={0} unit="%" large={true} />
                     </div>
                 </div>
 
                 <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">座位配置風格</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">座位配置風格</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {['small', 'medium', 'large'].map(t => (
                             <div 
                                 key={t} 
                                 onClick={()=>onChange(index, 'deskType', t)}
-                                className={`cursor-pointer border rounded-lg overflow-hidden transition-all ${group.deskType === t ? 'border-blue-500 ring-1 ring-blue-200 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
+                                className={`cursor-pointer border-2 rounded-xl overflow-hidden transition-all ${group.deskType === t ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                             >
-                                <div className="h-10 sm:h-14 bg-white p-1 relative">
-                                        <div className="absolute inset-0 flex items-center justify-center"><SvgDesk type={t} /></div>
+                                <div className="h-16 bg-white p-2 relative border-b border-slate-100">
+                                    <div className="absolute inset-0 flex items-center justify-center"><SvgDesk type={t} /></div>
                                 </div>
-                                <div className={`text-[10px] sm:text-xs py-1.5 text-center font-bold truncate px-1 ${group.deskType === t ? 'bg-blue-500 text-white' : 'bg-slate-50 text-slate-500'}`}>
-                                    {DATA.desk[t].label}
+                                <div className={`text-sm py-2 text-center font-bold px-2 ${group.deskType === t ? 'text-blue-700' : 'text-slate-600'}`}>
+                                    {DATA.desk[t]?.label || t}
                                 </div>
                             </div>
                         ))}
@@ -500,58 +513,55 @@
             </div>
         );
 
-        // Helpers & Layout
         const SectionHeader = ({ icon, title, color = "text-slate-800" }) => (
-            <div className={`flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 ${color}`}><div className="w-8 h-8 rounded-full bg-white border border-slate-300 shadow-sm flex items-center justify-center flex-shrink-0"><i className={`fas ${icon} text-sm`}></i></div><h3 className="font-bold text-lg">{title}</h3></div>
+            <div className={`flex items-center gap-3 mb-6 pb-3 border-b-2 border-slate-100 ${color}`}>
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center flex-shrink-0"><i className={`fas ${icon} text-lg`}></i></div>
+                <h3 className="font-extrabold text-xl tracking-tight">{title}</h3>
+            </div>
         );
 
         const RoomCard = ({ type, value, onChange, label, area }) => (
-            <div className="flex items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition-colors min-h-[5rem]">
-                <div className="w-20 sm:w-24 h-16 bg-slate-50 border border-slate-100 rounded-lg flex-shrink-0 overflow-hidden mr-3 relative"><div className="absolute inset-0 transform scale-150 origin-center flex items-center justify-center"><SvgRoom type={type} /></div></div>
-                <div className="flex-grow flex flex-col justify-center min-w-0 pr-2">
-                    <div className="font-bold text-slate-700 text-sm truncate leading-tight mb-1">{label}</div>
-                    <div className="text-[11px] text-slate-400 font-medium">{area} m²</div>
+            <div className="flex items-center bg-white p-3 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-400 hover:shadow-md transition-all min-h-[5.5rem] group">
+                <div className="w-24 h-16 bg-slate-50 border border-slate-100 rounded-xl flex-shrink-0 overflow-hidden mr-4 relative group-hover:bg-blue-50/50 transition-colors"><div className="absolute inset-0 transform scale-[1.35] origin-center flex items-center justify-center"><SvgRoom type={type} /></div></div>
+                <div className="flex-grow flex flex-col justify-center min-w-0 pr-3">
+                    <div className="font-bold text-slate-800 text-base truncate leading-tight mb-1">{label}</div>
+                    <div className="text-xs text-slate-500 font-medium tracking-wide">{area} m²</div>
                 </div>
                 <div className="flex-shrink-0"><SmartControl value={value} onChange={onChange} min={0} /></div>
             </div>
         );
 
         const SupportInput = ({ label, value, onChange, icon, unit="m²" }) => (
-            <div className="bg-white p-2 rounded-lg border border-slate-300 flex items-center justify-between h-12">
-                <div className="flex items-center gap-2 overflow-hidden mr-2"><i className={`fas ${icon} text-slate-400 w-4 text-center flex-shrink-0`}></i><span className="text-sm font-bold text-slate-600 truncate">{label}</span></div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between h-14 hover:border-amber-300 transition-colors">
+                <div className="flex items-center gap-3 overflow-hidden mr-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center"><i className={`fas ${icon} text-slate-500 text-sm`}></i></div>
+                    <span className="text-base font-bold text-slate-700 truncate">{label}</span>
+                </div>
                 <div className="flex-shrink-0"><SmartControl value={value} onChange={onChange} min={0} unit={unit} /></div>
             </div>
         );
 
         const getCirculationDesc = (val) => {
-            if(val <= 1.30) return "格局方正、無柱位干擾";
-            if(val <= 1.40) return "格局狹長、或有部分柱位";
-            return "不規則形狀、多柱位";
+            if(val <= 1.30) return "格局方正、無干擾";
+            if(val <= 1.40) return "狹長、或部分柱位";
+            return "不規則、多柱位";
         };
 
         const App = () => {
             const [inputs, setInputs] = useState({
-                // Staff Groups
-                staffGroups: [
-                    { id: 1, name: '人員配置 A', headcount: 10, growth: 0, sharing: 1.0, deskType: 'medium' }
-                ],
-                // Rooms & Support
+                staffGroups: [{ id: 1, name: '人員配置 A', headcount: 10, growth: 0, sharing: 1.0, deskType: 'medium' }],
                 roomStandard: 0, roomSenior: 0, meetSmall: 1, meetMedium: 1, meetLarge: 0, roomBoard: 0, roomPhone: 0,
-                // Adjusted Defaults
                 reception: 3, pantry: 3, server: 1, storage: 0, otherSupport: 0,
                 circulation: 1.35, publicRatio: 30,
-                // Financials
                 rentPerPing: 0, mgmtPerPing: 150, salePricePerPingWan: 0
             });
 
-            const [results, setResults] = useState({});
             const [isExporting, setIsExporting] = useState(false);
+            const [exportError, setExportError] = useState("");
             
-            // Refs for PDF Generation (Hidden Staging Areas)
             const pdfPage1Ref = useRef(null);
             const pdfPage2Ref = useRef(null);
 
-            // --- Staff Group Helpers ---
             const updateStaffGroup = (index, field, val) => {
                 const newGroups = [...inputs.staffGroups];
                 newGroups[index] = { ...newGroups[index], [field]: val };
@@ -573,23 +583,19 @@
 
             const update = (field, val) => setInputs(prev => ({ ...prev, [field]: val }));
 
-            // --- Calculation ---
-            useEffect(() => {
+            // 改用同步的 useMemo 取代 useState + useEffect，避免初次渲染時數值 undefined 導致畫面破圖
+            const results = useMemo(() => {
                 const getVal = (val) => (val === '' || isNaN(val)) ? 0 : parseFloat(val);
 
-                let totalPeople = 0;
-                let totalDesks = 0;
-                let totalDeskArea = 0;
+                let totalPeople = 0, totalDesks = 0, totalDeskArea = 0;
 
                 inputs.staffGroups.forEach(g => {
                     const count = getVal(g.headcount);
                     const growth = getVal(g.growth);
                     const p = Math.ceil((count * (100 + growth)) / 100);
                     const d = Math.ceil(p * g.sharing);
-                    const area = d * DATA.desk[g.deskType].area;
-                    totalPeople += p;
-                    totalDesks += d;
-                    totalDeskArea += area;
+                    const area = d * (DATA.desk[g.deskType]?.area || 0);
+                    totalPeople += p; totalDesks += d; totalDeskArea += area;
                 });
 
                 const areaRooms = (getVal(inputs.roomStandard) * DATA.room.standardManager.area) +
@@ -603,76 +609,54 @@
                 const areaSupport = getVal(inputs.reception) + getVal(inputs.pantry) + getVal(inputs.server) + getVal(inputs.storage) + getVal(inputs.otherSupport);
                 
                 const netArea = totalDeskArea + areaRooms + areaSupport;
-                const usableArea = netArea * getVal(inputs.circulation);
+                const circulation = getVal(inputs.circulation);
+                const usableArea = netArea * (circulation > 0 ? circulation : 1);
                 const pubRatio = getVal(inputs.publicRatio);
-                const rentableArea = usableArea / (1 - (pubRatio / 100));
+                const rentableArea = pubRatio < 100 ? usableArea / (1 - (pubRatio / 100)) : usableArea;
 
                 const ping = rentableArea * 0.3025;
                 const rangeMin = ping * 0.9;
                 const rangeMax = ping * 1.1;
 
-                // Financials (RANGES)
                 const rent = getVal(inputs.rentPerPing);
                 const mgmt = getVal(inputs.mgmtPerPing);
                 const salePriceWan = getVal(inputs.salePricePerPingWan);
 
-                // Calculate ranges
-                const rentMin = rent * rangeMin;
-                const rentMax = rent * rangeMax;
-                const mgmtMin = mgmt * rangeMin;
-                const mgmtMax = mgmt * rangeMax;
-                const priceWanMin = salePriceWan * rangeMin;
-                const priceWanMax = salePriceWan * rangeMax;
-
-                // Old single values kept for chart scaling if needed, but not for display
-                const totalMonthlyRent = (rent + mgmt) * ping;
-
-                setResults({
+                return {
                     totalPeople, desksNeeded: totalDesks, areaDesk: totalDeskArea, 
                     areaRooms, areaSupport, netArea, rentableArea, usableArea,
                     ping, rangeMin, rangeMax,
-                    perPerson: rentableArea > 0 ? rentableArea / totalPeople : 0,
-                    totalMonthlyRent, // Legacy
-                    rentMin, rentMax, mgmtMin, mgmtMax, priceWanMin, priceWanMax
-                });
+                    perPerson: totalPeople > 0 ? rentableArea / totalPeople : 0,
+                    rentMin: rent * rangeMin, rentMax: rent * rangeMax, 
+                    mgmtMin: mgmt * rangeMin, mgmtMax: mgmt * rangeMax, 
+                    priceWanMin: salePriceWan * rangeMin, priceWanMax: salePriceWan * rangeMax
+                };
             }, [inputs]);
 
             const generatePDF = async () => {
                 setIsExporting(true);
-                // Allow UI to update
+                setExportError("");
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
                 try {
                     const doc = new window.jspdf.jsPDF('p', 'mm', 'a4'); 
-                    const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+                    const pageWidth = doc.internal.pageSize.getWidth();
                     
-                    // Capture Page 1 (Summary) from hidden A4 container
-                    const canvas1 = await html2canvas(pdfPage1Ref.current, { 
-                        scale: 2, 
-                        useCORS: true,
-                        width: 794,
-                        windowWidth: 794 
-                    });
+                    const canvas1 = await html2canvas(pdfPage1Ref.current, { scale: 2, useCORS: true, width: 794, windowWidth: 794 });
                     const imgData1 = canvas1.toDataURL('image/jpeg', 0.85);
                     const imgHeight1 = (canvas1.height * pageWidth) / canvas1.width;
                     doc.addImage(imgData1, 'JPEG', 0, 0, pageWidth, imgHeight1);
                     
-                    // Capture Page 2 (Audit) from hidden A4 container
                     doc.addPage();
-                    const canvas2 = await html2canvas(pdfPage2Ref.current, { 
-                        scale: 2, 
-                        useCORS: true,
-                        width: 794,
-                        windowWidth: 794
-                    });
+                    const canvas2 = await html2canvas(pdfPage2Ref.current, { scale: 2, useCORS: true, width: 794, windowWidth: 794 });
                     const imgData2 = canvas2.toDataURL('image/jpeg', 0.85);
                     const imgHeight2 = (canvas2.height * pageWidth) / canvas2.width;
                     doc.addImage(imgData2, 'JPEG', 0, 0, pageWidth, imgHeight2);
 
                     doc.save("Office_Space_Financial_Report.pdf");
                 } catch (error) { 
-                    console.error(error);
-                    alert("匯出失敗，請重試"); 
+                    console.error("PDF Export Error:", error);
+                    setExportError("匯出失敗，請重試或更換瀏覽器。");
                 }
                 setIsExporting(false);
             };
@@ -681,45 +665,48 @@
                 { value: results.areaDesk || 0, color: '#3b82f6', label: '辦公座位' },
                 { value: results.areaRooms || 0, color: '#10b981', label: '獨立房間' },
                 { value: results.areaSupport || 0, color: '#f59e0b', label: '支援空間' },
-                { value: (results.usableArea - results.netArea) || 0, color: '#8b5cf6', label: '走道空間' },
-                { value: (results.rentableArea - results.usableArea) || 0, color: '#64748b', label: '大樓公設' },
+                { value: Math.max(0, (results.usableArea || 0) - (results.netArea || 0)), color: '#8b5cf6', label: '走道空間' },
+                { value: Math.max(0, (results.rentableArea || 0) - (results.usableArea || 0)), color: '#64748b', label: '大樓公設' },
             ];
 
-            const isSaleMode = inputs.salePricePerPingWan > 0;
-
             return (
-                <div className="min-h-screen bg-slate-50 pb-20 md:pb-0">
-                    <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
-                        <div className="mb-6 text-center">
-                            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 mb-2">辦公空間需求計算器 <span className="text-sm font-normal text-slate-500 bg-slate-200 px-2 py-1 rounded ml-2 align-middle">beta版</span></h1>
-                            <p className="text-red-700 text-xs md:text-sm font-bold bg-red-50 py-2 px-4 rounded-lg inline-block border border-red-200 shadow-sm mx-auto"><i className="fas fa-exclamation-triangle mr-2"></i>以上計算僅供參考，因各建物的柱位、格局等利用效率有所差異，可使用面積會有所增減。</p>
+                <div className="min-h-screen bg-slate-50/80 pb-20 md:pb-12 font-sans selection:bg-blue-200">
+                    {/* Top Navigation Bar */}
+                    <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+                        <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md">
+                                    <i className="fas fa-building text-sm"></i>
+                                </div>
+                                <h1 className="text-xl font-black text-slate-800 tracking-tight">辦公空間需求計算器</h1>
+                                <span className="hidden sm:inline-block text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md uppercase tracking-wider">Beta</span>
+                            </div>
+                            <div className="text-xs sm:text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-2">
+                                <i className="fas fa-exclamation-circle text-amber-500"></i>
+                                <span className="hidden sm:inline">計算結果僅供參考，實際面積依現場為準</span>
+                            </div>
                         </div>
+                    </div>
 
-                        <div className="flex flex-col xl:flex-row gap-6">
-                            {/* LEFT PANEL (Inputs) */}
-                            <div className="xl:w-7/12 flex flex-col gap-6">
-                                {/* Staff */}
-                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
+                        <div className="flex flex-col xl:flex-row gap-6 lg:gap-8 items-start relative">
+                            
+                            {/* LEFT PANEL (Inputs & Details) */}
+                            <div className="w-full xl:w-2/3 flex flex-col gap-6 lg:gap-8">
+                                
+                                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/80 transition-shadow hover:shadow-md">
                                     <SectionHeader icon="fa-users" title="1. 人員配置 (Staffing)" color="text-blue-700" />
                                     <div className="space-y-4">
                                         {inputs.staffGroups.map((group, index) => (
-                                            <StaffCard 
-                                                key={group.id} 
-                                                group={group} 
-                                                index={index} 
-                                                onChange={updateStaffGroup} 
-                                                onRemove={() => removeStaffGroup(index)}
-                                                showRemove={inputs.staffGroups.length > 1}
-                                            />
+                                            <StaffCard key={group.id} group={group} index={index} onChange={updateStaffGroup} onRemove={() => removeStaffGroup(index)} showRemove={inputs.staffGroups.length > 1} />
                                         ))}
                                     </div>
-                                    <button onClick={addStaffGroup} className="w-full py-3 border-2 border-dashed border-blue-200 rounded-xl text-blue-500 font-bold hover:bg-blue-50 hover:border-blue-300 transition-colors mt-2 flex items-center justify-center gap-2"><i className="fas fa-plus-circle"></i> 新增人員分組</button>
+                                    <button onClick={addStaffGroup} className="w-full mt-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl text-slate-600 font-bold text-base hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all flex items-center justify-center gap-2 group"><i className="fas fa-plus-circle group-hover:scale-110 transition-transform"></i> 新增人員分組</button>
                                 </div>
 
-                                {/* Rooms */}
-                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/80 transition-shadow hover:shadow-md">
                                     <SectionHeader icon="fa-door-open" title="2. 房間配置 (Rooms)" color="text-emerald-700" />
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <RoomCard type="standard" value={inputs.roomStandard} onChange={(val) => update('roomStandard', val)} label="標準主管室" area="12" />
                                         <RoomCard type="senior" value={inputs.roomSenior} onChange={(val) => update('roomSenior', val)} label="高級主管室" area="24" />
                                         <RoomCard type="phone" value={inputs.roomPhone} onChange={(val) => update('roomPhone', val)} label="電話亭/專注空間" area="2" />
@@ -730,10 +717,10 @@
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col md:flex-row gap-6">
-                                    <div className="w-full md:w-1/2 bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
-                                        <SectionHeader icon="fa-coffee" title="3. 支援空間" color="text-amber-700" />
-                                        <div className="space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                                    <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/80 transition-shadow hover:shadow-md">
+                                        <SectionHeader icon="fa-coffee" title="3. 支援空間 (Support)" color="text-amber-700" />
+                                        <div className="space-y-4 pt-2">
                                             <SupportInput label="接待區" value={inputs.reception} onChange={(val) => update('reception', val)} icon="fa-concierge-bell" />
                                             <SupportInput label="茶水間" value={inputs.pantry} onChange={(val) => update('pantry', val)} icon="fa-mug-hot" />
                                             <SupportInput label="資訊機房" value={inputs.server} onChange={(val) => update('server', val)} icon="fa-server" />
@@ -741,120 +728,158 @@
                                             <SupportInput label="其他" value={inputs.otherSupport} onChange={(val) => update('otherSupport', val)} icon="fa-plus-circle" />
                                         </div>
                                     </div>
-                                    <div className="w-full md:w-1/2 bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
-                                        <SectionHeader icon="fa-ruler-combined" title="4. 係數設定" color="text-purple-700" />
-                                        <div className="space-y-4">
-                                            <div className="bg-white border border-slate-300 p-3 rounded-lg">
-                                                <div className="flex justify-between items-center mb-2"><div className="font-bold text-sm text-slate-700">內部走道係數</div><select value={inputs.circulation} onChange={(e)=>update('circulation', parseFloat(e.target.value))} className="border border-slate-300 rounded p-1 text-sm font-bold bg-slate-50 outline-none w-24 text-center"><option value="1.25">1.25</option><option value="1.35">1.35</option><option value="1.45">1.45</option></select></div>
-                                                <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-100">說明：{getCirculationDesc(inputs.circulation)}</div>
+                                    <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/80 transition-shadow hover:shadow-md">
+                                        <SectionHeader icon="fa-ruler-combined" title="4. 空間係數設定" color="text-purple-700" />
+                                        <div className="space-y-6 pt-2">
+                                            <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl relative overflow-hidden group">
+                                                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-purple-500"></div>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div className="font-bold text-base text-slate-800">內部走道係數</div>
+                                                    <select value={inputs.circulation} onChange={(e)=>update('circulation', parseFloat(e.target.value))} className="border border-slate-300 rounded-lg p-2 text-base font-bold bg-white outline-none w-28 text-center shadow-sm cursor-pointer hover:border-purple-400 focus:ring-2 focus:ring-purple-200 transition-all">
+                                                        <option value="1.25">1.25</option>
+                                                        <option value="1.35">1.35</option>
+                                                        <option value="1.45">1.45</option>
+                                                    </select>
+                                                </div>
+                                                <div className="text-sm text-slate-600 font-medium">場景：{getCirculationDesc(inputs.circulation)}</div>
                                             </div>
-                                            <div className="bg-white border border-slate-300 p-3 rounded-lg">
-                                                <div className="flex justify-between items-center mb-2"><div className="font-bold text-sm text-slate-700">公設比 (%)</div><div className="w-28"><SmartControl value={inputs.publicRatio} onChange={(val)=>update('publicRatio', val)} min={0} max={60} unit="%" /></div></div>
-                                                <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-100">說明：實得率約 {100 - inputs.publicRatio}%</div>
+                                            <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl relative overflow-hidden group">
+                                                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-500"></div>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div className="font-bold text-base text-slate-800">大樓公設比 (%)</div>
+                                                    <div className="w-36"><SmartControl value={inputs.publicRatio} onChange={(val)=>update('publicRatio', val)} min={0} max={60} unit="%" large={true} /></div>
+                                                </div>
+                                                <div className="text-sm text-slate-600 font-medium">預估辦公室實得率約 {100 - inputs.publicRatio}%</div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                {/* New Financial Section */}
-                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
-                                    <SectionHeader icon="fa-calculator" title="5. 預算預估 (Financials)" color="text-gray-700" />
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div>
-                                            <label className="text-sm font-bold text-slate-500 mb-2 block">預計租金 (元/坪)</label>
+                                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/80 transition-shadow hover:shadow-md">
+                                    <SectionHeader icon="fa-calculator" title="5. 財務預估 (Financials)" color="text-slate-700" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
+                                        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                                            <label className="text-xs font-bold text-slate-500 mb-3 block uppercase tracking-wider">預計租金 (元/坪)</label>
                                             <SmartControl value={inputs.rentPerPing} onChange={(val) => update('rentPerPing', val)} min={0} step={100} large={true} />
                                         </div>
-                                        <div>
-                                            <label className="text-sm font-bold text-slate-500 mb-2 block">預計管理費 (元/坪)</label>
+                                        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                                            <label className="text-xs font-bold text-slate-500 mb-3 block uppercase tracking-wider">預計管理費 (元/坪)</label>
                                             <SmartControl value={inputs.mgmtPerPing} onChange={(val) => update('mgmtPerPing', val)} min={0} step={10} large={true} />
                                         </div>
-                                        <div>
-                                            <label className="text-sm font-bold text-slate-500 mb-2 block">預計售價 (萬元/坪)</label>
+                                        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                                            <label className="text-xs font-bold text-slate-500 mb-3 block uppercase tracking-wider">預計售價 (萬元/坪)</label>
                                             <SmartControl value={inputs.salePricePerPingWan} onChange={(val) => update('salePricePerPingWan', val)} min={0} step={5} large={true} />
                                         </div>
                                     </div>
                                 </div>
+
+                                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+                                    <DetailedAudit inputs={inputs} results={results} DATA={DATA} />
+                                </div>
                             </div>
 
-                            {/* RIGHT PANEL (Results & Visuals) */}
-                            <div className="xl:w-5/12 flex flex-col gap-6">
-                                {/* Factors Summary (Mobile only) */}
-                                <div className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-200 xl:hidden">
-                                     <div className="flex justify-between text-sm"><span className="text-gray-500 font-bold">走道係數: {inputs.circulation}</span><span className="text-gray-500 font-bold">公設比: {inputs.publicRatio}%</span></div>
-                                </div>
-
-                                {/* Result Card */}
-                                <div className="bg-black/70 text-white p-6 md:p-8 rounded-3xl shadow-2xl relative overflow-hidden" style={{paddingBottom: '2rem', lineHeight: '1.6'}}>
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full mix-blend-overlay filter blur-3xl opacity-50 -mr-16 -mt-16"></div>
+                            {/* RIGHT PANEL (Sticky Results) */}
+                            <div className="w-full xl:w-1/3 flex flex-col gap-6 sticky top-24 z-10 self-start">
+                                <div className="bg-gradient-to-b from-slate-900 to-slate-800 text-white p-6 md:p-8 rounded-3xl shadow-2xl relative overflow-hidden border border-slate-700">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full mix-blend-overlay filter blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/20 rounded-full mix-blend-overlay filter blur-3xl -ml-12 -mb-12 pointer-events-none"></div>
+                                    
                                     <div className="relative z-10">
-                                        <div className="text-yellow-400 text-xs md:text-sm font-bold uppercase tracking-widest mb-1">總需求面積 (Total Requirement)</div>
-                                        <div className="flex items-baseline gap-2 mb-2"><div className="text-5xl md:text-6xl font-extrabold text-white" style={{lineHeight: 1.2}}>{results.ping?.toFixed(1)}</div><div className="text-xl md:text-2xl text-slate-400 font-medium">坪</div></div>
-                                        <div className="flex items-center gap-2 text-sm text-cyan-300 font-mono mb-4 font-bold">= {results.rentableArea?.toFixed(1)} m² </div>
-                                        
-                                        {/* Efficiency Badge -> Changed to Recommended Range */}
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <span className="text-xs text-slate-400 uppercase font-bold">建議面積區間 (±10%)</span>
-                                            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded">{results.rangeMin?.toFixed(0)} ~ {results.rangeMax?.toFixed(0)} 坪</span>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="text-slate-300 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                                                <i className="fas fa-layer-group text-blue-400"></i> 總需求面積
+                                            </div>
                                         </div>
-
-                                        {/* Financial Breakdown Grid (Three Columns with RANGES) */}
-                                        <div className="mb-6">
-                                            <div className="grid grid-cols-3 gap-2 text-center">
-                                                {/* Rent Block */}
-                                                <div className="bg-slate-800 bg-opacity-40 p-2 rounded border border-slate-600 flex flex-col justify-center">
-                                                    <div className="text-[10px] text-slate-400 mb-1">月租金總計</div>
-                                                    <div className="font-bold text-white text-xs md:text-sm leading-tight">
-                                                        ${Math.round(results.rentMin).toLocaleString()} ~<br/>${Math.round(results.rentMax).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                                {/* Mgmt Block */}
-                                                <div className="bg-slate-800 bg-opacity-40 p-2 rounded border border-slate-600 flex flex-col justify-center">
-                                                     <div className="text-[10px] text-slate-400 mb-1">月管理費總計</div>
-                                                     <div className="font-bold text-white text-xs md:text-sm leading-tight">
-                                                        ${Math.round(results.mgmtMin).toLocaleString()} ~<br/>${Math.round(results.mgmtMax).toLocaleString()}
-                                                     </div>
-                                                </div>
-                                                {/* Sale Block */}
-                                                <div className="bg-slate-800 bg-opacity-40 p-2 rounded border border-slate-600 flex flex-col justify-center">
-                                                     <div className="text-[10px] text-slate-400 mb-1">總售價預估</div>
-                                                     <div className="font-bold text-white text-xs md:text-sm leading-tight">
-                                                        {Math.round(results.priceWanMin).toLocaleString()}萬 ~<br/>{Math.round(results.priceWanMax).toLocaleString()}萬
-                                                     </div>
-                                                </div>
+                                        
+                                        <div className="flex items-baseline gap-2 mb-2">
+                                            <div className="text-6xl md:text-7xl font-black text-white tracking-tighter" style={{lineHeight: 1.1}}>{(results.ping || 0).toFixed(1)}</div>
+                                            <div className="text-2xl text-slate-300 font-medium mb-1">坪</div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 text-sm text-cyan-300 font-mono mb-6 font-bold bg-slate-800/80 inline-block px-3 py-1.5 rounded-lg border border-slate-600/50 shadow-inner">
+                                            ≒ {(results.rentableArea || 0).toFixed(1)} m² 
+                                        </div>
+                                        
+                                        <div className="bg-blue-600/30 border border-blue-500/40 rounded-2xl p-4 mb-6 backdrop-blur-sm">
+                                            <div className="text-xs text-blue-200 uppercase font-bold tracking-wider mb-2">建議看樓面積區間 (±10%)</div>
+                                            <div className="text-xl font-bold text-white flex items-center gap-2">
+                                                <span>{(results.rangeMin || 0).toFixed(0)}</span>
+                                                <span className="text-blue-400 text-lg">~</span>
+                                                <span>{(results.rangeMax || 0).toFixed(0)} 坪</span>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4 border-t border-slate-700 pt-4">
-                                            <div><div className="text-xs text-slate-400 uppercase font-bold">總座位數</div><div className="text-xl md:text-2xl font-bold text-white">{results.desksNeeded} <span className="text-sm font-normal text-slate-400">席</span></div></div>
-                                            <div><div className="text-xs text-slate-400 uppercase font-bold">人均使用</div><div className="text-xl md:text-2xl font-bold text-white">{results.perPerson?.toFixed(1)} <span className="text-sm font-normal text-slate-400">m²</span></div></div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center mb-8">
+                                            <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-600/50 flex flex-col justify-center backdrop-blur-sm">
+                                                <div className="text-xs text-slate-400 mb-2 font-bold tracking-wide">月租總計</div>
+                                                <div className="font-bold text-white text-sm leading-snug">
+                                                    <span className="text-slate-400 text-xs">$</span>{Math.round(results.rentMin || 0).toLocaleString()}<br/>
+                                                    <span className="text-slate-500 text-xs my-0.5 inline-block">~</span><br/>
+                                                    <span className="text-slate-400 text-xs">$</span>{Math.round(results.rentMax || 0).toLocaleString()}
+                                                </div>
+                                            </div>
+                                            <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-600/50 flex flex-col justify-center backdrop-blur-sm">
+                                                 <div className="text-xs text-slate-400 mb-2 font-bold tracking-wide">管理費</div>
+                                                 <div className="font-bold text-white text-sm leading-snug">
+                                                    <span className="text-slate-400 text-xs">$</span>{Math.round(results.mgmtMin || 0).toLocaleString()}<br/>
+                                                    <span className="text-slate-500 text-xs my-0.5 inline-block">~</span><br/>
+                                                    <span className="text-slate-400 text-xs">$</span>{Math.round(results.mgmtMax || 0).toLocaleString()}
+                                                 </div>
+                                            </div>
+                                            <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-600/50 flex flex-col justify-center backdrop-blur-sm">
+                                                 <div className="text-xs text-slate-400 mb-2 font-bold tracking-wide">總價預估</div>
+                                                 <div className="font-bold text-white text-sm leading-snug">
+                                                    {Math.round(results.priceWanMin || 0).toLocaleString()}<span className="text-slate-400 font-normal text-xs ml-0.5">萬</span><br/>
+                                                    <span className="text-slate-500 text-xs my-0.5 inline-block">~</span><br/>
+                                                    {Math.round(results.priceWanMax || 0).toLocaleString()}<span className="text-slate-400 font-normal text-xs ml-0.5">萬</span>
+                                                 </div>
+                                            </div>
                                         </div>
-                                        <button onClick={generatePDF} disabled={isExporting} className="mt-6 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 md:py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base">{isExporting ? <div className="loader"></div> : <i className="fas fa-file-pdf"></i>}{isExporting ? " 正在製作報告..." : " 下載完整報告 (A4)"}</button>
+
+                                        <div className="grid grid-cols-2 gap-6 border-t border-slate-700/80 pt-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-2">總座位數</span>
+                                                <div className="text-3xl font-bold text-white flex items-baseline gap-1">
+                                                    {results.desksNeeded || 0} <span className="text-sm font-normal text-slate-500">席</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col border-l border-slate-700/80 pl-6">
+                                                <span className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-2">人均坪效</span>
+                                                <div className="text-3xl font-bold text-white flex items-baseline gap-1">
+                                                    {(results.perPerson || 0).toFixed(1)} <span className="text-sm font-normal text-slate-500">m²/人</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {exportError && (
+                                            <div className="mt-6 mb-2 text-red-300 bg-red-900/30 p-3 rounded-lg text-sm font-bold border border-red-800/50">
+                                                <i className="fas fa-exclamation-triangle mr-2"></i>{exportError}
+                                            </div>
+                                        )}
+                                        <button onClick={generatePDF} disabled={isExporting} className="mt-8 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg shadow-blue-900/30 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed border border-blue-500/50">
+                                            {isExporting ? <div className="loader"></div> : <i className="fas fa-file-pdf text-xl"></i>}
+                                            {isExporting ? "正在渲染報告..." : "下載 PDF 規劃報告"}
+                                        </button>
                                     </div>
                                 </div>
 
-                                {/* Visualizations */}
-                                <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-200 flex-grow flex flex-col">
-                                    <h3 className="text-lg font-bold text-slate-800 mb-4"><i className="fas fa-chart-pie text-blue-600 mr-2"></i>空間面積分布</h3>
-                                    <div className="mb-6"><SpaceUsageBar data={chartData} total={results.rentableArea} /></div>
+                                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col">
+                                    <h3 className="text-lg font-extrabold text-slate-800 mb-6 flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i className="fas fa-chart-pie text-sm"></i></div>
+                                        空間面積分布
+                                    </h3>
+                                    <div className="mb-4"><SpaceUsageBar data={chartData} total={results.rentableArea} /></div>
                                     <AreaTreemap results={results} />
                                 </div>
                             </div>
                         </div>
-
-                        {/* NEW: Visible Detailed Audit at the bottom */}
-                        <div className="mt-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <DetailedAudit inputs={inputs} results={results} DATA={DATA} />
-                        </div>
                     </div>
 
-                    {/* --- HIDDEN PRINT STAGING AREA (Always A4 Sized) --- */}
+                    {/* --- HIDDEN PRINT STAGING AREA --- */}
                     <div id="print-staging-area">
-                        {/* Page 1: Visual Summary */}
                         <div ref={pdfPage1Ref} className="a4-page">
                             <PDFPage1 inputs={inputs} results={results} chartData={chartData} />
                         </div>
-
-                        {/* Page 2: Detailed Audit */}
                         <div ref={pdfPage2Ref} className="a4-page">
                             <DetailedAudit inputs={inputs} results={results} DATA={DATA} />
                         </div>

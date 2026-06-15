@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>純地端 PDF 處理工具</title>
-
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
@@ -168,6 +167,7 @@
             const [selectionRangeEnd, setSelectionRangeEnd] = useState('');
             const [lastError, setLastError] = useState('');
             const [dialog, setDialog] = useState(null); // 控制自訂對話框的狀態
+            const [previewPage, setPreviewPage] = useState(null); // 控制放大預覽的頁面
             const fileInputRef = useRef(null);
 
             const handleFileUpload = async (event) => {
@@ -591,7 +591,7 @@
             };
 
             return (
-                <div className="min-h-screen p-8 font-sans">
+                <div className="min-h-screen p-8 font-sans relative">
                     <div className="max-w-6xl mx-auto">
                         <header className="mb-8 text-center">
                             <h1 className="text-3xl font-bold text-gray-800 mb-2">📄 地端 PDF 處理工具</h1>
@@ -600,7 +600,6 @@
 
                         <div className="bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                                {}
                                 <section className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">1</span>
@@ -629,13 +628,12 @@
                                                 <div className="text-2xl font-bold text-gray-800">{pages.length} <span className="text-sm font-medium text-gray-500">頁</span></div>
                                             </div>
                                             <div className="text-right text-xs text-gray-500 leading-relaxed">
-                                                {pages.length > 0 ? '可排序、旋轉、刪除' : '尚未載入 PDF'}
+                                                {pages.length > 0 ? '可預覽、排序、旋轉、刪除' : '尚未載入 PDF'}
                                             </div>
                                         </div>
                                     </div>
                                 </section>
 
-                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-blue-100 bg-blue-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">2</span>
@@ -687,7 +685,6 @@
                                     </div>
                                 </section>
 
-                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-green-100 bg-green-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">3</span>
@@ -727,7 +724,6 @@
                             </div>
                         </div>
 
-                        {}
                         {lastError && (
                             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                                 <strong>錯誤：</strong>{lastError}
@@ -744,12 +740,12 @@
                             </div>
                         )}
 
-                        {}
                         {pages.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator(null); }}>
                                 {pages.map((page, index) => {
                                     const isSelected = selectedPageIds.includes(page.id);
                                     const isDraggingSelectedGroup = isMultiSelectMode && draggedPageId !== null && selectedPageIds.includes(draggedPageId) && isSelected;
+
                                     return (
                                         <div key={page.id} draggable="true" onDragStart={(e) => handleDragStart(e, page.id)} onDragEnter={handleDragEnter} onDragOver={(e) => handleDragOver(e, page.id)} onDrop={(e) => handleDrop(e, page.id)} onDragEnd={handleDragEnd}
                                             style={{ viewTransitionName: `card-${page.id}` }}
@@ -767,7 +763,6 @@
                                                 </div>
                                             )}
 
-                                            {}
                                             {/* 頁面縮圖與覆蓋按鈕 */}
                                             <div className="relative bg-gray-50 border border-gray-100 rounded flex items-center justify-center overflow-hidden aspect-[1/1.4] mb-2" onClick={(e) => togglePageSelection(page.id, e)}>
                                                 <img src={page.thumbnail} alt={`第 ${page.originalPageNum + 1} 頁`} className="max-h-full max-w-full object-contain shadow-sm transition-transform duration-300" style={{ transform: `rotate(${page.rotation}deg)` }} />
@@ -775,9 +770,15 @@
                                                 {/* 懸浮時顯示的控制項 */}
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
                                                     <div className="flex justify-end gap-1">
+                                                        {/* 放大預覽按鈕 */}
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); setPreviewPage(page); }} className="p-1.5 bg-blue-100/90 hover:bg-blue-500 hover:text-white text-blue-600 rounded shadow-sm transition" title="放大預覽">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                                        </button>
+                                                        {/* 旋轉按鈕 */}
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); rotatePage(page.id); }} className="p-1.5 bg-white/90 hover:bg-white text-gray-700 rounded shadow-sm transition" title="旋轉">
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                                                         </button>
+                                                        {/* 刪除按鈕 */}
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); deletePage(page.id); }} className="p-1.5 bg-red-100/90 hover:bg-red-500 hover:text-white text-red-600 rounded shadow-sm transition" title="刪除">
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                         </button>
@@ -815,11 +816,10 @@
                                 </div>
                             )
                         )}
-                        
-                        {}
+
                         {/* 自訂對話框的 UI */}
                         {dialog && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity">
+                            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity">
                                 <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-100 transform transition-all">
                                     <h3 className="text-xl font-bold text-gray-800 mb-3">
                                         {dialog.type === 'confirm' ? '請確認' : '提示'}
@@ -840,14 +840,35 @@
                                                 else setDialog(null);
                                             }}
                                             className={`px-5 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all focus:ring-4 focus:outline-none ${
-                                                dialog.type === 'confirm' 
-                                                ? 'bg-red-500 hover:bg-red-600 focus:ring-red-100' 
-                                                : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-100'
+                                                dialog.type === 'confirm'
+                                                 ? 'bg-red-500 hover:bg-red-600 focus:ring-red-100'
+                                                 : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-100'
                                             }`}
                                         >
                                             確定
                                         </button>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 放大預覽 Modal */}
+                        {previewPage && (
+                            <div 
+                                className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm p-6 cursor-zoom-out transition-opacity" 
+                                onClick={() => setPreviewPage(null)}
+                                title="點擊任意處關閉"
+                            >
+                                <div className="relative max-h-full max-w-full flex items-center justify-center">
+                                    <img
+                                        src={previewPage.thumbnail}
+                                        alt={`第 ${previewPage.originalPageNum + 1} 頁放大預覽`}
+                                        className="max-h-[85vh] max-w-[90vw] object-contain rounded shadow-2xl bg-white transition-transform"
+                                        style={{ transform: `rotate(${previewPage.rotation}deg)` }}
+                                    />
+                                </div>
+                                <div className="mt-6 text-white text-lg font-medium drop-shadow-md">
+                                    {previewPage.filename} - 第 {previewPage.originalPageNum + 1} 頁
                                 </div>
                             </div>
                         )}

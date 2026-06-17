@@ -64,6 +64,25 @@
         </div>
     </div>
 
+    <!-- 刪除前置任務的銜接選擇對話框 -->
+    <div id="delete-dependency-modal" class="fixed inset-0 bg-slate-900/50 z-[210] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200" id="delete-dependency-modal-content">
+            <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                刪除前置任務？
+            </h3>
+            <p id="delete-dependency-message" class="text-sm text-slate-500 mb-4"></p>
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-3 mb-5">
+                銜接會讓後續任務改以前一個任務為前置，並依目前 Lag 重新排程；維持原地會清除前置關聯但保留目前日期。
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button id="btn-delete-cancel" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium p-2.5 rounded-lg transition-colors text-sm">取消</button>
+                <button id="btn-delete-keep" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-medium p-2.5 rounded-lg transition-colors text-sm">維持原地</button>
+                <button id="btn-delete-reconnect" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium p-2.5 rounded-lg transition-colors shadow-sm text-sm truncate">銜接前一個</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 編輯任務的 Modal -->
     <div id="edit-modal" class="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200" id="edit-modal-content">
@@ -284,6 +303,17 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                     儲存專案
                 </button>
+
+                <div class="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+
+                <button id="btn-undo" class="flex items-center gap-1.5 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm cursor-not-allowed" title="回復上一步" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>
+                    回復
+                </button>
+                <button id="btn-redo" class="flex items-center gap-1.5 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm cursor-not-allowed" title="下一步" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"></path><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path></svg>
+                    下一步
+                </button>
                 
                 <div class="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
                 
@@ -451,6 +481,9 @@
         let msgTimeout = null;
         let categoryDragSrcEl = null; 
         const LEFT_COLUMN_WIDTH = "w-[300px]";
+        const HISTORY_LIMIT = 80;
+        let undoStack = [];
+        let redoStack = [];
 
         function showMessage(msg) {
             const msgBox = document.getElementById('message-box');
@@ -464,55 +497,62 @@
             }, 3000);
         }
 
-        // ==========================================
-        // 模式切換邏輯 (簡易 vs 進階)
-        // ==========================================
-        function switchAppMode(mode) {
-            appMode = mode;
-            const btnSimple = document.getElementById('btn-mode-simple');
-            const btnAdvanced = document.getElementById('btn-mode-advanced');
-            const badge = document.getElementById('mode-badge');
-            const desc = document.getElementById('mode-desc');
-
-            const simpleToggles = document.getElementById('simple-input-toggles');
-            const simpleArea = document.getElementById('simple-inputs-area');
-            const advArea = document.getElementById('advanced-inputs-area');
-            
-            if (mode === 'simple') {
-                btnSimple.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors bg-white shadow text-blue-600";
-                btnAdvanced.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800";
-                badge.innerText = "簡易版"; badge.className = "ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 uppercase";
-                desc.innerText = "手動拖曳調整日期，一鍵產出精美進度表";
-                
-                simpleToggles.classList.remove('hidden');
-                simpleArea.classList.remove('hidden');
-                advArea.classList.add('hidden');
-            } else {
-                btnAdvanced.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors bg-indigo-600 shadow text-white";
-                btnSimple.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800";
-                badge.innerText = "進階關聯版"; badge.className = "ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase";
-                desc.innerText = "啟用連鎖計算引擎，設定前後置任務關係";
-                
-                simpleToggles.classList.add('hidden');
-                simpleArea.classList.add('hidden');
-                advArea.classList.remove('hidden');
-                
-                // 初次切換時，確保每個任務都有 duration
-                tasks.forEach(t => {
-                    if (!t.duration) t.duration = diffDays(t.startDate, t.endDate);
-                });
-                recalculateDates();
-            }
-            
-            renderTemplateOptions(); // 更新範本下拉選單
-            updatePredecessorOptions();
-            renderGantt();
+        function cloneData(data) {
+            return JSON.parse(JSON.stringify(data));
         }
 
-        window.toggleInputMode = function() {
-            inputMode = document.querySelector('input[name="input-mode"]:checked').value;
+        function getProjectState() {
+            return {
+                appMode,
+                inputMode,
+                viewMode,
+                categories: cloneData(categories),
+                tasks: cloneData(tasks),
+                projStartDate: document.getElementById('proj-start-date').value,
+                taskAdvStartDate: document.getElementById('task-adv-start').value
+            };
+        }
+
+        function statesEqual(a, b) {
+            return JSON.stringify(a) === JSON.stringify(b);
+        }
+
+        function setHistoryButtonState(buttonId, enabled) {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+
+            button.disabled = !enabled;
+            button.className = enabled
+                ? "flex items-center gap-1.5 bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm"
+                : "flex items-center gap-1.5 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm cursor-not-allowed";
+        }
+
+        function updateHistoryButtons() {
+            setHistoryButtonState('btn-undo', undoStack.length > 1);
+            setHistoryButtonState('btn-redo', redoStack.length > 0);
+        }
+
+        function recordHistory() {
+            const snapshot = getProjectState();
+            const lastSnapshot = undoStack[undoStack.length - 1];
+            if (lastSnapshot && statesEqual(lastSnapshot, snapshot)) {
+                updateHistoryButtons();
+                return;
+            }
+
+            undoStack.push(snapshot);
+            if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+            redoStack = [];
+            updateHistoryButtons();
+        }
+
+        function applyInputModeUi() {
             const absInputs = document.getElementById('absolute-inputs');
             const relInputs = document.getElementById('relative-inputs');
+            document.querySelectorAll('input[name="input-mode"]').forEach(input => {
+                input.checked = input.value === inputMode;
+            });
+
             if (inputMode === 'relative') {
                 absInputs.classList.add('hidden');
                 relInputs.classList.remove('hidden');
@@ -520,6 +560,94 @@
                 relInputs.classList.add('hidden');
                 absInputs.classList.remove('hidden');
             }
+        }
+
+        function applyAppModeUi() {
+            const btnSimple = document.getElementById('btn-mode-simple');
+            const btnAdvanced = document.getElementById('btn-mode-advanced');
+            const badge = document.getElementById('mode-badge');
+            const desc = document.getElementById('mode-desc');
+            const simpleToggles = document.getElementById('simple-input-toggles');
+            const simpleArea = document.getElementById('simple-inputs-area');
+            const advArea = document.getElementById('advanced-inputs-area');
+
+            if (appMode === 'simple') {
+                btnSimple.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors bg-white shadow text-blue-600";
+                btnAdvanced.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800";
+                badge.innerText = "簡易版";
+                badge.className = "ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 uppercase";
+                desc.innerText = "手動拖曳調整日期，一鍵產出精美進度表";
+                simpleToggles.classList.remove('hidden');
+                simpleArea.classList.remove('hidden');
+                advArea.classList.add('hidden');
+            } else {
+                btnAdvanced.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors bg-indigo-600 shadow text-white";
+                btnSimple.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800";
+                badge.innerText = "進階關聯版";
+                badge.className = "ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase";
+                desc.innerText = "啟用連鎖計算引擎，設定前後置任務關係";
+                simpleToggles.classList.add('hidden');
+                simpleArea.classList.add('hidden');
+                advArea.classList.remove('hidden');
+            }
+        }
+
+        function applyViewModeUi() {
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                if (btn.dataset.mode === viewMode) {
+                    btn.className = "view-btn bg-white shadow text-blue-600 font-medium px-3 py-1.5 rounded-md transition-colors";
+                } else {
+                    btn.className = "view-btn px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:bg-slate-200";
+                }
+            });
+        }
+
+        function restoreProjectState(state) {
+            appMode = state.appMode || 'simple';
+            inputMode = state.inputMode || 'absolute';
+            viewMode = state.viewMode || 'month';
+            categories = cloneData(state.categories || {});
+            tasks = cloneData(state.tasks || []);
+            document.getElementById('proj-start-date').value = state.projStartDate || todayStr;
+            document.getElementById('task-adv-start').value = state.taskAdvStartDate || state.projStartDate || todayStr;
+
+            applyInputModeUi();
+            applyAppModeUi();
+            applyViewModeUi();
+            renderTemplateOptions();
+            renderCategories('task-category');
+            renderCategories('edit-task-category');
+            updatePredecessorOptions();
+            renderGantt();
+            updateHistoryButtons();
+        }
+
+        // ==========================================
+        // 模式切換邏輯 (簡易 vs 進階)
+        // ==========================================
+        function switchAppMode(mode) {
+            if (appMode === mode) return;
+            appMode = mode;
+            
+            if (mode === 'advanced') {
+                // 初次切換時，確保每個任務都有 duration
+                tasks.forEach(t => {
+                    if (!t.duration) t.duration = diffDays(t.startDate, t.endDate);
+                });
+                recalculateDates();
+            }
+            
+            applyAppModeUi();
+            renderTemplateOptions(); // 更新範本下拉選單
+            updatePredecessorOptions();
+            renderGantt();
+            recordHistory();
+        }
+
+        window.toggleInputMode = function() {
+            inputMode = document.querySelector('input[name="input-mode"]:checked').value;
+            applyInputModeUi();
+            recordHistory();
         };
 
         window.toggleAdvStart = function() {
@@ -535,11 +663,108 @@
             }
         };
 
+        function wouldCreateDependencyCycle(taskId, predecessorId) {
+            if (!taskId || !predecessorId) return false;
+            const targetId = parseInt(taskId);
+            let currentId = parseInt(predecessorId);
+            const visited = new Set();
+
+            while (currentId) {
+                if (currentId === targetId) return true;
+                if (visited.has(currentId)) return false;
+                visited.add(currentId);
+
+                const currentTask = tasks.find(t => t.id == currentId);
+                if (!currentTask || !currentTask.predecessor || !currentTask.predecessor.taskId) return false;
+                currentId = parseInt(currentTask.predecessor.taskId);
+            }
+
+            return false;
+        }
+
+        function clearDependencyCycles() {
+            let clearedCount = 0;
+            tasks.forEach(task => {
+                if (task.predecessor && task.predecessor.taskId && wouldCreateDependencyCycle(task.id, task.predecessor.taskId)) {
+                    task.predecessor = null;
+                    task.duration = diffDays(task.startDate, task.endDate);
+                    clearedCount++;
+                }
+            });
+
+            if (clearedCount > 0) {
+                showMessage(`偵測到 ${clearedCount} 個循環依賴，已清除相關前置任務`);
+            }
+
+            return clearedCount;
+        }
+
+        function getDependentTasks(taskId) {
+            return tasks.filter(task => task.predecessor && task.predecessor.taskId == taskId);
+        }
+
+        function findReconnectCandidate(removedTask) {
+            if (!removedTask) return null;
+
+            if (removedTask.predecessor && removedTask.predecessor.taskId) {
+                const directPredecessor = tasks.find(task => task.id == removedTask.predecessor.taskId);
+                if (directPredecessor) return directPredecessor;
+            }
+
+            const removedIndex = tasks.findIndex(task => task.id === removedTask.id);
+            for (let i = removedIndex - 1; i >= 0; i--) {
+                if (tasks[i] && tasks[i].id !== removedTask.id) return tasks[i];
+            }
+
+            return null;
+        }
+
+        function deleteTaskWithDependencyMode(taskId, mode, reconnectTaskId = null) {
+            const removedTask = tasks.find(task => task.id === taskId);
+            if (!removedTask) return;
+
+            const dependentSnapshots = getDependentTasks(taskId).map(task => ({
+                id: task.id,
+                lag: task.predecessor && task.predecessor.lag !== undefined && task.predecessor.lag !== '' ? parseInt(task.predecessor.lag) : 0
+            }));
+            const reconnectTask = reconnectTaskId ? tasks.find(task => task.id == reconnectTaskId) : null;
+
+            tasks = tasks.filter(task => task.id !== taskId);
+
+            let reconnectedCount = 0;
+            let clearedCount = 0;
+            dependentSnapshots.forEach(snapshot => {
+                const task = tasks.find(t => t.id === snapshot.id);
+                if (!task) return;
+
+                if (mode === 'reconnect' && reconnectTask && !wouldCreateDependencyCycle(task.id, reconnectTask.id)) {
+                    task.predecessor = { taskId: reconnectTask.id, lag: snapshot.lag };
+                    reconnectedCount++;
+                } else {
+                    task.predecessor = null;
+                    task.duration = diffDays(task.startDate, task.endDate);
+                    clearedCount++;
+                }
+            });
+
+            updatePredecessorOptions();
+            renderGantt();
+            recordHistory();
+
+            const taskName = removedTask.name || '工作項目';
+            if (reconnectedCount > 0) {
+                showMessage(`已刪除「${taskName}」，並銜接 ${reconnectedCount} 個後續任務`);
+            } else if (clearedCount > 0) {
+                showMessage(`已刪除「${taskName}」，並清除 ${clearedCount} 個後續任務的前置關聯`);
+            }
+        }
+
         // ==========================================
         // 核心連鎖計算引擎 (Calculation Engine)
         // ==========================================
         function recalculateDates() {
             if (appMode !== 'advanced') return;
+            clearDependencyCycles();
             
             let changed = false;
             let maxIterations = 500; // 防止無窮迴圈
@@ -579,7 +804,7 @@
                 const currentVal = select.value;
                 select.innerHTML = '<option value="">無前置任務 (手動設定起始)</option>';
                 tasks.forEach(t => {
-                    if (excludeId !== t.id) {
+                    if (excludeId !== t.id && !wouldCreateDependencyCycle(excludeId, t.id)) {
                         const opt = document.createElement('option');
                         opt.value = t.id;
                         opt.textContent = t.name;
@@ -655,6 +880,7 @@
                         renderCategories('task-category');
                         renderCategories('edit-task-category');
                         renderGantt();
+                        recordHistory();
                     });
 
                     editorEl.appendChild(div);
@@ -668,6 +894,7 @@
                         renderGantt();
                         const activeInput = document.querySelector(`#category-editor input[data-key="${key}"]`);
                         if(activeInput) { activeInput.focus(); const len = activeInput.value.length; activeInput.setSelectionRange(len, len); }
+                        recordHistory();
                     });
                 });
             }
@@ -892,7 +1119,63 @@
             bindDragEvents();
         }
 
-        window.removeTask = function(id) { tasks = tasks.filter(t => t.id !== id); renderGantt(); };
+        let pendingDeleteDecision = null;
+
+        function openDeleteDependencyModal(removedTask, dependentTasks, reconnectCandidate) {
+            pendingDeleteDecision = {
+                taskId: removedTask.id,
+                reconnectTaskId: reconnectCandidate ? reconnectCandidate.id : null
+            };
+
+            const modal = document.getElementById('delete-dependency-modal');
+            const message = document.getElementById('delete-dependency-message');
+            const reconnectBtn = document.getElementById('btn-delete-reconnect');
+            message.textContent = `「${removedTask.name}」是 ${dependentTasks.length} 個後續任務的前置任務。要將後續任務銜接到「${reconnectCandidate.name}」，還是清除前置關聯並維持在原地？`;
+            reconnectBtn.textContent = `銜接到「${reconnectCandidate.name}」`;
+            reconnectBtn.title = `銜接到「${reconnectCandidate.name}」`;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('delete-dependency-modal-content').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeDeleteDependencyModal() {
+            const modal = document.getElementById('delete-dependency-modal');
+            modal.classList.add('opacity-0');
+            document.getElementById('delete-dependency-modal-content').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+            pendingDeleteDecision = null;
+        }
+
+        window.removeTask = function(id) {
+            const removedTask = tasks.find(t => t.id === id);
+            if (!removedTask) return;
+
+            const dependentTasks = getDependentTasks(id);
+            const reconnectCandidate = findReconnectCandidate(removedTask);
+            if (dependentTasks.length > 0 && reconnectCandidate) {
+                openDeleteDependencyModal(removedTask, dependentTasks, reconnectCandidate);
+                return;
+            }
+
+            deleteTaskWithDependencyMode(id, 'clear');
+        };
+
+        document.getElementById('btn-delete-cancel').addEventListener('click', closeDeleteDependencyModal);
+        document.getElementById('btn-delete-keep').addEventListener('click', () => {
+            if (!pendingDeleteDecision) return;
+            const taskId = pendingDeleteDecision.taskId;
+            closeDeleteDependencyModal();
+            deleteTaskWithDependencyMode(taskId, 'clear');
+        });
+        document.getElementById('btn-delete-reconnect').addEventListener('click', () => {
+            if (!pendingDeleteDecision) return;
+            const { taskId, reconnectTaskId } = pendingDeleteDecision;
+            closeDeleteDependencyModal();
+            deleteTaskWithDependencyMode(taskId, 'reconnect', reconnectTaskId);
+        });
         
         window.openEditModal = function(id) {
             const task = tasks.find(t => t.id === id);
@@ -947,8 +1230,16 @@
             const taskIndex = tasks.findIndex(t => t.id === id);
             const task = tasks[taskIndex];
             
-            task.category = document.getElementById('edit-task-category').value;
-            task.name = document.getElementById('edit-task-name').value || '未命名';
+            const nextCategory = document.getElementById('edit-task-category').value;
+            const nextName = document.getElementById('edit-task-name').value || '未命名';
+            const nextPredId = appMode === 'advanced' ? document.getElementById('edit-task-predecessor').value : '';
+            if (nextPredId && wouldCreateDependencyCycle(id, nextPredId)) {
+                showMessage("無法設定前置任務：這會形成循環依賴");
+                return;
+            }
+
+            task.category = nextCategory;
+            task.name = nextName;
 
             if (appMode === 'simple') {
                 task.startDate = document.getElementById('edit-task-start').value || task.startDate;
@@ -956,7 +1247,7 @@
                 task.duration = diffDays(task.startDate, task.endDate);
             } else {
                 task.duration = parseInt(document.getElementById('edit-task-duration').value || 1);
-                const predId = document.getElementById('edit-task-predecessor').value;
+                const predId = nextPredId;
                 if (predId) {
                     task.predecessor = {
                         taskId: parseInt(predId),
@@ -971,6 +1262,7 @@
             
             updatePredecessorOptions();
             renderGantt(); 
+            recordHistory();
             closeEditModal();
         });
 
@@ -1012,9 +1304,16 @@
             document.getElementById('task-name').value = '';
             updatePredecessorOptions();
             renderGantt();
+            recordHistory();
         });
 
-        document.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', (e) => { viewMode = e.target.dataset.mode; renderGantt(); }));
+        document.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', (e) => {
+            if (viewMode === e.target.dataset.mode) return;
+            viewMode = e.target.dataset.mode;
+            applyViewModeUi();
+            renderGantt();
+            recordHistory();
+        }));
         
         document.getElementById('btn-sort').addEventListener('click', () => { 
             const catKeys = Object.keys(categories);
@@ -1026,6 +1325,7 @@
             }); 
             updatePredecessorOptions();
             renderGantt(); 
+            recordHistory();
             showMessage("已依自訂類別順序與日期重新排序");
         });
         
@@ -1125,8 +1425,9 @@
                     
                     // --- 新增修正：重新渲染前置任務下拉選單 ---
                     updatePredecessorOptions();
-                    
+                     
                     renderGantt();
+                    recordHistory();
                     showMessage("範本載入成功！");
                 }
                 pendingTemplateValue = '';
@@ -1150,6 +1451,24 @@
             showMessage("專案已成功儲存！");
         });
 
+        document.getElementById('btn-undo').addEventListener('click', () => {
+            if (undoStack.length <= 1) return;
+            const currentState = undoStack.pop();
+            redoStack.push(cloneData(currentState));
+            restoreProjectState(undoStack[undoStack.length - 1]);
+            showMessage("已回復上一步");
+        });
+
+        document.getElementById('btn-redo').addEventListener('click', () => {
+            if (redoStack.length === 0) return;
+            const nextState = redoStack.pop();
+            undoStack.push(cloneData(nextState));
+            restoreProjectState(nextState);
+            showMessage("已前進到下一步");
+        });
+
+        document.getElementById('proj-start-date').addEventListener('change', recordHistory);
+
         document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
 
         document.getElementById('file-import').addEventListener('change', (e) => {
@@ -1164,6 +1483,7 @@
                         if (data.projStartDate) document.getElementById('proj-start-date').value = data.projStartDate;
                         updatePredecessorOptions();
                         renderCategories('task-category'); renderCategories('edit-task-category'); renderGantt();
+                        recordHistory();
                         showMessage("專案讀取成功！");
                     } else showMessage("檔案格式不符，無法讀取。");
                 } catch (error) { showMessage("檔案解析失敗，請確定為有效的專案檔。"); }
@@ -1284,6 +1604,7 @@
             dragTooltip.classList.add('hidden');
             
             renderGantt(); 
+            recordHistory();
         });
 
         // --- 優化的拖曳與插入邏輯 ---
@@ -1360,6 +1681,7 @@
                     // 插入任務
                     tasks.splice(targetIndex, 0, movedTask);
                     renderGantt();
+                    recordHistory();
                 }
             });
 
@@ -1380,6 +1702,7 @@
         renderTemplateOptions();
         updatePredecessorOptions();
         renderCategories('task-category'); renderCategories('edit-task-category'); renderGantt();
+        recordHistory();
     </script>
 </body>
 </html>

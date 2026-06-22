@@ -1,13 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>簡易專案甘特圖 (進階關聯版)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
-        <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -15,6 +12,8 @@
       gtag('js', new Date());
       gtag('config', 'G-5YQY4RT9H2');
     </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -57,9 +56,9 @@
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200" id="confirm-modal-content">
             <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                確認載入範本？
+                <span id="confirm-modal-title">確認載入範本？</span>
             </h3>
-            <p class="text-sm text-slate-500 mb-4">載入範本將會完全覆蓋目前的專案資料，確定要繼續嗎？</p>
+            <p id="confirm-modal-message" class="text-sm text-slate-500 mb-4">載入範本將會完全覆蓋目前的專案資料，確定要繼續嗎？</p>
             
             <div class="mb-6">
                 <label class="block text-xs font-medium text-slate-700 mb-1">請設定專案起算日</label>
@@ -694,6 +693,14 @@
             updatePredecessorOptions();
             renderGantt();
             recordHistory();
+
+            if (mode === 'advanced' && getTemplates().advanced.demo) {
+                openTemplateConfirmModal('demo', {
+                    title: '是否載入進階範本？',
+                    message: '進階範本包含前後任務關聯；載入後會完全覆蓋目前專案資料。要載入嗎？',
+                    okText: '載入進階範本'
+                });
+            }
         }
 
         window.toggleInputMode = function() {
@@ -807,7 +814,11 @@
             if (reconnectedCount > 0) {
                 showMessage(`已刪除「${taskName}」，並銜接 ${reconnectedCount} 個後續任務`);
             } else if (clearedCount > 0) {
-                showMessage(`已刪除「${taskName}」，並清除 ${clearedCount} 個後續任務的前置關聯`);
+                if (appMode === 'advanced') {
+                    showMessage(`已刪除「${taskName}」，並清除 ${clearedCount} 個後續任務的前置關聯`);
+                } else {
+                    showMessage(`已刪除「${taskName}」`);
+                }
             }
         }
 
@@ -1207,7 +1218,7 @@
 
             const dependentTasks = getDependentTasks(id);
             const reconnectCandidate = findReconnectCandidate(removedTask);
-            if (dependentTasks.length > 0 && reconnectCandidate) {
+            if (appMode === 'advanced' && dependentTasks.length > 0 && reconnectCandidate) {
                 openDeleteDependencyModal(removedTask, dependentTasks, reconnectCandidate);
                 return;
             }
@@ -1419,17 +1430,30 @@
         });
         
         let pendingTemplateValue = '';
-        document.getElementById('template-select').addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (!val) return;
-            pendingTemplateValue = val;
-            
+        const templateConfirmDefaults = {
+            title: '確認載入範本？',
+            message: '載入範本將會完全覆蓋目前的專案資料，確定要繼續嗎？',
+            okText: '確定載入'
+        };
+
+        function openTemplateConfirmModal(templateValue, options = {}) {
+            pendingTemplateValue = templateValue;
+            document.getElementById('confirm-modal-title').textContent = options.title || templateConfirmDefaults.title;
+            document.getElementById('confirm-modal-message').textContent = options.message || templateConfirmDefaults.message;
+            document.getElementById('btn-confirm-ok').textContent = options.okText || templateConfirmDefaults.okText;
+
             const currentProjStart = document.getElementById('proj-start-date').value || todayStr;
             document.getElementById('modal-start-date').value = currentProjStart;
 
             const modal = document.getElementById('confirm-modal');
             modal.classList.remove('hidden');
             setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('confirm-modal-content').classList.remove('scale-95'); }, 10);
+        }
+
+        document.getElementById('template-select').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (!val) return;
+            openTemplateConfirmModal(val);
             e.target.value = '';
         });
 

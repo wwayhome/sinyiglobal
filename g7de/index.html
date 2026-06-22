@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>簡易專案甘特圖</title>
+    <title>簡易專案甘特圖 (進階關聯版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
-    <!-- Google tag (gtag.js) -->
+        <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -27,6 +27,21 @@
         .task-row { user-select: none; }
         .resize-handle { touch-action: none; }
         .drag-handle { touch-action: none; }
+        
+        /* 拖曳時的視覺回饋指示線 */
+        .drag-over-top {
+            box-shadow: inset 0 2px 0 0 #3b82f6 !important;
+            background-color: #eff6ff !important; /* bg-blue-50 */
+        }
+        .drag-over-bottom {
+            box-shadow: inset 0 -2px 0 0 #3b82f6 !important;
+            background-color: #eff6ff !important;
+        }
+
+        /* 進階版連線 */
+        .dependency-line {
+            stroke-dasharray: 4;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 p-4 md:p-8 relative min-h-screen">
@@ -37,7 +52,7 @@
         <span id="message-text" class="text-sm font-medium">訊息</span>
     </div>
 
-    <!-- 自訂確認對話框 (加入起算日輸入) -->
+    <!-- 自訂確認對話框 -->
     <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 z-[200] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200" id="confirm-modal-content">
             <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
@@ -54,6 +69,25 @@
             <div class="flex gap-3">
                 <button id="btn-confirm-cancel" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium p-2.5 rounded-lg transition-colors text-sm">取消</button>
                 <button id="btn-confirm-ok" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium p-2.5 rounded-lg transition-colors shadow-sm text-sm">確定載入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 刪除前置任務的銜接選擇對話框 -->
+    <div id="delete-dependency-modal" class="fixed inset-0 bg-slate-900/50 z-[210] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200" id="delete-dependency-modal-content">
+            <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                刪除前置任務？
+            </h3>
+            <p id="delete-dependency-message" class="text-sm text-slate-500 mb-4"></p>
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-3 mb-5">
+                銜接會讓後續任務改以前一個任務為前置，並依目前 Lag 重新排程；維持原地會清除前置關聯但保留目前日期。
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button id="btn-delete-cancel" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium p-2.5 rounded-lg transition-colors text-sm">取消</button>
+                <button id="btn-delete-keep" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-medium p-2.5 rounded-lg transition-colors text-sm">維持原地</button>
+                <button id="btn-delete-reconnect" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium p-2.5 rounded-lg transition-colors shadow-sm text-sm truncate">銜接前一個</button>
             </div>
         </div>
     </div>
@@ -75,16 +109,44 @@
                     <label class="block text-xs font-medium text-slate-500 mb-1">工作項目名稱</label>
                     <input type="text" id="edit-task-name" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
+                
+                <!-- 簡易模式欄位 -->
+                <div class="grid grid-cols-2 gap-4 edit-simple-fields">
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1">開始日期</label>
-                        <input type="date" id="edit-task-start" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                        <input type="date" id="edit-task-start" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1">結束日期</label>
-                        <input type="date" id="edit-task-end" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                        <input type="date" id="edit-task-end" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
                     </div>
                 </div>
+
+                <!-- 進階模式欄位 -->
+                <div class="space-y-4 edit-advanced-fields hidden">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">前置任務 (依賴關係)</label>
+                        <select id="edit-task-predecessor" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                            <option value="">無前置任務 (手動設定起始)</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="等前置任務完成後，延遲幾天開始">延遲天數 (Lag)</label>
+                            <input type="number" id="edit-task-lag" value="0" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                            <p class="text-[10px] text-slate-400 mt-1 leading-relaxed">0=隔天開始，-1=重疊 1 天，1=空 1 天</p>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate">工期天數 (Duration)</label>
+                            <input type="number" id="edit-task-duration" min="1" value="1" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                        </div>
+                    </div>
+                    <div id="edit-advanced-start-wrapper" class="hidden">
+                        <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate text-amber-600">無前置任務時，需指定開始日期</label>
+                        <input type="date" id="edit-task-adv-start" class="w-full border border-amber-300 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 outline-none text-sm text-slate-700">
+                    </div>
+                </div>
+
                 <div class="flex gap-3 pt-4 border-t border-slate-100">
                     <button type="button" onclick="closeEditModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium p-2.5 rounded-lg transition-colors text-sm">取消</button>
                     <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium p-2.5 rounded-lg transition-colors shadow-sm text-sm">儲存變更</button>
@@ -104,24 +166,33 @@
             <div>
                 <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 12 12 17 22 12"></polyline><polyline points="2 17 12 22 22 17"></polyline></svg>
-                    簡易專案甘特圖
+                    專案甘特圖 <span id="mode-badge" class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 uppercase">簡易版</span>
                 </h1>
-                <p class="text-sm text-slate-500 mt-1">快速輸入項目，一鍵產出精美進度表，適合與客戶溝通</p>
+                <p class="text-sm text-slate-500 mt-1" id="mode-desc">手動拖曳調整日期，一鍵產出精美進度表</p>
             </div>
             
             <div class="flex items-center gap-3">
-                <div class="bg-slate-100 p-1 rounded-lg flex text-sm" id="view-mode-container">
-                    <button data-mode="day" class="view-btn px-4 py-2 rounded-md transition-colors text-slate-600 hover:bg-slate-200">日視角</button>
-                    <button data-mode="month" class="view-btn bg-white shadow text-blue-600 font-medium px-4 py-2 rounded-md transition-colors">月視角</button>
-                    <button data-mode="quarter" class="view-btn px-4 py-2 rounded-md transition-colors text-slate-600 hover:bg-slate-200">季視角</button>
-                    <button data-mode="year" class="view-btn px-4 py-2 rounded-md transition-colors text-slate-600 hover:bg-slate-200">年視角</button>
+                <!-- 簡易 / 進階 模式切換 -->
+                <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <button id="btn-mode-simple" class="text-sm px-3 py-1.5 rounded-md font-medium transition-colors bg-white shadow text-blue-600" onclick="switchAppMode('simple')">簡易模式</button>
+                    <button id="btn-mode-advanced" class="text-sm px-3 py-1.5 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800" onclick="switchAppMode('advanced')">進階排程</button>
+                </div>
+
+                <div class="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+
+                <div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" title="檔案操作">
+                    <button id="btn-import" class="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors text-sm" title="讀取先前儲存的專案檔 (.json)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        讀取專案
+                    </button>
+                    <button id="btn-save" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors text-sm" title="將目前專案存為檔案，以便日後繼續編輯">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                        儲存專案
+                    </button>
                 </div>
                 
                 <select id="template-select" class="text-sm border border-slate-200 text-slate-600 rounded-md px-3 py-2 bg-white hover:bg-slate-50 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 shadow-sm font-medium">
                     <option value="" disabled selected>📂 載入範本...</option>
-                    <option value="demo">預設範例 (含資料)</option>
-                    <option value="blank">完全空白專案</option>
-                    <option value="realEstate">不動產標售範本</option>
                 </select>
             </div>
         </div>
@@ -135,13 +206,13 @@
                         快速新增工作項目
                     </h2>
                     
-                    <!-- 輸入模式切換 -->
-                    <div class="flex items-center gap-4 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                    <!-- 簡易模式的輸入切換 (進階模式隱藏) -->
+                    <div id="simple-input-toggles" class="flex items-center gap-4 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
                         <label class="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-slate-600">
-                            <input type="radio" name="input-mode" value="absolute" checked class="accent-blue-600" onchange="toggleInputMode()"> 絕對日期區間
+                            <input type="radio" name="input-mode" value="absolute" checked class="accent-blue-600" onchange="toggleInputMode()"> 絕對日期
                         </label>
                         <label class="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-slate-600">
-                            <input type="radio" name="input-mode" value="relative" class="accent-blue-600" onchange="toggleInputMode()"> 相對天數 (依專案起算)
+                            <input type="radio" name="input-mode" value="relative" class="accent-blue-600" onchange="toggleInputMode()"> 相對天數
                         </label>
                     </div>
                 </div>
@@ -151,36 +222,62 @@
                         <label class="block text-xs font-medium text-slate-500 mb-1">選擇類別</label>
                         <select id="task-category" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"></select>
                     </div>
-                    <div class="md:col-span-4">
+                    <div class="md:col-span-3">
                         <label class="block text-xs font-medium text-slate-500 mb-1">工作項目名稱</label>
-                        <input type="text" id="task-name" placeholder="例如：項目1" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                        <input type="text" id="task-name" placeholder="例如：項目1" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
                     </div>
 
-                    <!-- 絕對日期區塊 (預設顯示) -->
-                    <div id="absolute-inputs" class="md:col-span-4 grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-500 mb-1">開始日期</label>
-                            <input type="date" id="task-start" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm">
+                    <!-- 簡易模式輸入區塊 -->
+                    <div id="simple-inputs-area" class="md:col-span-5 relative">
+                        <!-- 絕對日期區塊 -->
+                        <div id="absolute-inputs" class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">開始日期</label>
+                                <input type="date" id="task-start" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">結束日期</label>
+                                <input type="date" id="task-end" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm">
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-500 mb-1">結束日期</label>
-                            <input type="date" id="task-end" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm">
+
+                        <!-- 相對天數區塊 -->
+                        <div id="relative-inputs" class="grid grid-cols-3 gap-2 hidden">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="專案起算日">專案起算日</label>
+                                <input type="date" id="proj-start-date" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm px-1">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="第幾天開始">第幾天開始</label>
+                                <input type="number" id="task-offset" min="1" value="1" placeholder="1" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="工期(需要天數)">工期(天)</label>
+                                <input type="number" id="task-duration" min="1" value="5" placeholder="5" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 相對天數區塊 (預設隱藏) -->
-                    <div id="relative-inputs" class="md:col-span-4 grid grid-cols-3 gap-2 hidden">
-                        <div>
-                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="專案起算日">專案起算日</label>
-                            <input type="date" id="proj-start-date" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm px-1">
+                    <!-- 進階模式輸入區塊 (隱藏) -->
+                    <div id="advanced-inputs-area" class="md:col-span-5 grid grid-cols-3 gap-2 hidden">
+                        <div class="col-span-1">
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate">前置任務</label>
+                            <select id="task-predecessor" class="w-full border border-indigo-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-indigo-50" onchange="toggleAdvStart()">
+                                <option value="">無前置</option>
+                            </select>
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="第幾天開始">第幾天開始</label>
-                            <input type="number" id="task-offset" min="1" value="1" placeholder="1" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        <div class="col-span-1" id="adv-start-container">
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate text-amber-600">手動開始日</label>
+                            <input type="date" id="task-adv-start" class="w-full border border-amber-300 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 outline-none text-slate-700 text-sm px-1">
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="工期(需要天數)">工期(天)</label>
-                            <input type="number" id="task-duration" min="1" value="5" placeholder="5" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        <div class="col-span-1 hidden" id="adv-lag-container">
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate">延遲天數</label>
+                            <input type="number" id="task-adv-lag" value="0" class="w-full border border-indigo-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-indigo-50">
+                            <p class="text-[10px] text-slate-400 mt-1 leading-relaxed">0=隔天開始，-1=重疊 1 天，1=空 1 天</p>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate">工期(天)</label>
+                            <input type="number" id="task-adv-duration" min="1" value="5" placeholder="5" class="w-full border border-indigo-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-indigo-50">
                         </div>
                     </div>
 
@@ -212,34 +309,44 @@
             <div class="flex flex-wrap items-center gap-2">
                 <!-- 隱藏的檔案上傳欄位 -->
                 <input type="file" id="file-import" accept=".json" class="hidden">
-                
-                <button id="btn-import" class="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm" title="讀取先前儲存的專案檔 (.json)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                    讀取專案
-                </button>
-                <button id="btn-save" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm" title="將目前專案存為檔案，以便日後繼續編輯">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                    儲存專案
-                </button>
-                
-                <div class="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                
-                <button id="btn-sort" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm" title="依類別名稱與開始時間自動重新排序">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg>
-                    自動排序
-                </button>
-                
-                <button id="btn-export" class="relative flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm overflow-hidden" title="截圖並下載完整甘特圖">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
-                    <span>截圖匯出</span>
-                    <div id="export-loading" class="hidden absolute inset-0 bg-blue-700 flex items-center justify-center z-10">
-                        <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+
+                <div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" title="檢視模式">
+                    <div class="bg-slate-100 p-1 rounded-lg flex text-sm" id="view-mode-container">
+                        <button data-mode="day" class="view-btn px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:bg-slate-200">日</button>
+                        <button data-mode="month" class="view-btn bg-white shadow text-blue-600 font-medium px-3 py-1.5 rounded-md transition-colors">月</button>
+                        <button data-mode="quarter" class="view-btn px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:bg-slate-200">季</button>
+                        <button data-mode="year" class="view-btn px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:bg-slate-200">年</button>
                     </div>
-                </button>
+                </div>
+
+                <div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" title="編輯操作">
+                    <button id="btn-undo" class="flex items-center gap-1.5 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg font-medium transition-colors text-sm cursor-not-allowed" title="回復上一步" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>
+                        回復
+                    </button>
+                    <button id="btn-redo" class="flex items-center gap-1.5 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg font-medium transition-colors text-sm cursor-not-allowed" title="下一步" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"></path><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path></svg>
+                        下一步
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" title="整理與輸出">
+                    <button id="btn-sort" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors text-sm" title="依類別名稱與開始時間自動重新排序">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"></path><path d="M17 20V4"></path><path d="m3 8 4-4 4 4"></path><path d="M7 4v16"></path></svg>
+                        自動排序
+                    </button>
+                    <button id="btn-export" class="relative flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors text-sm overflow-hidden" title="截圖並下載完整甘特圖">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+                        <span>截圖匯出</span>
+                        <div id="export-loading" class="hidden absolute inset-0 bg-blue-700 flex items-center justify-center z-10">
+                            <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        </div>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div id="chart-export-area" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col" style="min-height: 300px;">
+        <div id="chart-export-area" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col relative" style="min-height: 300px;">
             <!-- 圖表內容由 JavaScript 動態生成 -->
         </div>
 
@@ -247,79 +354,150 @@
 
     <script>
         // === 狀態與資料定義 ===
-        const todayStr = new Date().toISOString().slice(0, 10);
+        // 修正：使用本地時區獲取正確的 YYYY-MM-DD
+        const now = new Date();
+        const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        let appMode = 'simple'; 
         
         function addDaysToDateString(dateStr, days) {
-            const d = new Date(dateStr + 'T00:00:00');
-            d.setDate(d.getDate() + days);
+            if (!dateStr) return todayStr;
+            // 修正：強制以 UTC 處理日期加減，避免時區導致的一天誤差
+            const d = new Date(dateStr);
+            d.setUTCDate(d.getUTCDate() + days);
             return d.toISOString().split('T')[0];
         }
 
-        // 定義範本資料庫
+        function diffDays(startStr, endStr) {
+            if (!startStr || !endStr) return 1;
+            const d1 = new Date(startStr);
+            const d2 = new Date(endStr);
+            return Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+        }
+
+        // 定義範本資料庫 (依模式區分)
         const getTemplates = () => ({
-            'demo': {
-                categories: {
-                    'catA': { name: '類別A', color: 'bg-blue-500' },
-                    'catB': { name: '類別B', color: 'bg-purple-500' },
-                    'catC': { name: '類別C', color: 'bg-emerald-500' },
-                    'catD': { name: '類別D', color: 'bg-orange-500' },
-                    'catE': { name: '類別E', color: 'bg-pink-500' },
-                    'catF': { name: '類別F', color: 'bg-gray-500' }
+            'simple': {
+                'demo': {
+                    label: '預設範例',
+                    categories: {
+                        'catA': { name: '類別A', color: 'bg-blue-500' },
+                        'catB': { name: '類別B', color: 'bg-purple-500' },
+                        'catC': { name: '類別C', color: 'bg-emerald-500' },
+                        'catD': { name: '類別D', color: 'bg-orange-500' },
+                        'catE': { name: '類別E', color: 'bg-pink-500' },
+                        'catF': { name: '類別F', color: 'bg-slate-500' }
+                    },
+                    tasks: [
+                        { id: 1, category: 'catA', name: '項目1', startDate: addDaysToDateString(todayStr, 0), endDate: addDaysToDateString(todayStr, 5), duration: 6 },
+                        { id: 2, category: 'catA', name: '項目2', startDate: addDaysToDateString(todayStr, 6), endDate: addDaysToDateString(todayStr, 15), duration: 10 },
+                        { id: 3, category: 'catB', name: '項目3', startDate: addDaysToDateString(todayStr, 10), endDate: addDaysToDateString(todayStr, 35), duration: 26 },
+                        { id: 4, category: 'catC', name: '項目4', startDate: addDaysToDateString(todayStr, 30), endDate: addDaysToDateString(todayStr, 70), duration: 41 },
+                        { id: 5, category: 'catC', name: '項目5', startDate: addDaysToDateString(todayStr, 45), endDate: addDaysToDateString(todayStr, 75), duration: 31 },
+                        { id: 6, category: 'catD', name: '項目6', startDate: addDaysToDateString(todayStr, 76), endDate: addDaysToDateString(todayStr, 90), duration: 15 },
+                        { id: 7, category: 'catE', name: '項目7', startDate: addDaysToDateString(todayStr, 91), endDate: addDaysToDateString(todayStr, 95), duration: 5 }
+                    ]
                 },
-                tasks: [
-                    { id: 1, category: 'catA', name: '項目1', startDate: addDaysToDateString(todayStr, 0), endDate: addDaysToDateString(todayStr, 5) },
-                    { id: 2, category: 'catA', name: '項目2', startDate: addDaysToDateString(todayStr, 6), endDate: addDaysToDateString(todayStr, 15) },
-                    { id: 3, category: 'catB', name: '項目3', startDate: addDaysToDateString(todayStr, 10), endDate: addDaysToDateString(todayStr, 35) },
-                    { id: 4, category: 'catC', name: '項目4', startDate: addDaysToDateString(todayStr, 30), endDate: addDaysToDateString(todayStr, 70) },
-                    { id: 5, category: 'catC', name: '項目5', startDate: addDaysToDateString(todayStr, 45), endDate: addDaysToDateString(todayStr, 75) },
-                    { id: 6, category: 'catD', name: '項目6', startDate: addDaysToDateString(todayStr, 76), endDate: addDaysToDateString(todayStr, 90) },
-                    { id: 7, category: 'catE', name: '項目7', startDate: addDaysToDateString(todayStr, 91), endDate: addDaysToDateString(todayStr, 95) }
-                ]
+                'blank': {
+                    label: '完全空白專案',
+                    categories: { 'cat1': { name: '預設類別', color: 'bg-slate-500' } },
+                    tasks: []
+                },
+                'realEstate': {
+                    label: '不動產標售',
+                    categories: {
+                        'c1': { name: '前置期', color: 'bg-indigo-600' },
+                        'c2': { name: '潛銷期', color: 'bg-rose-500' },
+                        'c3': { name: '公告期', color: 'bg-amber-500' },
+                        'c4': { name: '結案期', color: 'bg-teal-600' }
+                    },
+                    tasks: [
+                        { id: 1, category: 'c1', name: '策略及工作計畫擬定', offset: 1, duration: 30 },
+                        { id: 2, category: 'c1', name: '簽立委託', offset: 17, duration: 14 },
+                        { id: 3, category: 'c2', name: '潛在客戶拜訪及推廣', offset: 31, duration: 104 },
+                        { id: 4, category: 'c2', name: '標售前置作業', offset: 46, duration: 30 },
+                        { id: 5, category: 'c3', name: '標售公告及決標日', offset: 76, duration: 60 },
+                        { id: 6, category: 'c3', name: '廣告或媒體曝光', offset: 76, duration: 60 },
+                        { id: 7, category: 'c4', name: '地政過戶及產權移轉', offset: 136, duration: 45 }
+                    ]
+                }
             },
-            'blank': {
-                categories: {
-                    'cat1': { name: '預設類別', color: 'bg-slate-500' }
+            'advanced': {
+                'demo': {
+                    label: '預設範例 (含關聯)',
+                    categories: {
+                        'catA': { name: '類別A', color: 'bg-blue-500' },
+                        'catB': { name: '類別B', color: 'bg-purple-500' },
+                        'catC': { name: '類別C', color: 'bg-emerald-500' },
+                        'catD': { name: '類別D', color: 'bg-orange-500' },
+                        'catE': { name: '類別E', color: 'bg-pink-500' },
+                        'catF': { name: '類別F', color: 'bg-slate-500' }
+                    },
+                    tasks: [
+                        { id: 1, category: 'catA', name: '項目1', startDate: addDaysToDateString(todayStr, 0), endDate: addDaysToDateString(todayStr, 5), duration: 6, predecessor: null },
+                        { id: 2, category: 'catA', name: '項目2', startDate: addDaysToDateString(todayStr, 6), endDate: addDaysToDateString(todayStr, 15), duration: 10, predecessor: { taskId: 1, lag: 0 } },
+                        { id: 3, category: 'catB', name: '項目3', startDate: addDaysToDateString(todayStr, 10), endDate: addDaysToDateString(todayStr, 35), duration: 26, predecessor: { taskId: 2, lag: -6 } },
+                        { id: 4, category: 'catC', name: '項目4', startDate: addDaysToDateString(todayStr, 30), endDate: addDaysToDateString(todayStr, 70), duration: 41, predecessor: { taskId: 3, lag: -6 } },
+                        { id: 5, category: 'catC', name: '項目5', startDate: addDaysToDateString(todayStr, 45), endDate: addDaysToDateString(todayStr, 75), duration: 31, predecessor: { taskId: 4, lag: -26 } },
+                        { id: 6, category: 'catD', name: '項目6', startDate: addDaysToDateString(todayStr, 76), endDate: addDaysToDateString(todayStr, 90), duration: 15, predecessor: { taskId: 5, lag: 0 } },
+                        { id: 7, category: 'catE', name: '項目7', startDate: addDaysToDateString(todayStr, 91), endDate: addDaysToDateString(todayStr, 95), duration: 5, predecessor: { taskId: 6, lag: 0 } }
+                    ]
                 },
-                tasks: []
-            },
-            'realEstate': {
-                categories: {
-                    'c1': { name: '前置期', color: 'bg-indigo-600' },
-                    'c2': { name: '潛銷期', color: 'bg-rose-500' },
-                    'c3': { name: '公告期', color: 'bg-amber-500' },
-                    'c4': { name: '結案期', color: 'bg-teal-600' }
+                'blank': {
+                    label: '完全空白專案',
+                    categories: { 'cat1': { name: '預設類別', color: 'bg-slate-500' } },
+                    tasks: []
                 },
-                tasks: [
-                    // 策略及工作計畫擬定: 第 1 天開始，為期 30 天 (1 ~ 30)
-                    { id: 1, category: 'c1', name: '策略及工作計畫擬定', offset: 1, duration: 30 },
-                    // 簽立委託: 向後推一天改為 17，為期 14 天 (17 ~ 30)，剛好對齊前一個任務的結束日
-                    { id: 2, category: 'c1', name: '簽立委託', offset: 17, duration: 14 },
-                    // 潛在客戶拜訪及推廣: 接續前置期(c1)結束(第30天)，第 31 天開始，為期 45 天 (31 ~ 75)
-                    { id: 3, category: 'c2', name: '潛在客戶拜訪及推廣', offset: 31, duration: 104 },
-                    // 標售前置作業: 與潛銷期(c2)第一個工作(31)同日開始，但延遲 15 天 (31 + 15 = 46)，為期 30 天 (46 ~ 75)
-                    { id: 4, category: 'c2', name: '標售前置作業', offset: 46, duration: 30 },
-                    // 標售公告及決標日: 接續潛銷期(c2)結束(第75天)，第 76 天開始，為期 60 天 (76 ~ 135)
-                    { id: 5, category: 'c3', name: '標售公告及決標日', offset: 76, duration: 60 },
-                    // 廣告或媒體曝光: 與公告期同步進行，第 76 天開始，為期 60 天 (76 ~ 135)
-                    { id: 6, category: 'c3', name: '廣告或媒體曝光', offset: 76, duration: 60 },
-                    // 地政過戶及產權移轉: 決標後接續(第135天)，第 136 天開始，為期 45 天 (136 ~ 180)
-                    { id: 7, category: 'c4', name: '地政過戶及產權移轉', offset: 136, duration: 45 }
-                ]
+                'realEstate': {
+                    label: '不動產標售 (含關聯)',
+                    categories: {
+                        'c1': { name: '前置期', color: 'bg-indigo-600' },
+                        'c2': { name: '潛銷期', color: 'bg-rose-500' },
+                        'c3': { name: '公告期', color: 'bg-amber-500' },
+                        'c4': { name: '結案期', color: 'bg-teal-600' }
+                    },
+                    tasks: [
+                        // 保證對齊：前置任務(策略)為期30天。後續任務(簽立委託)工期14天，Lag設為-14可確保結束日完全對齊在同一天！
+                        { id: 1, category: 'c1', name: '策略及工作計畫擬定', offset: 1, duration: 30, predecessor: null },
+                        { id: 2, category: 'c1', name: '簽立委託', offset: 17, duration: 14, predecessor: { taskId: 1, lag: -14 } },
+                        { id: 3, category: 'c2', name: '潛在客戶拜訪及推廣', offset: 31, duration: 104, predecessor: { taskId: 2, lag: 0 } },
+                        { id: 4, category: 'c2', name: '標售前置作業', offset: 46, duration: 30, predecessor: { taskId: 2, lag: 15 } },
+                        { id: 5, category: 'c3', name: '標售公告及決標日', offset: 76, duration: 60, predecessor: { taskId: 4, lag: 0 } },
+                        { id: 6, category: 'c3', name: '廣告或媒體曝光', offset: 76, duration: 60, predecessor: { taskId: 4, lag: 0 } },
+                        { id: 7, category: 'c4', name: '地政過戶及產權移轉', offset: 136, duration: 45, predecessor: { taskId: 5, lag: 0 } }
+                    ]
+                }
             }
         });
 
-        // 預設載入 'demo' 範本
-        let currentTemplate = getTemplates()['demo'];
+        // 動態渲染範本選單
+        function renderTemplateOptions() {
+            const select = document.getElementById('template-select');
+            select.innerHTML = '<option value="" disabled selected>📂 載入範本...</option>';
+            const currentTemplates = getTemplates()[appMode];
+            Object.entries(currentTemplates).forEach(([key, tpl]) => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = tpl.label;
+                select.appendChild(opt);
+            });
+        }
+
+        // 預設載入 simple 模式的 'demo' 範本
+        let currentTemplate = getTemplates()['simple']['demo'];
         let categories = JSON.parse(JSON.stringify(currentTemplate.categories));
         let tasks = JSON.parse(JSON.stringify(currentTemplate.tasks));
 
         document.getElementById('proj-start-date').value = todayStr;
+        document.getElementById('task-adv-start').value = todayStr;
 
         let viewMode = 'month'; 
         let inputMode = 'absolute'; 
         let msgTimeout = null;
         let categoryDragSrcEl = null; 
         const LEFT_COLUMN_WIDTH = "w-[300px]";
+        const HISTORY_LIMIT = 80;
+        let undoStack = [];
+        let redoStack = [];
 
         function showMessage(msg) {
             const msgBox = document.getElementById('message-box');
@@ -333,10 +511,100 @@
             }, 3000);
         }
 
-        window.toggleInputMode = function() {
-            inputMode = document.querySelector('input[name="input-mode"]:checked').value;
+        function ensureEndNotBeforeStart(startInputId, endInputId) {
+            const startInput = document.getElementById(startInputId);
+            const endInput = document.getElementById(endInputId);
+            if (!startInput || !endInput) return false;
+
+            endInput.min = startInput.value || '';
+            if (startInput.value && endInput.value && endInput.value < startInput.value) {
+                endInput.value = startInput.value;
+                showMessage("結束日期不能早於開始日期，已自動調整");
+                return true;
+            }
+
+            return false;
+        }
+
+        function bindDateGuard(startInputId, endInputId) {
+            const startInput = document.getElementById(startInputId);
+            const endInput = document.getElementById(endInputId);
+            if (!startInput || !endInput) return;
+
+            startInput.addEventListener('change', () => ensureEndNotBeforeStart(startInputId, endInputId));
+            endInput.addEventListener('change', () => ensureEndNotBeforeStart(startInputId, endInputId));
+            ensureEndNotBeforeStart(startInputId, endInputId);
+        }
+
+        function normalizeDateRange(startDate, endDate, endInputId = null) {
+            if (startDate && endDate && endDate < startDate) {
+                if (endInputId) {
+                    const endInput = document.getElementById(endInputId);
+                    if (endInput) endInput.value = startDate;
+                }
+                showMessage("結束日期不能早於開始日期，已自動調整");
+                return startDate;
+            }
+
+            return endDate;
+        }
+
+        function cloneData(data) {
+            return JSON.parse(JSON.stringify(data));
+        }
+
+        function getProjectState() {
+            return {
+                appMode,
+                inputMode,
+                viewMode,
+                categories: cloneData(categories),
+                tasks: cloneData(tasks),
+                projStartDate: document.getElementById('proj-start-date').value,
+                taskAdvStartDate: document.getElementById('task-adv-start').value
+            };
+        }
+
+        function statesEqual(a, b) {
+            return JSON.stringify(a) === JSON.stringify(b);
+        }
+
+        function setHistoryButtonState(buttonId, enabled) {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+
+            button.disabled = !enabled;
+            button.className = enabled
+                ? "flex items-center gap-1.5 bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm"
+                : "flex items-center gap-1.5 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm text-sm cursor-not-allowed";
+        }
+
+        function updateHistoryButtons() {
+            setHistoryButtonState('btn-undo', undoStack.length > 1);
+            setHistoryButtonState('btn-redo', redoStack.length > 0);
+        }
+
+        function recordHistory() {
+            const snapshot = getProjectState();
+            const lastSnapshot = undoStack[undoStack.length - 1];
+            if (lastSnapshot && statesEqual(lastSnapshot, snapshot)) {
+                updateHistoryButtons();
+                return;
+            }
+
+            undoStack.push(snapshot);
+            if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+            redoStack = [];
+            updateHistoryButtons();
+        }
+
+        function applyInputModeUi() {
             const absInputs = document.getElementById('absolute-inputs');
             const relInputs = document.getElementById('relative-inputs');
+            document.querySelectorAll('input[name="input-mode"]').forEach(input => {
+                input.checked = input.value === inputMode;
+            });
+
             if (inputMode === 'relative') {
                 absInputs.classList.add('hidden');
                 relInputs.classList.remove('hidden');
@@ -344,10 +612,265 @@
                 relInputs.classList.add('hidden');
                 absInputs.classList.remove('hidden');
             }
+        }
+
+        function applyAppModeUi() {
+            const btnSimple = document.getElementById('btn-mode-simple');
+            const btnAdvanced = document.getElementById('btn-mode-advanced');
+            const badge = document.getElementById('mode-badge');
+            const desc = document.getElementById('mode-desc');
+            const simpleToggles = document.getElementById('simple-input-toggles');
+            const simpleArea = document.getElementById('simple-inputs-area');
+            const advArea = document.getElementById('advanced-inputs-area');
+
+            if (appMode === 'simple') {
+                btnSimple.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors bg-white shadow text-blue-600";
+                btnAdvanced.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800";
+                badge.innerText = "簡易版";
+                badge.className = "ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 uppercase";
+                desc.innerText = "手動拖曳調整日期，一鍵產出精美進度表";
+                simpleToggles.classList.remove('hidden');
+                simpleArea.classList.remove('hidden');
+                advArea.classList.add('hidden');
+            } else {
+                btnAdvanced.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors bg-indigo-600 shadow text-white";
+                btnSimple.className = "text-sm px-3 py-1.5 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800";
+                badge.innerText = "進階關聯版";
+                badge.className = "ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase";
+                desc.innerText = "啟用連鎖計算引擎，設定前後置任務關係";
+                simpleToggles.classList.add('hidden');
+                simpleArea.classList.add('hidden');
+                advArea.classList.remove('hidden');
+            }
+        }
+
+        function applyViewModeUi() {
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                if (btn.dataset.mode === viewMode) {
+                    btn.className = "view-btn bg-white shadow text-blue-600 font-medium px-3 py-1.5 rounded-md transition-colors";
+                } else {
+                    btn.className = "view-btn px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:bg-slate-200";
+                }
+            });
+        }
+
+        function restoreProjectState(state) {
+            appMode = state.appMode || 'simple';
+            inputMode = state.inputMode || 'absolute';
+            viewMode = state.viewMode || 'month';
+            categories = cloneData(state.categories || {});
+            tasks = cloneData(state.tasks || []);
+            document.getElementById('proj-start-date').value = state.projStartDate || todayStr;
+            document.getElementById('task-adv-start').value = state.taskAdvStartDate || state.projStartDate || todayStr;
+
+            applyInputModeUi();
+            applyAppModeUi();
+            applyViewModeUi();
+            renderTemplateOptions();
+            renderCategories('task-category');
+            renderCategories('edit-task-category');
+            updatePredecessorOptions();
+            renderGantt();
+            updateHistoryButtons();
+        }
+
+        // ==========================================
+        // 模式切換邏輯 (簡易 vs 進階)
+        // ==========================================
+        function switchAppMode(mode) {
+            if (appMode === mode) return;
+            appMode = mode;
+            
+            if (mode === 'advanced') {
+                // 初次切換時，確保每個任務都有 duration
+                tasks.forEach(t => {
+                    if (!t.duration) t.duration = diffDays(t.startDate, t.endDate);
+                });
+                recalculateDates();
+            }
+            
+            applyAppModeUi();
+            renderTemplateOptions(); // 更新範本下拉選單
+            updatePredecessorOptions();
+            renderGantt();
+            recordHistory();
+        }
+
+        window.toggleInputMode = function() {
+            inputMode = document.querySelector('input[name="input-mode"]:checked').value;
+            applyInputModeUi();
+            recordHistory();
         };
 
+        window.toggleAdvStart = function() {
+            const predId = document.getElementById('task-predecessor').value;
+            const startContainer = document.getElementById('adv-start-container');
+            const lagContainer = document.getElementById('adv-lag-container');
+            if (predId) {
+                startContainer.classList.add('hidden');
+                lagContainer.classList.remove('hidden');
+            } else {
+                startContainer.classList.remove('hidden');
+                lagContainer.classList.add('hidden');
+            }
+        };
+
+        function wouldCreateDependencyCycle(taskId, predecessorId) {
+            if (!taskId || !predecessorId) return false;
+            const targetId = parseInt(taskId);
+            let currentId = parseInt(predecessorId);
+            const visited = new Set();
+
+            while (currentId) {
+                if (currentId === targetId) return true;
+                if (visited.has(currentId)) return false;
+                visited.add(currentId);
+
+                const currentTask = tasks.find(t => t.id == currentId);
+                if (!currentTask || !currentTask.predecessor || !currentTask.predecessor.taskId) return false;
+                currentId = parseInt(currentTask.predecessor.taskId);
+            }
+
+            return false;
+        }
+
+        function clearDependencyCycles() {
+            let clearedCount = 0;
+            tasks.forEach(task => {
+                if (task.predecessor && task.predecessor.taskId && wouldCreateDependencyCycle(task.id, task.predecessor.taskId)) {
+                    task.predecessor = null;
+                    task.duration = diffDays(task.startDate, task.endDate);
+                    clearedCount++;
+                }
+            });
+
+            if (clearedCount > 0) {
+                showMessage(`偵測到 ${clearedCount} 個循環依賴，已清除相關前置任務`);
+            }
+
+            return clearedCount;
+        }
+
+        function getDependentTasks(taskId) {
+            return tasks.filter(task => task.predecessor && task.predecessor.taskId == taskId);
+        }
+
+        function findReconnectCandidate(removedTask) {
+            if (!removedTask) return null;
+
+            if (removedTask.predecessor && removedTask.predecessor.taskId) {
+                const directPredecessor = tasks.find(task => task.id == removedTask.predecessor.taskId);
+                if (directPredecessor) return directPredecessor;
+            }
+
+            const removedIndex = tasks.findIndex(task => task.id === removedTask.id);
+            for (let i = removedIndex - 1; i >= 0; i--) {
+                if (tasks[i] && tasks[i].id !== removedTask.id) return tasks[i];
+            }
+
+            return null;
+        }
+
+        function deleteTaskWithDependencyMode(taskId, mode, reconnectTaskId = null) {
+            const removedTask = tasks.find(task => task.id === taskId);
+            if (!removedTask) return;
+
+            const dependentSnapshots = getDependentTasks(taskId).map(task => ({
+                id: task.id,
+                lag: task.predecessor && task.predecessor.lag !== undefined && task.predecessor.lag !== '' ? parseInt(task.predecessor.lag) : 0
+            }));
+            const reconnectTask = reconnectTaskId ? tasks.find(task => task.id == reconnectTaskId) : null;
+
+            tasks = tasks.filter(task => task.id !== taskId);
+
+            let reconnectedCount = 0;
+            let clearedCount = 0;
+            dependentSnapshots.forEach(snapshot => {
+                const task = tasks.find(t => t.id === snapshot.id);
+                if (!task) return;
+
+                if (mode === 'reconnect' && reconnectTask && !wouldCreateDependencyCycle(task.id, reconnectTask.id)) {
+                    task.predecessor = { taskId: reconnectTask.id, lag: snapshot.lag };
+                    reconnectedCount++;
+                } else {
+                    task.predecessor = null;
+                    task.duration = diffDays(task.startDate, task.endDate);
+                    clearedCount++;
+                }
+            });
+
+            updatePredecessorOptions();
+            renderGantt();
+            recordHistory();
+
+            const taskName = removedTask.name || '工作項目';
+            if (reconnectedCount > 0) {
+                showMessage(`已刪除「${taskName}」，並銜接 ${reconnectedCount} 個後續任務`);
+            } else if (clearedCount > 0) {
+                showMessage(`已刪除「${taskName}」，並清除 ${clearedCount} 個後續任務的前置關聯`);
+            }
+        }
+
+        // ==========================================
+        // 核心連鎖計算引擎 (Calculation Engine)
+        // ==========================================
+        function recalculateDates() {
+            if (appMode !== 'advanced') return;
+            clearDependencyCycles();
+            
+            let changed = false;
+            let maxIterations = 500; // 防止無窮迴圈
+            
+            do {
+                changed = false;
+                tasks.forEach(task => {
+                    let expectedStart = task.startDate;
+                    
+                    if (task.predecessor && task.predecessor.taskId) {
+                        const pred = tasks.find(t => t.id == task.predecessor.taskId);
+                        // 確保 pred 的 endDate 已存在再推算，否則略過等下一次迴圈
+                        if (pred && pred.endDate) {
+                            const lagDays = task.predecessor.lag !== undefined && task.predecessor.lag !== '' ? parseInt(task.predecessor.lag) : 0;
+                            // 修正：標準甘特圖中 Lag=0 代表前置結束後的「隔天」開始，因此加上 1 天
+                            expectedStart = addDaysToDateString(pred.endDate, lagDays + 1);
+                        }
+                    }
+
+                    if (!task.duration || task.duration < 1) task.duration = 1;
+                    const expectedEnd = addDaysToDateString(expectedStart, task.duration - 1);
+
+                    if (task.startDate !== expectedStart || task.endDate !== expectedEnd) {
+                        task.startDate = expectedStart;
+                        task.endDate = expectedEnd;
+                        changed = true;
+                    }
+                });
+                maxIterations--;
+            } while (changed && maxIterations > 0);
+        }
+
+        function updatePredecessorOptions(excludeId = null) {
+            const selects = [document.getElementById('task-predecessor'), document.getElementById('edit-task-predecessor')];
+            selects.forEach(select => {
+                if(!select) return;
+                const currentVal = select.value;
+                select.innerHTML = '<option value="">無前置任務 (手動設定起始)</option>';
+                tasks.forEach(t => {
+                    if (excludeId !== t.id && !wouldCreateDependencyCycle(excludeId, t.id)) {
+                        const opt = document.createElement('option');
+                        opt.value = t.id;
+                        opt.textContent = t.name;
+                        select.appendChild(opt);
+                    }
+                });
+                if (currentVal) select.value = currentVal;
+            });
+            toggleAdvStart();
+        }
+
         const getIcons = () => ({
-            grip: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1.5"></circle><circle cx="9" cy="5" r="1.5"></circle><circle cx="9" cy="19" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="15" cy="5" r="1.5"></circle><circle cx="15" cy="19" r="1.5"></circle></svg>`,
+            // 更新：改為三條水平線(Hamburger)樣式，代表可以上下拖拉排序
+            grip: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>`,
             trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>`,
             pencil: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`,
             calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-20"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>`
@@ -355,6 +878,7 @@
 
         function renderCategories(selectElementId = 'task-category') {
             const selectEl = document.getElementById(selectElementId);
+            if (!selectEl) return;
             const currentSelected = selectEl.value;
             selectEl.innerHTML = '';
             Object.entries(categories).forEach(([key, cat]) => {
@@ -408,6 +932,7 @@
                         renderCategories('task-category');
                         renderCategories('edit-task-category');
                         renderGantt();
+                        recordHistory();
                     });
 
                     editorEl.appendChild(div);
@@ -421,6 +946,7 @@
                         renderGantt();
                         const activeInput = document.querySelector(`#category-editor input[data-key="${key}"]`);
                         if(activeInput) { activeInput.focus(); const len = activeInput.value.length; activeInput.setSelectionRange(len, len); }
+                        recordHistory();
                     });
                 });
             }
@@ -484,7 +1010,121 @@
             return { left: `${Math.max(0, leftPercent)}%`, width: `${Math.min(100 - leftPercent, widthPercent)}%` };
         }
 
+        // ==========================================
+        // 修正後的 SVG 連線繪製函式 (直角轉折 + 正確座標對齊)
+        // ==========================================
+        function drawDependencyLines() {
+            const svgLayer = document.getElementById('dependency-svg');
+            if (!svgLayer) return;
+
+            // 將 arrow 的 path 修改為兩條線段(開放箭頭)，並加上 stroke 設定
+            let svgContent = `<defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </marker>
+            </defs>`;
+
+            if (appMode !== 'advanced') {
+                svgLayer.innerHTML = svgContent;
+                return;
+            }
+
+            // 取得 SVG 畫布本身相對於視窗的座標，作為絕對的計算基準點
+            const svgRect = svgLayer.getBoundingClientRect();
+
+            tasks.forEach(task => {
+                if (task.predecessor && task.predecessor.taskId) {
+                    const predEl = document.querySelector(`.task-bar-element[data-task-id="${task.predecessor.taskId}"]`);
+                    const curEl = document.querySelector(`.task-bar-element[data-task-id="${task.id}"]`);
+                    
+                    if (predEl && curEl) {
+                        const predRect = predEl.getBoundingClientRect();
+                        const curRect = curEl.getBoundingClientRect();
+
+                        // 座標計算：拿色塊的螢幕位置減掉 SVG 畫布的螢幕位置，完美對齊座標系！
+                        const startX = predRect.right - svgRect.left;
+                        const startY = predRect.top - svgRect.top + (predRect.height / 2);
+                        
+                        const endX = curRect.left - svgRect.left;
+                        const endY = curRect.top - svgRect.top + (curRect.height / 2);
+
+                        // 繪製直角轉折的虛線 (Orthogonal Lines)
+                        let pathD = `M ${startX} ${startY} `;
+                        
+                        if (startX <= endX - 30) {
+                            // 正常的由左至右 (直角轉折：向右 -> 垂直向下/上 -> 向右)
+                            const midX = startX + 15; 
+                            pathD += `L ${midX} ${startY} L ${midX} ${endY} L ${endX - 2} ${endY}`;
+                        } else {
+                            // 向後回繞的線 (前置任務結束時間晚於後續任務的開始時間)
+                            // 增加轉折的長度，讓箭頭後方有比較長的水平線 (turnLeftX 往左延伸 30px)
+                            const dropY = startY + 28; 
+                            const turnLeftX = Math.max(0, endX - 30); 
+                            
+                            pathD += `L ${startX + 15} ${startY} `;
+                            pathD += `L ${startX + 15} ${dropY} `;
+                            pathD += `L ${turnLeftX} ${dropY} `;
+                            pathD += `L ${turnLeftX} ${endY} `;
+                            pathD += `L ${endX - 2} ${endY}`;
+                        }
+
+                        // 將計算好的線段加入 SVG 中
+                        svgContent += `<path d="${pathD}" fill="none" stroke="#4f46e5" stroke-width="1.5" class="dependency-line" marker-end="url(#arrow)" />`;
+                    }
+                }
+            });
+
+            svgLayer.innerHTML = svgContent;
+        }
+
+        // --- 新增：雙擊重新命名任務功能 ---
+        window.editTaskNameInline = function(element, taskId) {
+            // 防止重複點擊產生多個 input
+            if (element.querySelector('input')) return;
+            
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            const currentName = task.name;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            // 套用 Tailwind 樣式，讓輸入框融入背景
+            input.className = 'w-full text-sm font-medium text-slate-800 border-b border-blue-500 focus:outline-none bg-white py-0.5 px-1';
+            
+            // 儲存邏輯
+            const save = () => {
+                const newName = input.value.trim();
+                if (newName && newName !== currentName) {
+                    task.name = newName;
+                    renderGantt(); // 重新渲染畫面
+                } else {
+                    // 若空白或沒改，恢復原狀
+                    element.innerHTML = currentName;
+                }
+                updatePredecessorOptions(); // 確保下拉選單名稱也更新
+            };
+            
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    input.blur(); // 觸發 blur 自動儲存
+                } else if (e.key === 'Escape') {
+                    input.value = currentName; // 放棄修改
+                    input.blur();
+                }
+            });
+            
+            element.innerHTML = '';
+            element.appendChild(input);
+            input.focus();
+            input.select();
+        };
+
         function renderGantt() {
+            recalculateDates(); 
+
             const container = document.getElementById('chart-export-area');
             const icons = getIcons();
             if (tasks.length === 0) { container.innerHTML = `<div class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 min-h-[250px]">${icons.calendar}<p class="text-base">目前沒有工作項目</p></div>`; return; }
@@ -492,20 +1132,23 @@
             const headersHtml = timeHeaders.map(h => `<div class="border-r border-slate-200 flex items-center justify-center text-[11px] font-medium text-slate-500 py-1.5" style="width: ${(h.days / totalDays) * 100}%">${h.label}</div>`).join('');
             const gridHtml = timeHeaders.map(h => `<div class="border-r border-slate-100 h-full" style="width: ${(h.days / totalDays) * 100}%"></div>`).join('');
             
-            // 安全取得預設分類
             const fallbackCategory = Object.values(categories)[0] || { name: '未知類別', color: 'bg-slate-500' };
             
             const tasksHtml = tasks.map(task => {
                 const style = getTaskStyle(task.startDate, task.endDate, timelineStart, timelineEnd, totalDays);
                 const catConfig = categories[task.category] || fallbackCategory;
+                
+                // 決定是否顯示「禁止平移」游標
+                const cursorMoveClass = (appMode === 'advanced' && task.predecessor && task.predecessor.taskId) ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing';
+                
                 return `<div data-id="${task.id}" class="task-row flex border-b border-slate-100 hover:bg-slate-50 group relative transition-colors">
-                    <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-3 px-2 border-r border-slate-200 bg-white flex items-center justify-between z-10">
+                    <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-3 px-2 border-r border-slate-200 bg-white flex items-center justify-between z-10 relative">
                         <div class="flex items-center gap-2 w-full pr-1 overflow-hidden">
                             <div class="drag-handle text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded cursor-grab opacity-40 group-hover:opacity-100 transition-all flex items-center justify-center" title="按住此處上下拖曳調整排序">
                                 ${icons.grip}
                             </div>
                             <span class="text-[10px] px-1.5 py-0.5 rounded-sm text-white shrink-0 ${catConfig.color}">${catConfig.name}</span>
-                            <div class="text-sm font-medium text-slate-800 truncate flex-1">${task.name}</div>
+                            <div class="text-sm font-medium text-slate-800 truncate flex-1 cursor-text hover:text-blue-600 transition-colors" ondblclick="editTaskNameInline(this, ${task.id})" title="雙擊滑鼠左鍵可直接修改名稱">${task.name}</div>
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="openEditModal(${task.id})" class="text-slate-400 hover:text-blue-500 p-1">${icons.pencil}</button>
@@ -513,72 +1156,218 @@
                         </div>
                     </div>
                     <div class="flex-1 relative py-3 px-1 z-0">
-                        <div class="absolute h-8 rounded shadow-sm flex items-center text-white text-sm font-medium cursor-grab active:cursor-grabbing hover:ring-2 ring-black/10 ${catConfig.color} task-bar-element" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：${task.name}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;操作：按住區塊左右平移，按住右側邊緣調整結束日">
+                        <div class="absolute h-8 rounded shadow-sm flex items-center text-white text-sm font-medium hover:ring-2 ring-black/10 ${catConfig.color} task-bar-element ${cursorMoveClass}" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：${task.name}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;工期：${task.duration} 天">
                             <span class="whitespace-nowrap pointer-events-none select-none z-10 pl-2 pr-1" style="text-shadow: -1px -1px 0 rgba(0,0,0,0.6), 1px -1px 0 rgba(0,0,0,0.6), -1px 1px 0 rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,0.6);">${task.name}</span>
-                            <div class="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-black/20 resize-handle rounded-r z-20" data-task-id="${task.id}" title="拖曳調整結束日期"></div>
+                            <div class="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-black/20 resize-handle rounded-r z-20" data-task-id="${task.id}" title="拖曳調整工期"></div>
                         </div>
                     </div>
                 </div>`;
             }).join('');
             
-            // 重要：包含 chart-scroll-container 與 chart-content-wrapper class
-            container.innerHTML = `<div class="flex flex-col w-full overflow-x-auto relative pb-2 chart-scroll-container"><div class="min-w-[800px] chart-content-wrapper"><div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10"><div class="${LEFT_COLUMN_WIDTH} shrink-0 p-2 border-r border-slate-200 font-bold text-slate-600 text-sm">工作項目</div><div class="flex-1 relative flex">${headersHtml}</div></div><div class="relative" id="tasks-list"><div class="absolute top-0 bottom-0 right-0 flex pointer-events-none" style="left: 300px;">${gridHtml}</div>${tasksHtml}</div></div></div>`;
+            // 重要：高度設定 h-full 確保 SVG 不會塌陷
+            container.innerHTML = `<div class="flex flex-col w-full overflow-x-auto relative pb-2 chart-scroll-container"><div class="min-w-[800px] chart-content-wrapper"><div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10"><div class="${LEFT_COLUMN_WIDTH} shrink-0 p-2 border-r border-slate-200 font-bold text-slate-600 text-sm">工作項目</div><div class="flex-1 relative flex">${headersHtml}</div></div><div class="relative" id="tasks-list"><div class="absolute top-0 bottom-0 right-0 flex pointer-events-none" style="left: 300px;">${gridHtml}</div><svg id="dependency-svg" class="absolute top-0 left-0 pointer-events-none z-20 h-full" style="left: 300px; width: calc(100% - 300px);"></svg>${tasksHtml}</div></div></div>`;
+            
+            setTimeout(drawDependencyLines, 0);
             bindDragEvents();
         }
 
-        window.removeTask = function(id) { tasks = tasks.filter(t => t.id !== id); renderGantt(); };
+        let pendingDeleteDecision = null;
+
+        function openDeleteDependencyModal(removedTask, dependentTasks, reconnectCandidate) {
+            pendingDeleteDecision = {
+                taskId: removedTask.id,
+                reconnectTaskId: reconnectCandidate ? reconnectCandidate.id : null
+            };
+
+            const modal = document.getElementById('delete-dependency-modal');
+            const message = document.getElementById('delete-dependency-message');
+            const reconnectBtn = document.getElementById('btn-delete-reconnect');
+            message.textContent = `「${removedTask.name}」是 ${dependentTasks.length} 個後續任務的前置任務。要將後續任務銜接到「${reconnectCandidate.name}」，還是清除前置關聯並維持在原地？`;
+            reconnectBtn.textContent = `銜接到「${reconnectCandidate.name}」`;
+            reconnectBtn.title = `銜接到「${reconnectCandidate.name}」`;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('delete-dependency-modal-content').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeDeleteDependencyModal() {
+            const modal = document.getElementById('delete-dependency-modal');
+            modal.classList.add('opacity-0');
+            document.getElementById('delete-dependency-modal-content').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+            pendingDeleteDecision = null;
+        }
+
+        window.removeTask = function(id) {
+            const removedTask = tasks.find(t => t.id === id);
+            if (!removedTask) return;
+
+            const dependentTasks = getDependentTasks(id);
+            const reconnectCandidate = findReconnectCandidate(removedTask);
+            if (dependentTasks.length > 0 && reconnectCandidate) {
+                openDeleteDependencyModal(removedTask, dependentTasks, reconnectCandidate);
+                return;
+            }
+
+            deleteTaskWithDependencyMode(id, 'clear');
+        };
+
+        document.getElementById('btn-delete-cancel').addEventListener('click', closeDeleteDependencyModal);
+        document.getElementById('btn-delete-keep').addEventListener('click', () => {
+            if (!pendingDeleteDecision) return;
+            const taskId = pendingDeleteDecision.taskId;
+            closeDeleteDependencyModal();
+            deleteTaskWithDependencyMode(taskId, 'clear');
+        });
+        document.getElementById('btn-delete-reconnect').addEventListener('click', () => {
+            if (!pendingDeleteDecision) return;
+            const { taskId, reconnectTaskId } = pendingDeleteDecision;
+            closeDeleteDependencyModal();
+            deleteTaskWithDependencyMode(taskId, 'reconnect', reconnectTaskId);
+        });
+        
         window.openEditModal = function(id) {
             const task = tasks.find(t => t.id === id);
             document.getElementById('edit-task-id').value = task.id;
             document.getElementById('edit-task-name').value = task.name;
             document.getElementById('edit-task-category').value = task.category;
-            document.getElementById('edit-task-start').value = task.startDate;
-            document.getElementById('edit-task-end').value = task.endDate;
+            
+            if (appMode === 'simple') {
+                document.querySelectorAll('.edit-simple-fields').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.edit-advanced-fields').forEach(el => el.classList.add('hidden'));
+                document.getElementById('edit-task-start').value = task.startDate;
+                document.getElementById('edit-task-end').value = task.endDate;
+                ensureEndNotBeforeStart('edit-task-start', 'edit-task-end');
+            } else {
+                document.querySelectorAll('.edit-simple-fields').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.edit-advanced-fields').forEach(el => el.classList.remove('hidden'));
+                updatePredecessorOptions(task.id);
+                
+                document.getElementById('edit-task-duration').value = task.duration || diffDays(task.startDate, task.endDate);
+                if (task.predecessor && task.predecessor.taskId) {
+                    document.getElementById('edit-task-predecessor').value = task.predecessor.taskId;
+                    document.getElementById('edit-task-lag').value = task.predecessor.lag || 0;
+                    document.getElementById('edit-advanced-start-wrapper').classList.add('hidden');
+                } else {
+                    document.getElementById('edit-task-predecessor').value = "";
+                    document.getElementById('edit-task-lag').value = 0;
+                    document.getElementById('edit-advanced-start-wrapper').classList.remove('hidden');
+                    document.getElementById('edit-task-adv-start').value = task.startDate;
+                }
+            }
+
             document.getElementById('edit-modal').classList.remove('hidden');
             setTimeout(() => { document.getElementById('edit-modal').classList.remove('opacity-0'); document.getElementById('edit-modal-content').classList.remove('scale-95'); }, 10);
         };
+        
         window.closeEditModal = function() {
             document.getElementById('edit-modal').classList.add('opacity-0');
             document.getElementById('edit-modal-content').classList.add('scale-95');
             setTimeout(() => document.getElementById('edit-modal').classList.add('hidden'), 200);
         };
+        
+        document.getElementById('edit-task-predecessor').addEventListener('change', (e) => {
+            if(e.target.value) {
+                document.getElementById('edit-advanced-start-wrapper').classList.add('hidden');
+            } else {
+                document.getElementById('edit-advanced-start-wrapper').classList.remove('hidden');
+            }
+        });
+
         document.getElementById('edit-task-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const id = parseInt(document.getElementById('edit-task-id').value);
             const taskIndex = tasks.findIndex(t => t.id === id);
-            tasks[taskIndex] = { id, category: document.getElementById('edit-task-category').value, name: document.getElementById('edit-task-name').value, startDate: document.getElementById('edit-task-start').value, endDate: document.getElementById('edit-task-end').value };
-            renderGantt(); closeEditModal();
+            const task = tasks[taskIndex];
+            
+            const nextCategory = document.getElementById('edit-task-category').value;
+            const nextName = document.getElementById('edit-task-name').value || '未命名';
+            const nextPredId = appMode === 'advanced' ? document.getElementById('edit-task-predecessor').value : '';
+            if (nextPredId && wouldCreateDependencyCycle(id, nextPredId)) {
+                showMessage("無法設定前置任務：這會形成循環依賴");
+                return;
+            }
+
+            task.category = nextCategory;
+            task.name = nextName;
+
+            if (appMode === 'simple') {
+                task.startDate = document.getElementById('edit-task-start').value || task.startDate;
+                task.endDate = normalizeDateRange(task.startDate, document.getElementById('edit-task-end').value || task.endDate, 'edit-task-end');
+                task.duration = diffDays(task.startDate, task.endDate);
+            } else {
+                task.duration = parseInt(document.getElementById('edit-task-duration').value || 1);
+                const predId = nextPredId;
+                if (predId) {
+                    task.predecessor = {
+                        taskId: parseInt(predId),
+                        lag: parseInt(document.getElementById('edit-task-lag').value || 0)
+                    };
+                } else {
+                    task.predecessor = null;
+                    task.startDate = document.getElementById('edit-task-adv-start').value || task.startDate;
+                    task.endDate = addDaysToDateString(task.startDate, task.duration - 1);
+                }
+            }
+            
+            updatePredecessorOptions();
+            renderGantt(); 
+            recordHistory();
+            closeEditModal();
         });
 
         document.getElementById('add-task-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const name = document.getElementById('task-name').value || '新項目';
             const cat = document.getElementById('task-category').value;
-            let start, end;
-            if (inputMode === 'absolute') { 
-                start = document.getElementById('task-start').value; 
-                end = document.getElementById('task-end').value; 
-            } else { 
-                const projStart = document.getElementById('proj-start-date').value; 
-                start = addDaysToDateString(projStart, parseInt(document.getElementById('task-offset').value)-1); 
-                end = addDaysToDateString(start, parseInt(document.getElementById('task-duration').value)-1); 
+            
+            let start, end, duration, predecessor = null;
+            
+            if (appMode === 'simple') {
+                if (inputMode === 'absolute') { 
+                    start = document.getElementById('task-start').value || todayStr; 
+                    end = document.getElementById('task-end').value || start; 
+                    end = normalizeDateRange(start, end, 'task-end');
+                    duration = diffDays(start, end);
+                } else { 
+                    const projStart = document.getElementById('proj-start-date').value || todayStr; 
+                    start = addDaysToDateString(projStart, parseInt(document.getElementById('task-offset').value || 1)-1); 
+                    duration = parseInt(document.getElementById('task-duration').value || 1);
+                    end = addDaysToDateString(start, duration-1); 
+                }
+            } else {
+                duration = parseInt(document.getElementById('task-adv-duration').value || 1);
+                const predId = document.getElementById('task-predecessor').value;
+                if (predId) {
+                    predecessor = {
+                        taskId: parseInt(predId),
+                        lag: parseInt(document.getElementById('task-adv-lag').value || 0)
+                    };
+                    start = end = todayStr; // 會在 recalculateDates 時被修正
+                } else {
+                    start = document.getElementById('task-adv-start').value || todayStr;
+                    end = addDaysToDateString(start, duration - 1);
+                }
             }
-            tasks.push({ id: Date.now(), category: cat, name: name, startDate: start, endDate: end });
+
+            tasks.push({ id: Date.now(), category: cat, name: name, startDate: start, endDate: end, duration: duration, predecessor: predecessor });
             
             document.getElementById('task-name').value = '';
-            if (inputMode === 'relative') {
-                const currentOffset = parseInt(document.getElementById('task-offset').value || 1, 10);
-                const currentDuration = parseInt(document.getElementById('task-duration').value || 1, 10);
-                document.getElementById('task-offset').value = currentOffset + currentDuration;
-            } else {
-                document.getElementById('task-start').value = '';
-                document.getElementById('task-end').value = '';
-            }
-            
+            updatePredecessorOptions();
             renderGantt();
+            recordHistory();
         });
 
-        document.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', (e) => { viewMode = e.target.dataset.mode; renderGantt(); }));
+        document.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', (e) => {
+            if (viewMode === e.target.dataset.mode) return;
+            viewMode = e.target.dataset.mode;
+            applyViewModeUi();
+            renderGantt();
+            recordHistory();
+        }));
         
         document.getElementById('btn-sort').addEventListener('click', () => { 
             const catKeys = Object.keys(categories);
@@ -588,141 +1377,111 @@
                 if (indexA !== indexB) return indexA - indexB;
                 return a.startDate.localeCompare(b.startDate);
             }); 
+            updatePredecessorOptions();
             renderGantt(); 
+            recordHistory();
             showMessage("已依自訂類別順序與日期重新排序");
         });
         
-        // 截圖匯出功能：自動展開並修復底部被切掉的問題
         document.getElementById('btn-export').addEventListener('click', async () => { 
             const chartArea = document.getElementById('chart-export-area');
             const scrollContainer = chartArea.querySelector('.chart-scroll-container');
             const contentWrapper = chartArea.querySelector('.chart-content-wrapper');
             const btnLoading = document.getElementById('export-loading');
 
-            if (!scrollContainer || !contentWrapper) {
-                showMessage("圖表無法匯出，請先新增項目或切換視角重整畫面。");
-                return;
-            }
-
-            // 顯示載入動畫，防止重複點擊
+            if (!scrollContainer || !contentWrapper) return;
             if (btnLoading) btnLoading.classList.remove('hidden');
             
             try {
-                // 1. 取得實際內部內容的總寬度與總高度
                 const fullWidth = contentWrapper.scrollWidth;
                 const fullHeight = chartArea.scrollHeight;
-                
-                // 2. 暫時備份原本的樣式
                 const originalAreaStyle = chartArea.getAttribute('style') || '';
                 const originalContainerClass = scrollContainer.className;
                 const originalAreaClass = chartArea.className;
                 
-                // 3. 強制撐開最外層容器與滾動層的寬高，並移除隱藏裁切(overflow-hidden)
                 chartArea.style.width = `${fullWidth}px`;
                 chartArea.style.height = `${fullHeight}px`;
                 chartArea.style.maxWidth = 'none';
                 chartArea.classList.remove('overflow-hidden');
-                
-                // 移除滾動條設定，確保內容全部平鋪
                 scrollContainer.className = scrollContainer.className.replace('overflow-x-auto', 'overflow-visible');
                 
-                // 稍微等待 DOM 更新
                 await new Promise(resolve => setTimeout(resolve, 150));
-
-                // 4. 執行截圖 (明確指定寬高給套件，避免邊界被切掉)
-                const dataUrl = await window.htmlToImage.toPng(chartArea, {
-                    backgroundColor: '#ffffff',
-                    pixelRatio: 2,
-                    width: fullWidth,
-                    height: fullHeight,
-                    style: {
-                        margin: 0,
-                        transform: 'none'
-                    }
-                }); 
+                const dataUrl = await window.htmlToImage.toPng(chartArea, { backgroundColor: '#ffffff', pixelRatio: 2, width: fullWidth, height: fullHeight, style: { margin: 0, transform: 'none' } }); 
+                const link = document.createElement('a'); link.download = `專案甘特圖_${new Date().toISOString().slice(0,10)}.png`; link.href = dataUrl; link.click();
                 
-                // 5. 觸發下載
-                const link = document.createElement('a'); 
-                link.download = `專案甘特圖_${new Date().toISOString().slice(0,10)}.png`; 
-                link.href = dataUrl; 
-                link.click();
-                
-                // 6. 復原樣式
                 chartArea.setAttribute('style', originalAreaStyle);
                 chartArea.className = originalAreaClass;
                 scrollContainer.className = originalContainerClass;
-                
                 showMessage("圖表已成功匯出！");
-
-            } catch (error) {
-                console.error("匯出圖片時發生錯誤:", error);
-                showMessage("匯出圖片失敗，請重試。");
-            } finally {
-                // 隱藏載入動畫
+            } catch (error) { showMessage("匯出圖片失敗，請重試。"); } finally {
                 if (btnLoading) btnLoading.classList.add('hidden');
             }
         });
         
-        // --- 載入內建範本 ---
         let pendingTemplateValue = '';
-        
         document.getElementById('template-select').addEventListener('change', (e) => {
             const val = e.target.value;
             if (!val) return;
             pendingTemplateValue = val;
             
-            // 每次跳出確認視窗前，把視窗內的起算日預設為當前專案的起算日或今天
             const currentProjStart = document.getElementById('proj-start-date').value || todayStr;
             document.getElementById('modal-start-date').value = currentProjStart;
 
             const modal = document.getElementById('confirm-modal');
             modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                document.getElementById('confirm-modal-content').classList.remove('scale-95');
-            }, 10);
+            setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('confirm-modal-content').classList.remove('scale-95'); }, 10);
             e.target.value = '';
         });
 
-        document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
-            closeConfirmModal();
-            pendingTemplateValue = '';
-        });
+        document.getElementById('btn-confirm-cancel').addEventListener('click', () => { closeConfirmModal(); pendingTemplateValue = ''; });
 
         document.getElementById('btn-confirm-ok').addEventListener('click', () => {
             if (pendingTemplateValue) {
-                const tplData = getTemplates()[pendingTemplateValue];
+                const tplData = getTemplates()[appMode][pendingTemplateValue];
                 if (tplData) {
                     categories = JSON.parse(JSON.stringify(tplData.categories));
-                    
-                    // 從模態框(Modal)讀取使用者選擇的起算日
                     const userChosenStartDate = document.getElementById('modal-start-date').value || todayStr;
-                    
-                    // 更新畫面上隱藏/顯示的專案起算日設定
                     document.getElementById('proj-start-date').value = userChosenStartDate;
+                    document.getElementById('task-adv-start').value = userChosenStartDate;
 
-                    // 依照使用者選擇的起算日，計算範本中所有任務的時間
+                    // 關鍵修復點：確保在解析資料時不管模式為何，都不會讓 startDate 變成 NaN
                     tasks = tplData.tasks.map(t => {
-                        if (t.offset !== undefined && t.duration !== undefined) {
-                            return {
-                                id: t.id,
-                                category: t.category,
-                                name: t.name,
-                                startDate: addDaysToDateString(userChosenStartDate, t.offset - 1),
-                                endDate: addDaysToDateString(userChosenStartDate, t.offset - 1 + t.duration - 1)
-                            };
+                        let newTask = JSON.parse(JSON.stringify(t));
+                        
+                        // 確保至少有 startDate
+                        newTask.startDate = newTask.startDate || userChosenStartDate;
+                        
+                        // 相容舊版 offset 寫法
+                        if (newTask.offset !== undefined && newTask.duration !== undefined) {
+                            newTask.startDate = addDaysToDateString(userChosenStartDate, newTask.offset - 1);
+                            newTask.endDate = addDaysToDateString(userChosenStartDate, newTask.offset - 1 + newTask.duration - 1);
+                        } 
+                        
+                        // 如果有工期卻沒有結束日，自動補上計算後的結束日
+                        if (newTask.duration !== undefined && !newTask.endDate) {
+                            newTask.endDate = addDaysToDateString(newTask.startDate, newTask.duration - 1);
                         }
-                        return JSON.parse(JSON.stringify(t));
+                        
+                        // 強制防呆，防止遺失 endDate 導致程式崩潰
+                        if (!newTask.endDate) {
+                            newTask.endDate = newTask.startDate;
+                            newTask.duration = 1;
+                        }
+
+                        return newTask;
                     });
 
-                    if (pendingTemplateValue === 'realEstate') {
-                        const radioRelative = document.querySelector('input[name="input-mode"][value="relative"]');
-                        if (radioRelative) { radioRelative.checked = true; toggleInputMode(); }
-                    }
-
+                    // 移除了自動切換模式的邏輯，保持在當前模式
+                    
+                    // --- 修正處：重新渲染類別 UI，這樣介面上的自訂類別才會跟著範本變更 ---
                     renderCategories('task-category');
                     renderCategories('edit-task-category');
+                    
+                    // --- 新增修正：重新渲染前置任務下拉選單 ---
+                    updatePredecessorOptions();
+                     
                     renderGantt();
+                    recordHistory();
                     showMessage("範本載入成功！");
                 }
                 pendingTemplateValue = '';
@@ -739,16 +1498,30 @@
 
         document.getElementById('btn-save').addEventListener('click', () => {
             const projectData = { categories: categories, tasks: tasks, projStartDate: document.getElementById('proj-start-date').value };
-            const dataStr = JSON.stringify(projectData, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+            const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json;charset=utf-8' });
             const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `專案備份_${new Date().toISOString().slice(0,10)}.json`;
-            link.click();
+            const link = document.createElement('a'); link.href = url; link.download = `專案備份_${new Date().toISOString().slice(0,10)}.json`; link.click();
             URL.revokeObjectURL(url);
             showMessage("專案已成功儲存！");
         });
+
+        document.getElementById('btn-undo').addEventListener('click', () => {
+            if (undoStack.length <= 1) return;
+            const currentState = undoStack.pop();
+            redoStack.push(cloneData(currentState));
+            restoreProjectState(undoStack[undoStack.length - 1]);
+            showMessage("已回復上一步");
+        });
+
+        document.getElementById('btn-redo').addEventListener('click', () => {
+            if (redoStack.length === 0) return;
+            const nextState = redoStack.pop();
+            undoStack.push(cloneData(nextState));
+            restoreProjectState(nextState);
+            showMessage("已前進到下一步");
+        });
+
+        document.getElementById('proj-start-date').addEventListener('change', recordHistory);
 
         document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
 
@@ -762,7 +1535,9 @@
                     if (data.categories && data.tasks) {
                         categories = data.categories; tasks = data.tasks;
                         if (data.projStartDate) document.getElementById('proj-start-date').value = data.projStartDate;
+                        updatePredecessorOptions();
                         renderCategories('task-category'); renderCategories('edit-task-category'); renderGantt();
+                        recordHistory();
                         showMessage("專案讀取成功！");
                     } else showMessage("檔案格式不符，無法讀取。");
                 } catch (error) { showMessage("檔案解析失敗，請確定為有效的專案檔。"); }
@@ -771,6 +1546,7 @@
             reader.readAsText(file, 'UTF-8');
         });
 
+        // 拖曳互動與 Tooltip 邏輯
         let dragAction = null; let activeTaskId = null; let startX = 0;
         let initialStartDate = null; let initialEndDate = null;
         let activeTaskBarEl = null; let initialWidthPx = 0; let initialLeftPx = 0; let pixelsPerDay = 0;
@@ -799,14 +1575,20 @@
                 document.body.style.cursor = 'ew-resize';
                 
                 dragTooltip.classList.remove('hidden');
-                const diffDays = Math.round((new Date(initialEndDate) - new Date(initialStartDate)) / (1000 * 60 * 60 * 24)) + 1;
-                updateDragTooltip(e.clientX, e.clientY, `結束日: ${initialEndDate} (共 ${diffDays} 天)`);
+                const diffD = diffDays(initialStartDate, initialEndDate);
+                updateDragTooltip(e.clientX, e.clientY, `結束日: ${initialEndDate} (共 ${diffD} 天)`);
             } else if (taskBar) {
                 if (e.button !== 0) return;
+                const task = tasks.find(t => t.id === parseInt(taskBar.dataset.taskId));
+                
+                if (appMode === 'advanced' && task.predecessor && task.predecessor.taskId) {
+                    showMessage("進階關模式中，受依賴的任務無法手動平移日期");
+                    return; 
+                }
+
                 e.stopPropagation(); e.preventDefault(); 
-                dragAction = 'move'; activeTaskId = parseInt(taskBar.dataset.taskId);
+                dragAction = 'move'; activeTaskId = task.id;
                 activeTaskBarEl = taskBar; startX = e.pageX;
-                const task = tasks.find(t => t.id === activeTaskId);
                 initialStartDate = task.startDate; initialEndDate = task.endDate;
                 const containerRect = activeTaskBarEl.parentElement.getBoundingClientRect();
                 const barRect = activeTaskBarEl.getBoundingClientRect();
@@ -819,7 +1601,9 @@
                 updateDragTooltip(e.clientX, e.clientY, `${initialStartDate} ~ ${initialEndDate}`);
             } else if (dragHandle) {
                 const row = dragHandle.closest('.task-row');
-                if (row) row.setAttribute('draggable', 'true');
+                if (row) {
+                    row.setAttribute('draggable', 'true');
+                }
             }
         });
 
@@ -831,14 +1615,14 @@
             if (dragAction === 'resize') {
                 let tempEndDate = addDaysToDateString(initialEndDate, deltaDays);
                 if (new Date(tempEndDate) < new Date(initialStartDate)) {
-                    deltaDays = (new Date(initialStartDate) - new Date(initialEndDate)) / (1000 * 60 * 60 * 24);
+                    deltaDays = diffDays(initialEndDate, initialStartDate) - 1; 
                     tempEndDate = initialStartDate;
                 }
                 const newWidthPx = Math.max(initialWidthPx + (deltaDays * pixelsPerDay), 10);
                 activeTaskBarEl.style.width = `${newWidthPx}px`;
                 
-                const diffDays = Math.round((new Date(tempEndDate) - new Date(initialStartDate)) / (1000 * 60 * 60 * 24)) + 1;
-                updateDragTooltip(e.clientX, e.clientY, `結束日: ${tempEndDate} (共 ${diffDays} 天)`);
+                const diffD = diffDays(initialStartDate, tempEndDate);
+                updateDragTooltip(e.clientX, e.clientY, `結束日: ${tempEndDate} (共 ${diffD} 天)`);
             } else if (dragAction === 'move') {
                 const newLeftPx = initialLeftPx + deltaX;
                 activeTaskBarEl.style.left = `${newLeftPx}px`;
@@ -856,8 +1640,12 @@
             if (dragAction === 'resize') {
                 let finalEndDate = addDaysToDateString(initialEndDate, deltaDays);
                 if (new Date(finalEndDate) < new Date(initialStartDate)) finalEndDate = initialStartDate;
-                if (task && task.endDate !== finalEndDate) task.endDate = finalEndDate;
-                else activeTaskBarEl.style.width = `${initialWidthPx}px`;
+                if (task && task.endDate !== finalEndDate) {
+                    task.endDate = finalEndDate;
+                    task.duration = diffDays(task.startDate, task.endDate);
+                } else {
+                    activeTaskBarEl.style.width = `${initialWidthPx}px`;
+                }
             } else if (dragAction === 'move') {
                 if (deltaDays !== 0) {
                     task.startDate = addDaysToDateString(initialStartDate, deltaDays);
@@ -868,37 +1656,109 @@
             if (activeTaskBarEl) activeTaskBarEl.style.cursor = '';
             document.querySelectorAll('.task-row[draggable="true"]').forEach(row => row.removeAttribute('draggable'));
             dragTooltip.classList.add('hidden');
+            
             renderGantt(); 
+            recordHistory();
         });
 
+        // --- 優化的拖曳與插入邏輯 ---
         function bindDragEvents() {
             const list = document.getElementById('tasks-list');
+            
             list.addEventListener('dragstart', (e) => { 
                 const row = e.target.closest('.task-row');
                 if (!row) return;
                 e.dataTransfer.setData('text/plain', row.dataset.id); 
-                setTimeout(() => row.style.opacity = '0.4', 0);
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => row.style.opacity = '0.3', 0);
             });
-            list.addEventListener('dragover', (e) => e.preventDefault());
-            list.addEventListener('drop', (e) => {
-                const target = e.target.closest('.task-row');
-                if (!target) return;
-                const srcId = e.dataTransfer.getData('text/plain');
-                const srcIndex = tasks.findIndex(t => t.id == srcId);
-                const targetIndex = tasks.findIndex(t => t.id == target.dataset.id);
-                if (srcIndex > -1 && targetIndex > -1 && srcIndex !== targetIndex) {
-                    const [movedTask] = tasks.splice(srcIndex, 1);
-                    tasks.splice(targetIndex, 0, movedTask);
-                    renderGantt();
+            
+            list.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const targetRow = e.target.closest('.task-row');
+                if (!targetRow) return;
+
+                // 判斷滑鼠是在目標列的上半部還是下半部
+                const bounding = targetRow.getBoundingClientRect();
+                const offset = bounding.y + (bounding.height / 2);
+                
+                // 動態添加拖曳插入的藍色指示線樣式
+                if (e.clientY - offset > 0) {
+                    targetRow.classList.add('drag-over-bottom');
+                    targetRow.classList.remove('drag-over-top');
+                } else {
+                    targetRow.classList.add('drag-over-top');
+                    targetRow.classList.remove('drag-over-bottom');
                 }
             });
+
+            list.addEventListener('dragleave', (e) => {
+                const targetRow = e.target.closest('.task-row');
+                if (targetRow) {
+                    targetRow.classList.remove('drag-over-top', 'drag-over-bottom');
+                }
+            });
+
+            list.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const targetRow = e.target.closest('.task-row');
+                
+                // 清除指示線
+                if (targetRow) {
+                    targetRow.classList.remove('drag-over-top', 'drag-over-bottom');
+                }
+
+                if (!targetRow) return;
+                const srcId = e.dataTransfer.getData('text/plain');
+                if (!srcId) return;
+
+                const srcIndex = tasks.findIndex(t => t.id == srcId);
+                let targetIndex = tasks.findIndex(t => t.id == targetRow.dataset.id);
+
+                if (srcIndex > -1 && targetIndex > -1 && srcIndex !== targetIndex) {
+                    // 根據放置在上半部或下半部來決定插入位置
+                    const bounding = targetRow.getBoundingClientRect();
+                    const offset = bounding.y + (bounding.height / 2);
+                    if (e.clientY - offset > 0) {
+                        targetIndex++; // 放在下方，索引加1
+                    }
+
+                    // 取出來源任務
+                    const [movedTask] = tasks.splice(srcIndex, 1);
+                    
+                    // 若來源任務原本在目標上方，因取出後陣列位移，需修正目標索引
+                    if (srcIndex < targetIndex) {
+                        targetIndex--;
+                    }
+
+                    // 插入任務
+                    tasks.splice(targetIndex, 0, movedTask);
+                    renderGantt();
+                    recordHistory();
+                }
+            });
+
             list.addEventListener('dragend', (e) => {
                 const row = e.target.closest('.task-row');
-                if (row) { row.style.opacity = '1'; row.removeAttribute('draggable'); }
+                if (row) { 
+                    row.style.opacity = '1'; 
+                    row.removeAttribute('draggable'); 
+                }
+                // 清理可能殘留的指示線樣式
+                document.querySelectorAll('.task-row').forEach(r => {
+                    r.classList.remove('drag-over-top', 'drag-over-bottom');
+                });
             });
         }
         
+        // 初始載入
+        bindDateGuard('task-start', 'task-end');
+        bindDateGuard('edit-task-start', 'edit-task-end');
+        renderTemplateOptions();
+        updatePredecessorOptions();
         renderCategories('task-category'); renderCategories('edit-task-category'); renderGantt();
+        recordHistory();
     </script>
 </body>
 </html>

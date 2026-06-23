@@ -161,6 +161,12 @@
                 <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="checkbox" checked onchange="toggleColumn('owner', this.checked)" class="accent-primary rounded"> 所有權人</label>
                 <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="checkbox" onchange="toggleColumn('remarks', this.checked)" class="accent-primary rounded"> 備註</label>
             </div>
+            <!-- 報表小計控制 -->
+            <div class="flex items-center gap-4 border-l border-slate-300 pl-4">
+                <span class="font-semibold text-indigo-700 flex items-center gap-1"><i class="ph ph-chart-pie-slice"></i> 報表小計：</span>
+                <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition"><input type="checkbox" onchange="toggleSubtotal('owner', this.checked)" class="accent-indigo-600 rounded"> 所有權人</label>
+                <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition"><input type="checkbox" onchange="toggleSubtotal('zoning', this.checked)" class="accent-indigo-600 rounded"> 使用分區</label>
+            </div>
         </div>
     </header>
 
@@ -199,6 +205,24 @@
                         <tbody id="input-table-body" class="text-sm text-slate-700">
                             <!-- 輸入列由 JS 動態生成 -->
                         </tbody>
+                        <!-- 新增：固定於底部的即時加總列 -->
+                        <tfoot class="bg-indigo-50/95 border-t-[3px] border-indigo-200 text-indigo-900 font-bold sticky bottom-0 z-20 backdrop-blur-md shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                            <tr>
+                                <td class="py-3 px-3"></td>
+                                <td class="py-3 px-3"></td>
+                                <td class="py-3 px-3 col-district"></td>
+                                <td class="py-3 px-3"></td>
+                                <td class="py-3 px-3 col-subsection"></td>
+                                <td class="py-3 px-3"></td>
+                                <td class="py-3 px-3 col-zoning"></td>
+                                <td class="py-3 px-3"></td>
+                                <td class="py-3 px-3 col-owner"></td>
+                                <td class="py-3 px-3 text-right" colspan="3">目前面積累加：</td>
+                                <td class="py-3 px-3 text-right font-mono text-lg text-primary" id="input-total-share-area">0.00</td>
+                                <td class="py-3 px-3 col-remarks"></td>
+                                <td class="py-3 px-3"></td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -248,6 +272,25 @@
                 <div id="output-tables-wrapper" class="flex flex-col gap-12">
                     <!-- 美觀表格將由 JS 動態生成 -->
                 </div>
+            </div>
+        </section>
+
+        <!-- 下半部之二：統計分析區塊 -->
+        <section id="subtotal-section" class="flex flex-col gap-3 border-t border-slate-200 pt-8 mt-2 hidden">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-chart-pie-slice text-2xl text-indigo-600"></i>
+                    <h2 class="text-xl font-bold text-slate-800">3. 統計分析區</h2>
+                    <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2">持分面積佔比分析</span>
+                </div>
+                <button onclick="exportSubtotalImage()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg shadow-md transition font-medium active:scale-95">
+                    <i class="ph ph-camera text-lg text-white"></i> 截圖下載統計表
+                </button>
+            </div>
+
+            <!-- 這個容器是統計區專屬的截圖目標 -->
+            <div id="subtotal-print-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-10 flex flex-col md:flex-row gap-10 items-start w-full">
+                <!-- 統計表格將由 JS 動態生成 -->
             </div>
         </section>
     </main>
@@ -318,7 +361,9 @@
         let state = {
             data: [], 
             areaMode: 'sqm', // 'sqm', 'ping', 'both'
-            hiddenCols: new Set(['district', 'subsection', 'remarks']) // 預設隱藏行政區、小段與備註
+            hiddenCols: new Set(['district', 'subsection', 'remarks']), // 預設隱藏行政區、小段與備註
+            subtotalOwner: false, // 是否顯示所有權人小計
+            subtotalZoning: false // 是否顯示使用分區小計
         };
 
         const PING_RATIO = 0.3025;
@@ -427,6 +472,7 @@
         function triggerUpdate() {
             renderInputTable();
             renderOutputTables();
+            renderSubtotals(); // 觸發小計更新
         }
 
         document.getElementById('input-table-body').addEventListener('input', (e) => {
@@ -711,6 +757,20 @@
             const subtotalBody = document.getElementById('subtotal-body');
             subtotalBody.innerHTML = '';
             let valid = 0;
+            let totalShareAreaAll = 0; // 新增：用於編輯區下方的總計
+
+            // 計算所有資料列的持分面積加總
+            state.data.forEach(row => {
+                const num = Number(row.numerator) || 0;
+                const den = Number(row.denominator) || 1;
+                const area = Number(row.area) || 0;
+                totalShareAreaAll += (den === 0 ? 0 : area * (num / den));
+            });
+
+            // 即時更新編輯區底部的總計數值
+            const totalEl = document.getElementById('input-total-share-area');
+            if (totalEl) totalEl.textContent = formatNumber(totalShareAreaAll);
+
             for (const key in analysis.groups) {
                 const g = analysis.groups[key];
                 if(key === '-') continue; 
@@ -823,6 +883,7 @@
         function changeAreaMode(mode) {
             state.areaMode = mode;
             renderOutputTables();
+            renderSubtotals(); // 切換單位時同步更新小計區
         }
 
         function toggleColumn(colName, isVisible) {
@@ -831,6 +892,108 @@
             
             applyColumnVisibility();
             renderOutputTables();
+        }
+
+        // --- 小計功能 ---
+        function toggleSubtotal(type, isChecked) {
+            if (type === 'owner') state.subtotalOwner = isChecked;
+            if (type === 'zoning') state.subtotalZoning = isChecked;
+            renderSubtotals();
+        }
+
+        function renderSubtotals() {
+            const section = document.getElementById('subtotal-section');
+            const container = document.getElementById('subtotal-print-container');
+            container.innerHTML = '';
+
+            // 如果都沒有勾選，隱藏整個區塊
+            if (!state.subtotalOwner && !state.subtotalZoning) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+
+            // 計算基礎資料
+            let totalShareAreaSqm = 0;
+            const ownerMap = {};
+            const zoningMap = {};
+
+            state.data.forEach(row => {
+                const areaSqm = Number(row.area) || 0;
+                const num = Number(row.numerator) || 0;
+                const den = Number(row.denominator) || 1;
+                const shareSqm = den === 0 ? 0 : areaSqm * (num / den);
+                totalShareAreaSqm += shareSqm;
+
+                // 若為空值，則歸類為「未填寫」
+                const owner = row.owner ? row.owner.trim() : '未填寫';
+                const zoning = row.zoning ? row.zoning.trim() : '未填寫';
+
+                ownerMap[owner] = (ownerMap[owner] || 0) + shareSqm;
+                zoningMap[zoning] = (zoningMap[zoning] || 0) + shareSqm;
+            });
+
+            // 生成表格
+            if (state.subtotalOwner) {
+                container.appendChild(createSubtotalTableHTML('依【所有權人】面積小計', ownerMap, totalShareAreaSqm));
+            }
+            if (state.subtotalZoning) {
+                container.appendChild(createSubtotalTableHTML('依【使用分區】面積小計', zoningMap, totalShareAreaSqm));
+            }
+        }
+
+        function createSubtotalTableHTML(title, dataMap, grandTotalSqm) {
+            const isSqm = state.areaMode === 'sqm' || state.areaMode === 'both';
+            const isPing = state.areaMode === 'ping' || state.areaMode === 'both';
+
+            const container = document.createElement('div');
+            container.className = 'flex flex-col gap-3 flex-1 w-full min-w-[300px]'; // 加入 flex-1 讓雙欄可以均分寬度
+
+            let thHtml = `<th class="text-left w-1/3">項目</th>`;
+            if (isSqm) thHtml += `<th class="text-right">持分面積 (㎡)</th>`;
+            if (isPing) thHtml += `<th class="text-right">持分面積 (坪)</th>`;
+            thHtml += `<th class="text-right w-1/4">面積佔比 (%)</th>`;
+
+            let trsHtml = '';
+            // 依據面積大小降序排序
+            const sortedKeys = Object.keys(dataMap).sort((a, b) => dataMap[b] - dataMap[a]);
+
+            sortedKeys.forEach(key => {
+                const valSqm = dataMap[key];
+                const valPing = valSqm * PING_RATIO;
+                // 防止除以 0
+                const percent = grandTotalSqm > 0 ? ((valSqm / grandTotalSqm) * 100).toFixed(2) : '0.00';
+                
+                // 如果是未填寫，文字設為灰色斜體
+                const keyClass = key === '未填寫' ? 'text-slate-400 italic' : 'text-slate-800';
+
+                trsHtml += `<tr class="hover:bg-slate-50">
+                    <td class="text-left font-medium ${keyClass}">${key}</td>`;
+                if (isSqm) trsHtml += `<td class="text-right font-mono">${formatNumber(valSqm)}</td>`;
+                if (isPing) trsHtml += `<td class="text-right font-mono">${formatNumber(valPing)}</td>`;
+                trsHtml += `<td class="text-right font-mono font-medium">${percent}%</td>
+                </tr>`;
+            });
+
+            // 總計列
+            const grandTotalPing = grandTotalSqm * PING_RATIO;
+            trsHtml += `<tr class="bg-indigo-50/50 border-t-[3px] border-slate-300">
+                <td class="text-left font-bold text-slate-900 py-3">總計</td>`;
+            if (isSqm) trsHtml += `<td class="text-right font-mono font-bold text-indigo-700">${formatNumber(grandTotalSqm)}</td>`;
+            if (isPing) trsHtml += `<td class="text-right font-mono font-bold text-indigo-700">${formatNumber(grandTotalPing)}</td>`;
+            trsHtml += `<td class="text-right font-mono font-bold text-indigo-700">100.00%</td>
+            </tr>`;
+
+            container.innerHTML = `
+                <div class="flex justify-between items-end border-b-[3px] border-slate-800 pb-2 mb-1">
+                    <h3 class="text-2xl font-bold text-slate-900 tracking-wider">${title}</h3>
+                </div>
+                <table class="output-table !mb-0">
+                    <thead><tr>${thHtml}</tr></thead>
+                    <tbody>${trsHtml}</tbody>
+                </table>
+            `;
+            return container;
         }
 
         function applyColumnVisibility() {
@@ -968,6 +1131,30 @@
                     });
                 }, 100); // 確保 UI 更新後再截圖
             });
+        }
+
+        function exportSubtotalImage() {
+            const container = document.getElementById('subtotal-print-container');
+            const btnOriginalText = document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML;
+            document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = `<i class="ph ph-spinner animate-spin text-lg"></i> 處理中...`;
+
+            setTimeout(() => {
+                htmlToImage.toPng(container, {
+                    backgroundColor: '#ffffff',
+                    pixelRatio: 2
+                }).then(dataUrl => {
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = `土地清冊統計表_${new Date().toISOString().split('T')[0]}.png`;
+                    a.click();
+                    document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = btnOriginalText;
+                    customAlert("統計表圖片下載完成！");
+                }).catch(err => {
+                    console.error('截圖錯誤:', err);
+                    document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = btnOriginalText;
+                    customAlert("統計表截圖失敗，請稍後再試。");
+                });
+            }, 100);
         }
 
         window.onload = init;

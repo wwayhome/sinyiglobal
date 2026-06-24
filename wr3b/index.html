@@ -7,16 +7,33 @@
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-5YQY4RT9H2');
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-5YQY4RT9H2');
+    </script>
+    
+    <!-- 抑制 Tailwind CDN 開發警告 (選擇性加入，為了畫面乾淨) -->
+    <script>
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
+            originalWarn.apply(console, args);
+        };
     </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        Babel.registerPreset('react-classic', {
+            presets: [
+                [Babel.availablePresets['env']],
+                [Babel.availablePresets['react'], { runtime: 'classic' }]
+            ]
+        });
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.js"></script>
 
@@ -42,7 +59,7 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-presets="react-classic">
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         const { useState, useRef, useEffect } = React;
@@ -1005,18 +1022,18 @@
 
                         {/* 放大預覽 Modal */}
                         {previewPage && (
-                            <div 
+                            <div
                                 ref={modalRef}
-                                className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm p-4 sm:p-8 select-none transition-opacity" 
+                                className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm p-4 sm:p-8 select-none transition-opacity"
                                 onMouseMove={handleMouseMove}
                                 onMouseUp={handleMouseUp}
                                 onMouseLeave={handleMouseUp}
                                 onClick={handleBackdropClick}
                                 title="滑鼠滾輪可縮放，按住滑鼠左鍵可拖曳圖片"
                             >
-                                {/* 右上角獨立關閉按鈕 - 加大尺寸並增加文字提示與懸停紅底效果 */}
-                                <button 
-                                    onClick={closePreview} 
+                                {/* 右上角獨立關閉按鈕 */}
+                                <button
+                                    onClick={closePreview}
                                     className="absolute top-6 right-6 bg-black/60 hover:bg-red-600 hover:scale-105 active:scale-95 text-white pl-5 pr-6 py-3.5 rounded-full shadow-2xl transition-all z-[110] border border-white/20 flex items-center gap-2 text-sm font-bold"
                                     title="關閉預覽 (ESC)"
                                 >
@@ -1026,14 +1043,13 @@
                                     關閉預覽 (ESC)
                                 </button>
 
-                                {/* 底部控制器 - 完美整合主要關閉按鈕，操作完全不需大範圍移動滑鼠 */}
-                                <div 
+                                {/* 底部控制器 */}
+                                <div
                                     className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/90 px-6 py-3 rounded-full flex items-center gap-4 text-white z-[110] shadow-2xl border border-white/15"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    {/* 核心關閉按鈕：直接放在控制列最左側，與縮放、重設按鈕並列 */}
-                                    <button 
-                                        onClick={closePreview} 
+                                    <button
+                                        onClick={closePreview}
                                         className="bg-red-600 hover:bg-red-500 active:scale-95 text-white px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-1.5 shadow-md"
                                         title="關閉預覽 (亦可點擊背景或按 ESC 鍵)"
                                     >
@@ -1045,8 +1061,8 @@
                                     
                                     <div className="h-5 w-px bg-white/20"></div>
 
-                                    <button 
-                                        onClick={() => setPreviewScale(p => Math.max(p / 1.15, 0.5))} 
+                                    <button
+                                        onClick={() => setPreviewScale(p => Math.max(p / 1.15, 0.5))}
                                         className="hover:bg-white/15 p-2 rounded-lg transition"
                                         title="縮小"
                                     >
@@ -1055,8 +1071,8 @@
                                     <span className="text-sm font-semibold select-none min-w-[3.5rem] text-center">
                                         {Math.round(previewScale * 100)}%
                                     </span>
-                                    <button 
-                                        onClick={() => setPreviewScale(p => Math.min(p * 1.15, 8.0))} 
+                                    <button
+                                        onClick={() => setPreviewScale(p => Math.min(p * 1.15, 8.0))}
                                         className="hover:bg-white/15 p-2 rounded-lg transition"
                                         title="放大"
                                     >
@@ -1065,8 +1081,8 @@
                                     
                                     <div className="h-5 w-px bg-white/20"></div>
                                     
-                                    <button 
-                                        onClick={() => { setPreviewScale(1); setPanOffset({ x: 0, y: 0 }); }} 
+                                    <button
+                                        onClick={() => { setPreviewScale(1); setPanOffset({ x: 0, y: 0 }); }}
                                         className="text-xs hover:bg-white/15 px-3 py-2 rounded-full transition font-semibold"
                                         title="還原原始大小並置中"
                                     >
@@ -1075,7 +1091,7 @@
                                 </div>
 
                                 {/* 圖片顯示區域 */}
-                                <div 
+                                <div
                                     className="relative flex-1 w-full flex items-center justify-center min-h-0 pointer-events-auto"
                                     onClick={(e) => e.stopPropagation()}
                                     onMouseDown={handleMouseDown}

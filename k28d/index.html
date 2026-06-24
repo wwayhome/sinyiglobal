@@ -312,8 +312,18 @@
                     <h2 class="text-xl font-bold text-slate-800">3. 統計分析區</h2>
                     <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2">持分面積佔比分析</span>
                 </div>
-                <button onclick="exportSubtotalImage()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg shadow-md transition font-medium active:scale-95">
-                    <i class="ph ph-camera text-lg text-white"></i> 截圖下載統計表
+            </div>
+
+            <!-- 統一風格的操作工具列 -->
+            <div class="flex justify-end gap-2 mb-1">
+                <button onclick="copySubtotalToClipboard()" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm border border-slate-200">
+                    <i class="ph ph-copy text-lg"></i> 複製統計表
+                </button>
+                <button onclick="exportSubtotalCSV()" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm border border-slate-200">
+                    <i class="ph ph-file-csv text-lg"></i> 匯出統計表 CSV
+                </button>
+                <button id="btn-screenshot-subtotal" onclick="exportSubtotalImage()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm">
+                    <i class="ph ph-camera text-lg text-white"></i> 截圖統計表
                 </button>
             </div>
 
@@ -877,6 +887,7 @@
             const isPing = (unitMode === 'ping');
             const unitLabel = isPing ? '坪' : '平方公尺';
             const unitSuffix = isPing ? ' 坪' : ' ㎡';
+            const unitStr = isPing ? '(坪)' : '(㎡)'; // 新增：用於表頭的單位文字
             const ratio = isPing ? PING_RATIO : 1;
 
             const container = document.createElement('div');
@@ -912,9 +923,9 @@
             if (!state.hiddenCols.has('subsection')) thHtml += `<th>小段</th>`;
             thHtml += `<th class="text-center">地號</th>`;
             if (!state.hiddenCols.has('zoning')) thHtml += `<th>使用分區</th>`;
-            thHtml += `<th class="text-right">面積</th>`;
+            thHtml += `<th class="text-center">面積 ${unitStr}</th>`;
             if (!state.hiddenCols.has('owner')) thHtml += `<th class="text-center">所有權人</th>`;
-            thHtml += `<th>持分</th><th class="text-right">持分面積</th>`;
+            thHtml += `<th>持分</th><th class="text-center">持分面積 ${unitStr}</th>`;
             if (!state.hiddenCols.has('remarks')) thHtml += `<th>備註</th>`;
 
             // 資料列
@@ -1251,28 +1262,119 @@
             });
         }
 
-        function exportSubtotalImage() {
-            const container = document.getElementById('subtotal-print-container');
-            const btnOriginalText = document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML;
-            document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
+        function copySubtotalToClipboard() {
+            validateBeforeExport(() => {
+                const wrapper = document.getElementById('subtotal-print-container');
+                let html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><style>table{border-collapse:collapse;} td,th{border:1px solid #000; padding:4px;} .xl-text{mso-number-format:"\\@";}</style></head><body>';
+                html += wrapper.innerHTML; 
+                html += '</body></html>';
 
-            setTimeout(() => {
-                htmlToImage.toPng(container, {
-                    backgroundColor: '#ffffff',
-                    pixelRatio: 2
-                }).then(dataUrl => {
-                    const a = document.createElement('a');
-                    a.href = dataUrl;
-                    a.download = `土地清冊統計表_${new Date().toISOString().split('T')[0]}.png`;
-                    a.click();
-                    document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = btnOriginalText;
-                    customAlert("統計表圖片下載完成！");
-                }).catch(err => {
-                    console.error('截圖錯誤:', err);
-                    document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = btnOriginalText;
-                    customAlert("統計表截圖失敗，請稍後再試。");
+                const copyHandler = function(e) {
+                    e.clipboardData.setData('text/html', html);
+                    e.preventDefault();
+                };
+                document.addEventListener('copy', copyHandler);
+                document.execCommand('copy');
+                document.removeEventListener('copy', copyHandler);
+                customAlert("統計表已複製！您現在可以在 Excel 或 Word 中貼上。");
+            });
+        }
+
+        function exportSubtotalCSV() {
+            validateBeforeExport(() => {
+                if (!state.subtotalOwner && !state.subtotalZoning) return;
+
+                let csv = "\uFEFF"; 
+                const isSqm = state.areaMode === 'sqm' || state.areaMode === 'both';
+                const isPing = state.areaMode === 'ping' || state.areaMode === 'both';
+
+                let totalShareAreaSqm = 0;
+                const ownerMap = {};
+                const zoningMap = {};
+
+                // 重新計算最新資料
+                state.data.forEach(row => {
+                    const areaSqm = Number(row.area) || 0;
+                    const num = Number(row.numerator) || 0;
+                    const den = Number(row.denominator) || 1;
+                    const shareSqm = den === 0 ? 0 : areaSqm * (num / den);
+                    totalShareAreaSqm += shareSqm;
+
+                    const owner = row.owner ? row.owner.trim() : '未填寫';
+                    const zoning = row.zoning ? row.zoning.trim() : '未填寫';
+
+                    ownerMap[owner] = (ownerMap[owner] || 0) + shareSqm;
+                    zoningMap[zoning] = (zoningMap[zoning] || 0) + shareSqm;
                 });
-            }, 100);
+
+                // 產生單一表格的 CSV 內容函式
+                const generateTableCSV = (title, dataMap) => {
+                    let tableCsv = `${title}\n`;
+                    let headers = ["項目"];
+                    if (isSqm) headers.push("持分面積(㎡)");
+                    if (isPing) headers.push("持分面積(坪)");
+                    headers.push("面積佔比(%)");
+                    tableCsv += headers.join(",") + "\n";
+
+                    const sortedKeys = Object.keys(dataMap).sort((a, b) => dataMap[b] - dataMap[a]);
+                    sortedKeys.forEach(key => {
+                        const valSqm = dataMap[key];
+                        const valPing = valSqm * PING_RATIO;
+                        const percent = totalShareAreaSqm > 0 ? ((valSqm / totalShareAreaSqm) * 100).toFixed(2) : '0.00';
+                        
+                        let rowData = [`"${key}"`];
+                        if (isSqm) rowData.push(valSqm.toFixed(2));
+                        if (isPing) rowData.push(valPing.toFixed(2));
+                        rowData.push(`="${percent}%"`);
+                        tableCsv += rowData.join(",") + "\n";
+                    });
+                    
+                    // 總計列
+                    let footerData = ["總計"];
+                    if (isSqm) footerData.push(totalShareAreaSqm.toFixed(2));
+                    if (isPing) footerData.push((totalShareAreaSqm * PING_RATIO).toFixed(2));
+                    footerData.push('="100.00%"');
+                    tableCsv += footerData.join(",") + "\n\n";
+                    return tableCsv;
+                };
+
+                if (state.subtotalOwner) csv += generateTableCSV('依【所有權人】面積小計', ownerMap);
+                if (state.subtotalZoning) csv += generateTableCSV('依【使用分區】面積小計', zoningMap);
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; 
+                a.download = `土地清冊統計表_${new Date().toISOString().split('T')[0]}.csv`; 
+                a.click();
+                customAlert("統計表 CSV 檔案下載完成！");
+            });
+        }
+
+        function exportSubtotalImage() {
+            validateBeforeExport(() => {
+                const container = document.getElementById('subtotal-print-container');
+                const btn = document.getElementById('btn-screenshot-subtotal');
+                const btnOriginalText = btn.innerHTML;
+                btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
+
+                setTimeout(() => {
+                    htmlToImage.toPng(container, {
+                        backgroundColor: '#ffffff',
+                        pixelRatio: 2
+                    }).then(dataUrl => {
+                        const a = document.createElement('a');
+                        a.href = dataUrl;
+                        a.download = `土地清冊統計表_${new Date().toISOString().split('T')[0]}.png`;
+                        a.click();
+                        btn.innerHTML = btnOriginalText;
+                        customAlert("統計表圖片下載完成！");
+                    }).catch(err => {
+                        console.error('截圖錯誤:', err);
+                        btn.innerHTML = btnOriginalText;
+                        customAlert("統計表截圖失敗，請稍後再試。");
+                    });
+                }, 100);
+            });
         }
 
         window.onload = init;

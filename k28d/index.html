@@ -98,13 +98,13 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        /* 隱藏數字輸入框的上下微調箭頭 */
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
+        /* 隱藏特定數字輸入框的上下微調箭頭 (例如面積，保留持分的按鈕) */
+        .hide-spin::-webkit-outer-spin-button,
+        .hide-spin::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
-        input[type="number"] {
+        .hide-spin {
             -moz-appearance: textfield;
         }
     </style>
@@ -113,6 +113,7 @@
 
     <!-- 頂部導覽與工具列 -->
     <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 flex-shrink-0 border-b border-slate-200" id="main-header">
+        <!-- 第一層：標題與工具按鈕 -->
         <div class="max-w-[1600px] mx-auto px-6 py-3 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center gap-3">
                 <div class="bg-blue-100 text-primary p-2 rounded-lg">
@@ -121,15 +122,8 @@
                 <h1 class="text-2xl font-bold text-slate-800 tracking-tight">土地清冊系統</h1>
             </div>
 
-            <!-- 工具按鈕區 -->
+            <!-- 工具按鈕區 (加回儲存、讀取、清空) -->
             <div class="flex items-center gap-2 text-sm flex-wrap">
-                <button onclick="copyToClipboard()" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-lg font-medium transition active:scale-95">
-                    <i class="ph ph-copy text-lg"></i> 複製表格
-                </button>
-                <button onclick="exportCSV()" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-lg font-medium transition active:scale-95">
-                    <i class="ph ph-file-csv text-lg"></i> 匯出 CSV
-                </button>
-                <div class="h-6 w-px bg-slate-300 mx-1 hidden sm:block"></div>
                 <button onclick="exportJSON()" class="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-lg font-medium transition active:scale-95">
                     <i class="ph ph-download-simple text-lg"></i> 儲存專案
                 </button>
@@ -137,35 +131,35 @@
                     <i class="ph ph-upload-simple text-lg"></i> 讀取專案
                     <input type="file" accept=".json" class="hidden" onchange="importJSON(event)">
                 </label>
+                <div class="h-6 w-px bg-slate-300 mx-1 hidden sm:block"></div>
                 <button onclick="clearAllData()" class="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3.5 py-2 rounded-lg font-medium transition active:scale-95">
                     <i class="ph ph-trash text-lg"></i> 清空
                 </button>
             </div>
         </div>
 
-        <!-- 顯示設定列 -->
-        <div class="max-w-[1600px] mx-auto px-6 py-2.5 bg-slate-50/80 border-t border-slate-200 flex flex-wrap gap-8 text-sm items-center">
-            <!-- 面積顯示單位 -->
-            <div class="flex items-center gap-4">
-                <span class="font-semibold text-slate-700 flex items-center gap-1"><i class="ph ph-ruler"></i> 產出單位：</span>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="radio" name="areaMode" value="sqm" checked onchange="changeAreaMode(this.value)" class="accent-primary"> 僅平方公尺</label>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="radio" name="areaMode" value="ping" onchange="changeAreaMode(this.value)" class="accent-primary"> 僅坪</label>
-                <label class="flex items-center gap-1.5 cursor-pointer text-primary font-bold"><input type="radio" name="areaMode" value="both" onchange="changeAreaMode(this.value)" class="accent-primary"> 兩者並列</label>
-            </div>
+        <!-- 第二層：顯示設定列 (夾在資料編輯區跟最上方按鈕中間層) -->
+        <div class="max-w-[1600px] mx-auto px-6 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-4 text-sm items-center">
             <!-- 顯示欄位控制 -->
-            <div class="flex items-center gap-4">
-                <span class="font-semibold text-slate-700 flex items-center gap-1"><i class="ph ph-columns"></i> 顯示欄位：</span>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="checkbox" onchange="toggleColumn('district', this.checked)" class="accent-primary rounded"> 行政區</label>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="checkbox" onchange="toggleColumn('subsection', this.checked)" class="accent-primary rounded"> 小段</label>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="checkbox" checked onchange="toggleColumn('zoning', this.checked)" class="accent-primary rounded"> 使用分區</label>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="checkbox" checked onchange="toggleColumn('owner', this.checked)" class="accent-primary rounded"> 所有權人</label>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-primary transition"><input type="checkbox" onchange="toggleColumn('remarks', this.checked)" class="accent-primary rounded"> 備註</label>
-            </div>
-            <!-- 報表小計控制 -->
-            <div class="flex items-center gap-4 border-l border-slate-300 pl-4">
-                <span class="font-semibold text-indigo-700 flex items-center gap-1"><i class="ph ph-chart-pie-slice"></i> 報表小計：</span>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition"><input type="checkbox" onchange="toggleSubtotal('owner', this.checked)" class="accent-indigo-600 rounded"> 所有權人</label>
-                <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition"><input type="checkbox" onchange="toggleSubtotal('zoning', this.checked)" class="accent-indigo-600 rounded"> 使用分區</label>
+            <div class="flex items-center bg-slate-200/50 p-1.5 rounded-lg border border-slate-200 shadow-inner overflow-x-auto w-full sm:w-auto">
+                <span class="font-semibold text-slate-600 text-sm px-3 flex items-center gap-1.5 whitespace-nowrap"><i class="ph-fill ph-columns text-slate-400 text-base"></i> 顯示欄位：</span>
+                <div class="flex items-center gap-1.5 whitespace-nowrap">
+                    <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                        <input type="checkbox" onchange="toggleColumn('district', this.checked)" class="accent-primary w-4 h-4 rounded"> 行政區
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                        <input type="checkbox" onchange="toggleColumn('subsection', this.checked)" class="accent-primary w-4 h-4 rounded"> 小段
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                        <input type="checkbox" onchange="toggleColumn('zoning', this.checked)" class="accent-primary w-4 h-4 rounded"> 使用分區
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                        <input type="checkbox" checked onchange="toggleColumn('owner', this.checked)" class="accent-primary w-4 h-4 rounded"> 所有權人
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                        <input type="checkbox" onchange="toggleColumn('remarks', this.checked)" class="accent-primary w-4 h-4 rounded"> 備註
+                    </label>
+                </div>
             </div>
         </div>
     </header>
@@ -174,11 +168,11 @@
         
         <!-- 上半部：輸入與編輯區塊 -->
         <section class="flex flex-col gap-3">
-            <div class="flex items-center justify-between mb-1">
+            <div class="flex flex-wrap items-center justify-between mb-2 gap-4">
                 <div class="flex items-center gap-2">
                     <i class="ph-fill ph-pencil-simple text-2xl text-slate-400"></i>
                     <h2 class="text-xl font-bold text-slate-800">1. 資料編輯區</h2>
-                    <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2">黃色底色為可輸入欄位</span>
+                    <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2 hidden sm:inline-block">黃色底色為可輸入欄位</span>
                 </div>
             </div>
 
@@ -190,11 +184,19 @@
                                 <th class="py-3 px-3 w-10 text-center"></th>
                                 <th class="py-3 px-3 w-12 text-center">項次</th>
                                 <th class="py-3 px-3 w-28 col-district">行政區</th>
-                                <th class="py-3 px-3 w-36">地段</th>
-                                <th class="py-3 px-3 w-28 col-subsection">小段</th>
-                                <th class="py-3 px-3 w-36">地號</th>
-                                <th class="py-3 px-3 w-32 col-zoning">使用分區</th>
-                                <th class="py-3 px-3 w-36 text-right">總面積 (㎡)</th>
+                                <th class="py-3 px-3 w-36 cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('section')" title="點擊依地段排序">
+                                    <div class="flex items-center gap-1">地段 <i id="sort-icon-section" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
+                                </th>
+                                <th class="py-3 px-3 w-28 col-subsection cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('subsection')" title="點擊依小段排序">
+                                    <div class="flex items-center gap-1">小段 <i id="sort-icon-subsection" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
+                                </th>
+                                <th class="py-3 px-3 w-36 cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('plot')" title="點擊依地號排序">
+                                    <div class="flex items-center gap-1">地號 <i id="sort-icon-plot" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
+                                </th>
+                                <th class="py-3 px-3 w-32 col-zoning cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('zoning')" title="點擊依使用分區排序">
+                                    <div class="flex items-center gap-1">使用分區 <i id="sort-icon-zoning" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
+                                </th>
+                                <th class="py-3 px-3 w-36 text-right">面積 (㎡)</th>
                                 <th class="py-3 px-3 w-36 col-owner">所有權人</th>
                                 <th class="py-3 px-3 text-center" colspan="3">持分 (分子/分母)</th>
                                 <th class="py-3 px-3 w-36 text-right">持分面積 (㎡)</th>
@@ -256,22 +258,49 @@
 
         <!-- 下半部：美觀成果輸出區塊 -->
         <section class="flex flex-col gap-3 border-t border-slate-200 pt-8 mt-4">
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
                 <div class="flex items-center gap-2">
                     <i class="ph-fill ph-printer text-2xl text-primary"></i>
                     <h2 class="text-xl font-bold text-slate-800">2. 報表輸出區</h2>
-                    <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2">點擊右側按鈕將僅擷取此範圍</span>
+                    <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2 hidden sm:inline-block">點選各報表右上角進行獨立輸出</span>
                 </div>
-                <button onclick="exportImage()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-lg shadow-md transition font-medium active:scale-95">
-                    <i class="ph ph-camera text-lg text-white"></i> 截圖下載報表
-                </button>
+                
+                <!-- 報表輸出區設定控制整合 -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- 產出單位 -->
+                    <div class="flex items-center bg-slate-200/50 p-1.5 rounded-lg border border-slate-200 shadow-inner">
+                        <span class="font-semibold text-slate-600 text-sm px-3 flex items-center gap-1.5"><i class="ph-fill ph-ruler text-slate-400 text-base"></i> 產出單位：</span>
+                        <div class="flex items-center gap-1.5">
+                            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                                <input type="radio" name="areaMode" value="sqm" checked onchange="changeAreaMode(this.value)" class="accent-primary w-4 h-4"> 平方公尺
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                                <input type="radio" name="areaMode" value="ping" onchange="changeAreaMode(this.value)" class="accent-primary w-4 h-4"> 坪
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-primary font-bold">
+                                <input type="radio" name="areaMode" value="both" onchange="changeAreaMode(this.value)" class="accent-primary w-4 h-4"> 兩者並列
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 報表小計 -->
+                    <div class="flex items-center bg-indigo-50 p-1.5 rounded-lg border border-indigo-100 shadow-inner">
+                        <span class="font-semibold text-indigo-800 text-sm px-3 flex items-center gap-1.5"><i class="ph-fill ph-chart-pie-slice text-indigo-500 text-base"></i> 報表小計：</span>
+                        <div class="flex items-center gap-1.5">
+                            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-indigo-200 hover:border-indigo-600 hover:text-indigo-700 transition text-slate-700 font-medium">
+                                <input type="checkbox" onchange="toggleSubtotal('owner', this.checked)" class="accent-indigo-600 w-4 h-4 rounded"> 所有權人
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-indigo-200 hover:border-indigo-600 hover:text-indigo-700 transition text-slate-700 font-medium">
+                                <input type="checkbox" onchange="toggleSubtotal('zoning', this.checked)" class="accent-indigo-600 w-4 h-4 rounded"> 使用分區
+                            </label>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- 這個容器是截圖的目標 -->
-            <div id="print-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-10 min-h-[400px]">
-                <div id="output-tables-wrapper" class="flex flex-col gap-12">
-                    <!-- 美觀表格將由 JS 動態生成 -->
-                </div>
+            <!-- 這個容器是各表包裹的框架 -->
+            <div id="output-tables-wrapper" class="flex flex-col gap-8">
+                <!-- 獨立的美觀表格（含對應操作按鈕）將由 JS 動態生成 -->
             </div>
         </section>
 
@@ -288,8 +317,8 @@
                 </button>
             </div>
 
-            <!-- 這個容器是統計區專屬的截圖目標 -->
-            <div id="subtotal-print-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-10 flex flex-col md:flex-row gap-10 items-start w-full">
+            <!-- 這個容器是統計區專屬的截圖目標 (改用 grid 固定雙欄排版) -->
+            <div id="subtotal-print-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-10 grid grid-cols-1 md:grid-cols-2 gap-10 items-start w-full">
                 <!-- 統計表格將由 JS 動態生成 -->
             </div>
         </section>
@@ -361,9 +390,11 @@
         let state = {
             data: [], 
             areaMode: 'sqm', // 'sqm', 'ping', 'both'
-            hiddenCols: new Set(['district', 'subsection', 'remarks']), // 預設隱藏行政區、小段與備註
+            hiddenCols: new Set(['district', 'subsection', 'zoning', 'remarks']), // 預設隱藏行政區、小段、使用分區與備註
             subtotalOwner: false, // 是否顯示所有權人小計
-            subtotalZoning: false // 是否顯示使用分區小計
+            subtotalZoning: false, // 是否顯示使用分區小計
+            sortKey: null, // 'section', 'subsection', 'plot', 'zoning'
+            sortAsc: true  // 排序方向，true為升冪，false為降冪
         };
 
         const PING_RATIO = 0.3025;
@@ -378,10 +409,49 @@
 
         function init() {
             if (state.data.length === 0) addNewRow(); 
+            updateSortIcons();
             renderInputTable();
             renderOutputTables();
             initSortable();
             setupBeforeUnload();
+        }
+
+        // --- 排序功能 ---
+        function sortTable(key) {
+            // 切換排序狀態
+            if (state.sortKey === key) {
+                state.sortAsc = !state.sortAsc; // 反轉方向
+            } else {
+                state.sortKey = key;
+                state.sortAsc = true;   // 預設為升冪
+            }
+
+            state.data.sort((a, b) => {
+                let valA = (a[key] || '').toString();
+                let valB = (b[key] || '').toString();
+                
+                // 使用 localeCompare 並開啟 numeric 屬性，達成自然排序 (例如 "2" 會排在 "10" 前面)
+                let comparison = valA.localeCompare(valB, 'zh-TW', { numeric: true });
+                return state.sortAsc ? comparison : -comparison;
+            });
+
+            updateSortIcons();
+            triggerUpdate();
+        }
+
+        function updateSortIcons() {
+            const keys = ['section', 'subsection', 'plot', 'zoning'];
+            keys.forEach(k => {
+                const iconEl = document.getElementById(`sort-icon-${k}`);
+                if (iconEl) {
+                    if (state.sortKey === k) {
+                        iconEl.className = state.sortAsc ? 'ph-fill ph-caret-up text-primary drop-shadow-sm' : 'ph-fill ph-caret-down text-primary drop-shadow-sm';
+                    } else {
+                        // 恢復為預設 (未啟動)
+                        iconEl.className = 'ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition';
+                    }
+                }
+            });
         }
 
         // --- 資料操作邏輯 ---
@@ -654,17 +724,17 @@
                         <div class="absolute right-3 top-1/2 -translate-y-1/2 group-icon-container">${shareIcon}</div>
                     </td>
                     <td class="py-2 px-2 col-zoning"><input type="text" data-field="zoning" value="${row.zoning}" class="input-cell ${zoningClass}" placeholder="分區"></td>
-                    <td class="py-2 px-2"><input type="number" step="any" data-field="area" value="${row.area}" class="input-cell text-right font-mono ${areaClass}" placeholder="0.00"></td>
+                    <td class="py-2 px-2"><input type="number" step="any" data-field="area" value="${row.area}" class="input-cell text-right font-mono hide-spin ${areaClass}" placeholder="0.00"></td>
                     <td class="py-2 px-2 col-owner relative">
                         <input type="text" data-field="owner" value="${row.owner}" class="input-cell pr-8 ${ownerClass}" placeholder="姓名">
                         <div class="absolute right-3 top-1/2 -translate-y-1/2 owner-icon-container">${status.hasDuplicateOwner ? `<i class="ph-fill ph-warning text-red-500 text-lg" title="注意：此地號有重複輸入的所有權人"></i>` : ''}</div>
                     </td>
                     <td class="py-2 px-0 w-14 text-right relative">
-                        <input type="number" data-field="numerator" value="${row.numerator}" class="input-cell text-center font-mono px-1 ${numClass}" placeholder="1" title="${status.numGtDen ? '分子不應大於分母' : ''}">
+                        <input type="number" data-field="numerator" value="${row.numerator}" class="input-cell text-center font-mono px-1 ${numClass}" title="${status.numGtDen ? '分子不應大於分母' : ''}">
                     </td>
                     <td class="py-2 px-1 w-4 text-center text-slate-300 font-bold text-lg">/</td>
                     <td class="py-2 px-0 w-14 text-left">
-                        <input type="number" data-field="denominator" value="${row.denominator}" class="input-cell text-center font-mono px-1 ${denClass}" placeholder="1">
+                        <input type="number" data-field="denominator" value="${row.denominator}" class="input-cell text-center font-mono px-1 ${denClass}">
                     </td>
                     <td class="py-2 px-3 text-right font-semibold text-primary font-mono readonly-text share-area-display" data-val="${shareArea}">
                         ${formatNumber(shareArea)}
@@ -810,7 +880,22 @@
             const ratio = isPing ? PING_RATIO : 1;
 
             const container = document.createElement('div');
-            container.className = 'flex flex-col gap-4';
+            container.className = 'flex flex-col mb-4';
+
+            // 每個報表的獨立操作工具列
+            const actionBarHtml = `
+                <div class="flex justify-end gap-2 mb-3">
+                    <button onclick="copyToClipboard('${unitMode}')" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm border border-slate-200">
+                        <i class="ph ph-copy text-lg"></i> 複製此表
+                    </button>
+                    <button onclick="exportCSV('${unitMode}')" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm border border-slate-200">
+                        <i class="ph ph-file-csv text-lg"></i> 匯出此表 CSV
+                    </button>
+                    <button id="btn-screenshot-${unitMode}" onclick="exportImage('${unitMode}')" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm">
+                        <i class="ph ph-camera text-lg text-white"></i> 截圖此表
+                    </button>
+                </div>
+            `;
 
             // 標題
             const headerHtml = `
@@ -823,12 +908,12 @@
             // 欄位標題過濾
             let thHtml = `<th style="width:60px;">項次</th>`;
             if (!state.hiddenCols.has('district')) thHtml += `<th>行政區</th>`;
-            thHtml += `<th>地段</th>`;
+            thHtml += `<th class="text-center">地段</th>`;
             if (!state.hiddenCols.has('subsection')) thHtml += `<th>小段</th>`;
-            thHtml += `<th>地號</th>`;
+            thHtml += `<th class="text-center">地號</th>`;
             if (!state.hiddenCols.has('zoning')) thHtml += `<th>使用分區</th>`;
-            thHtml += `<th class="text-right">總面積</th>`;
-            if (!state.hiddenCols.has('owner')) thHtml += `<th>所有權人</th>`;
+            thHtml += `<th class="text-right">面積</th>`;
+            if (!state.hiddenCols.has('owner')) thHtml += `<th class="text-center">所有權人</th>`;
             thHtml += `<th>持分</th><th class="text-right">持分面積</th>`;
             if (!state.hiddenCols.has('remarks')) thHtml += `<th>備註</th>`;
 
@@ -847,15 +932,16 @@
                 
                 totalShareArea += displayShareArea;
 
-                trsHtml += `<tr><td class="text-slate-500">${index + 1}</td>`;
+                trsHtml += `<tr><td class="text-slate-500 text-center">${index + 1}</td>`;
                 if (!state.hiddenCols.has('district')) trsHtml += `<td class="text-left">${row.district || ''}</td>`;
-                trsHtml += `<td class="text-left">${formatSection(row.section)}</td>`;
+                trsHtml += `<td class="text-center">${formatSection(row.section)}</td>`;
                 if (!state.hiddenCols.has('subsection')) trsHtml += `<td class="text-left">${formatSubsection(row.subsection)}</td>`;
-                trsHtml += `<td class="text-left font-mono font-medium">${row.plot || ''}</td>`;
+                trsHtml += `<td class="text-center font-mono font-medium">${row.plot || ''}</td>`;
                 if (!state.hiddenCols.has('zoning')) trsHtml += `<td class="text-left">${row.zoning || ''}</td>`;
                 trsHtml += `<td class="text-right font-mono">${formatNumber(displayArea)}</td>`;
-                if (!state.hiddenCols.has('owner')) trsHtml += `<td class="text-left font-medium text-slate-800">${row.owner || ''}</td>`;
-                trsHtml += `<td class="font-mono text-slate-600">${row.numerator} / ${row.denominator}</td><td class="text-right font-mono font-bold text-slate-900">${formatNumber(displayShareArea)}</td>`;
+                if (!state.hiddenCols.has('owner')) trsHtml += `<td class="text-center font-medium text-slate-800">${row.owner || ''}</td>`;
+                // 加入 xl-text 類別與 mso-number-format 確保貼到 Excel 為純文字
+                trsHtml += `<td class="xl-text font-mono text-slate-600 text-center" style="mso-number-format:'\\@';">${row.numerator} / ${row.denominator}</td><td class="text-right font-mono font-bold text-slate-900">${formatNumber(displayShareArea)}</td>`;
                 if (!state.hiddenCols.has('remarks')) trsHtml += `<td class="text-left text-slate-500">${row.remarks || ''}</td>`;
                 trsHtml += `</tr>`;
             });
@@ -864,18 +950,21 @@
             const footerHtml = `
                 <div class="flex justify-end text-lg mt-4">
                     <div class="bg-slate-800 text-white px-8 py-3 rounded-lg shadow-md font-bold flex items-baseline gap-3">
-                        總持分面積：<span class="text-3xl text-blue-300 font-mono">${formatNumber(totalShareArea)}</span> <span class="text-base text-slate-300 font-normal">${unitSuffix}</span>
+                        總面積：<span class="text-3xl text-blue-300 font-mono">${formatNumber(totalShareArea)}</span> <span class="text-base text-slate-300 font-normal">${unitSuffix}</span>
                     </div>
                 </div>
             `;
 
             container.innerHTML = `
-                ${headerHtml}
-                <table class="output-table">
-                    <thead><tr>${thHtml}</tr></thead>
-                    <tbody>${trsHtml}</tbody>
-                </table>
-                ${footerHtml}
+                ${actionBarHtml}
+                <div id="report-content-${unitMode}" class="bg-white rounded-xl shadow-sm border border-slate-200 p-10 flex flex-col gap-4">
+                    ${headerHtml}
+                    <table class="output-table !mb-0">
+                        <thead><tr>${thHtml}</tr></thead>
+                        <tbody>${trsHtml}</tbody>
+                    </table>
+                    ${footerHtml}
+                </div>
             `;
             return container;
         }
@@ -947,7 +1036,7 @@
             const isPing = state.areaMode === 'ping' || state.areaMode === 'both';
 
             const container = document.createElement('div');
-            container.className = 'flex flex-col gap-3 flex-1 w-full min-w-[300px]'; // 加入 flex-1 讓雙欄可以均分寬度
+            container.className = 'flex flex-col gap-3 w-full'; // 移除 flex-1，改由外層的 grid 系統強制控制為 50% 寬度
 
             let thHtml = `<th class="text-left w-1/3">項目</th>`;
             if (isSqm) thHtml += `<th class="text-right">持分面積 (㎡)</th>`;
@@ -1015,6 +1104,9 @@
                 onEnd: function (evt) {
                     const item = state.data.splice(evt.oldIndex, 1)[0];
                     state.data.splice(evt.newIndex, 0, item);
+                    // 拖曳改變順序後，取消當前的標題排序狀態
+                    state.sortKey = null;
+                    updateSortIcons();
                     triggerUpdate();
                 }
             });
@@ -1061,36 +1153,62 @@
             }
         }
 
-        function exportCSV() {
+        function exportCSV(unitMode) {
             validateBeforeExport(() => {
+                const isPing = unitMode === 'ping';
+                const ratio = isPing ? PING_RATIO : 1;
+                const unitStr = isPing ? '(坪)' : '(㎡)';
+
                 let csv = "\uFEFF"; 
-                const headers = ["項次", "行政區", "地段", "小段", "地號", "使用分區", "總面積(㎡)", "總面積(坪)", "所有權人", "持分", "持分面積(㎡)", "持分面積(坪)", "備註"];
+                
+                // 動態生成 CSV 標頭，僅包含勾選顯示的欄位
+                const headers = ["項次"];
+                if (!state.hiddenCols.has('district')) headers.push("行政區");
+                headers.push("地段");
+                if (!state.hiddenCols.has('subsection')) headers.push("小段");
+                headers.push("地號");
+                if (!state.hiddenCols.has('zoning')) headers.push("使用分區");
+                headers.push(`面積${unitStr}`);
+                if (!state.hiddenCols.has('owner')) headers.push("所有權人");
+                headers.push("持分");
+                headers.push(`持分面積${unitStr}`);
+                if (!state.hiddenCols.has('remarks')) headers.push("備註");
+
                 csv += headers.join(",") + "\n";
 
                 state.data.forEach((row, idx) => {
                     const area = Number(row.area) || 0;
                     const num = Number(row.numerator) || 0;
                     const den = Number(row.denominator) || 1;
-                    const share = area * (num / den);
+                    const share = den === 0 ? 0 : area * (num / den);
                     
-                    const rowData = [
-                        idx + 1, `"${row.district || ''}"`, `"${formatSection(row.section)}"`, `"${formatSubsection(row.subsection)}"`, `="${row.plot || ''}"`,
-                        `"${row.zoning || ''}"`, area, (area * PING_RATIO).toFixed(2), `"${row.owner || ''}"`,
-                        `="${num}/${den}"`, share.toFixed(2), (share * PING_RATIO).toFixed(2), `"${row.remarks || ''}"`
-                    ];
+                    const rowData = [idx + 1];
+                    if (!state.hiddenCols.has('district')) rowData.push(`"${row.district || ''}"`);
+                    rowData.push(`"${formatSection(row.section)}"`);
+                    if (!state.hiddenCols.has('subsection')) rowData.push(`"${formatSubsection(row.subsection)}"`);
+                    rowData.push(`="${row.plot || ''}"`);
+                    if (!state.hiddenCols.has('zoning')) rowData.push(`"${row.zoning || ''}"`);
+                    rowData.push((area * ratio).toFixed(2));
+                    if (!state.hiddenCols.has('owner')) rowData.push(`"${row.owner || ''}"`);
+                    rowData.push(`="${num}/${den}"`);
+                    rowData.push((share * ratio).toFixed(2));
+                    if (!state.hiddenCols.has('remarks')) rowData.push(`"${row.remarks || ''}"`);
+                    
                     csv += rowData.join(",") + "\n";
                 });
 
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = `土地清冊_${new Date().toISOString().split('T')[0]}.csv`; a.click();
-                customAlert("CSV 檔案下載完成！");
+                const a = document.createElement('a'); a.href = url; 
+                a.download = `土地清冊_${isPing ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.csv`; 
+                a.click();
+                customAlert(`CSV 檔案 (${isPing ? '坪' : '平方公尺'}) 下載完成！`);
             });
         }
 
-        function copyToClipboard() {
+        function copyToClipboard(unitMode) {
             validateBeforeExport(() => {
-                const wrapper = document.getElementById('output-tables-wrapper');
+                const wrapper = document.getElementById(`report-content-${unitMode}`);
                 let html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><style>table{border-collapse:collapse;} td,th{border:1px solid #000; padding:4px;} .xl-text{mso-number-format:"\\@";}</style></head><body>';
                 html += wrapper.innerHTML; 
                 html += '</body></html>';
@@ -1106,27 +1224,27 @@
             });
         }
 
-        function exportImage() {
+        function exportImage(unitMode) {
             validateBeforeExport(() => {
-                const container = document.getElementById('print-container');
-                const btnOriginalText = document.querySelector('button[onclick="exportImage()"]').innerHTML;
-                document.querySelector('button[onclick="exportImage()"]').innerHTML = `<i class="ph ph-spinner animate-spin text-lg"></i> 處理中...`;
+                const container = document.getElementById(`report-content-${unitMode}`);
+                const btn = document.getElementById(`btn-screenshot-${unitMode}`);
+                const btnOriginalText = btn.innerHTML;
+                btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
 
                 setTimeout(() => {
-                    // 使用 html-to-image 替代 dom-to-image，它能原生安全處理外部 CSS，避免 SecurityError
                     htmlToImage.toPng(container, {
                         backgroundColor: '#ffffff',
                         pixelRatio: 2 // 放大兩倍以提高截圖解析度
                     }).then(dataUrl => {
                         const a = document.createElement('a');
                         a.href = dataUrl;
-                        a.download = `土地清冊報表_${new Date().toISOString().split('T')[0]}.png`;
+                        a.download = `土地清冊報表_${unitMode === 'ping' ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.png`;
                         a.click();
-                        document.querySelector('button[onclick="exportImage()"]').innerHTML = btnOriginalText;
+                        btn.innerHTML = btnOriginalText;
                         customAlert("報表圖片下載完成！");
                     }).catch(err => {
                         console.error('截圖錯誤:', err);
-                        document.querySelector('button[onclick="exportImage()"]').innerHTML = btnOriginalText;
+                        btn.innerHTML = btnOriginalText;
                         customAlert("截圖失敗，請稍後再試。");
                     });
                 }, 100); // 確保 UI 更新後再截圖
@@ -1136,7 +1254,7 @@
         function exportSubtotalImage() {
             const container = document.getElementById('subtotal-print-container');
             const btnOriginalText = document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML;
-            document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = `<i class="ph ph-spinner animate-spin text-lg"></i> 處理中...`;
+            document.querySelector('button[onclick="exportSubtotalImage()"]').innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
 
             setTimeout(() => {
                 htmlToImage.toPng(container, {

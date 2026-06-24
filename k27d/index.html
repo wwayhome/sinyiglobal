@@ -957,13 +957,22 @@
                 trsHtml += `</tr>`;
             });
 
-            // 總計列
-            const footerHtml = `
-                <div class="flex justify-end text-lg mt-4">
-                    <div class="bg-slate-800 text-white px-8 py-3 rounded-lg shadow-md font-bold flex items-baseline gap-3">
-                        總面積：<span class="text-3xl text-blue-300 font-mono">${formatNumber(totalShareArea)}</span> <span class="text-base text-slate-300 font-normal">${unitSuffix}</span>
-                    </div>
-                </div>
+            // 計算底部總計列的跨欄數 (Colspan)
+            let beforeColspan = 5; // 固定的 5 欄：項次, 地段, 地號, 面積, 持分
+            if (!state.hiddenCols.has('district')) beforeColspan++;
+            if (!state.hiddenCols.has('subsection')) beforeColspan++;
+            if (!state.hiddenCols.has('zoning')) beforeColspan++;
+            if (!state.hiddenCols.has('owner')) beforeColspan++;
+
+            // 總計列 (整合於表格最下列)
+            const tfootHtml = `
+                <tfoot class="bg-indigo-50/50 border-t-[3px] border-slate-400 font-bold text-slate-900">
+                    <tr>
+                        <td colspan="${beforeColspan}" class="text-right py-3 text-lg tracking-wider">總面積：</td>
+                        <td class="text-right font-mono text-xl text-indigo-700">${formatNumber(totalShareArea)}</td>
+                        ${!state.hiddenCols.has('remarks') ? '<td></td>' : ''}
+                    </tr>
+                </tfoot>
             `;
 
             container.innerHTML = `
@@ -973,8 +982,8 @@
                     <table class="output-table !mb-0">
                         <thead><tr>${thHtml}</tr></thead>
                         <tbody>${trsHtml}</tbody>
+                        ${tfootHtml}
                     </table>
-                    ${footerHtml}
                 </div>
             `;
             return container;

@@ -25,8 +25,6 @@
 
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- 引入 html-to-image (現代化套件，完美處理 CORS 問題，避免讀取外部樣式表出錯) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
@@ -91,6 +89,14 @@
         .output-table .text-right { text-align: right; }
         .output-table .text-left { text-align: left; }
         .output-table .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .report-table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+        .report-table-scroll .output-table {
+            min-width: 960px;
+        }
 
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -323,7 +329,7 @@
                     <i class="ph ph-file-csv text-lg"></i> 匯出統計表 CSV
                 </button>
                 <button id="btn-screenshot-subtotal" onclick="exportSubtotalImage()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm">
-                    <i class="ph ph-camera text-lg text-white"></i> 截圖統計表
+                    <i class="ph ph-image-square text-lg text-white"></i> 另存統計圖
                 </button>
             </div>
 
@@ -903,7 +909,7 @@
                         <i class="ph ph-file-csv text-lg"></i> 匯出此表 CSV
                     </button>
                     <button id="btn-screenshot-${unitMode}" onclick="exportImage('${unitMode}')" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm">
-                        <i class="ph ph-camera text-lg text-white"></i> 截圖此表
+                        <i class="ph ph-image-square text-lg text-white"></i> 另存圖片
                     </button>
                 </div>
             `;
@@ -978,11 +984,13 @@
                 ${actionBarHtml}
                 <div id="report-content-${unitMode}" class="bg-white rounded-xl shadow-sm border border-slate-200 p-10 flex flex-col gap-4">
                     ${headerHtml}
-                    <table class="output-table !mb-0">
-                        <thead><tr>${thHtml}</tr></thead>
-                        <tbody>${trsHtml}</tbody>
-                        ${tfootHtml}
-                    </table>
+                    <div class="report-table-scroll">
+                        <table class="output-table !mb-0">
+                            <thead><tr>${thHtml}</tr></thead>
+                            <tbody>${trsHtml}</tbody>
+                            ${tfootHtml}
+                        </table>
+                    </div>
                 </div>
             `;
             return container;
@@ -1225,6 +1233,38 @@
             });
         }
 
+        function htmlToPlainText(html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            return (temp.textContent || temp.innerText || '').replace(/\s+/g, ' ').trim();
+        }
+
+        async function copyHtmlToClipboard(html) {
+            const plainText = htmlToPlainText(html);
+
+            if (navigator.clipboard && window.ClipboardItem) {
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/html': new Blob([html], { type: 'text/html' }),
+                        'text/plain': new Blob([plainText], { type: 'text/plain' })
+                    })
+                ]);
+                return;
+            }
+
+            const copyHandler = function(e) {
+                e.clipboardData.setData('text/html', html);
+                e.clipboardData.setData('text/plain', plainText);
+                e.preventDefault();
+            };
+
+            document.addEventListener('copy', copyHandler);
+            const copied = document.execCommand('copy');
+            document.removeEventListener('copy', copyHandler);
+
+            if (!copied) throw new Error('Clipboard copy failed');
+        }
+
         function copyToClipboard(unitMode) {
             validateBeforeExport(() => {
                 const wrapper = document.getElementById(`report-content-${unitMode}`);
@@ -1232,41 +1272,446 @@
                 html += wrapper.innerHTML; 
                 html += '</body></html>';
 
-                const copyHandler = function(e) {
-                    e.clipboardData.setData('text/html', html);
-                    e.preventDefault();
-                };
-                document.addEventListener('copy', copyHandler);
-                document.execCommand('copy');
-                document.removeEventListener('copy', copyHandler);
-                customAlert("報表已複製！您現在可以在 Excel 或 Word 中貼上。");
+                copyHtmlToClipboard(html)
+                    .then(() => customAlert("報表已複製！您現在可以在 Excel 或 Word 中貼上。"))
+                    .catch(err => {
+                        console.error('複製錯誤:', err);
+                        customAlert("複製失敗，請再試一次。");
+                    });
             });
+        }
+
+        const CANVAS_EXPORT_SCALE = 2;
+        const CANVAS_EXPORT_FONT = '"Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif';
+        const CANVAS_COLORS = {
+            text: '#1e293b',
+            muted: '#64748b',
+            title: '#0f172a',
+            border: '#cbd5e1',
+            headerBg: '#f8fafc',
+            rowAlt: '#fbfcfd',
+            footerBg: '#eef2ff',
+            accent: '#4338ca',
+            darkLine: '#1e293b'
+        };
+
+        function setCanvasFont(ctx, weight = 400, size = 14, style = 'normal') {
+            ctx.font = `${style} ${weight} ${size}px ${CANVAS_EXPORT_FONT}`;
+        }
+
+        function wrapCanvasText(ctx, value, maxWidth) {
+            const text = value == null ? '' : String(value);
+            if (maxWidth <= 0) return [''];
+            if (text === '') return [''];
+
+            const lines = [];
+            text.split(/\r?\n/).forEach(paragraph => {
+                let line = '';
+                Array.from(paragraph).forEach(char => {
+                    const normalizedChar = char === '\t' ? ' ' : char;
+                    const testLine = line + normalizedChar;
+                    if (!line || ctx.measureText(testLine).width <= maxWidth) {
+                        line = testLine;
+                    } else {
+                        lines.push(line);
+                        line = normalizedChar;
+                    }
+                });
+                lines.push(line);
+            });
+            return lines.length ? lines : [''];
+        }
+
+        function measureCanvasRowHeight(ctx, columns, row, options = {}) {
+            const fontSize = options.fontSize || 14;
+            const fontWeight = options.fontWeight || 400;
+            const fontStyle = options.fontStyle || 'normal';
+            const lineHeight = options.lineHeight || Math.ceil(fontSize * 1.55);
+            const paddingY = options.paddingY || 10;
+            const paddingX = options.paddingX || 12;
+            let height = options.minHeight || 42;
+
+            setCanvasFont(ctx, fontWeight, fontSize, fontStyle);
+            columns.forEach(col => {
+                const lines = wrapCanvasText(ctx, row[col.key], col.width - paddingX * 2);
+                height = Math.max(height, (lines.length * lineHeight) + (paddingY * 2) + 2);
+            });
+            return Math.ceil(height);
+        }
+
+        function drawCanvasText(ctx, value, rect, options = {}) {
+            const fontSize = options.fontSize || 14;
+            const fontWeight = options.fontWeight || 400;
+            const fontStyle = options.fontStyle || 'normal';
+            const lineHeight = options.lineHeight || Math.ceil(fontSize * 1.55);
+            const paddingX = options.paddingX || 12;
+            const align = options.align || 'left';
+            const maxWidth = rect.w - paddingX * 2;
+
+            setCanvasFont(ctx, fontWeight, fontSize, fontStyle);
+            ctx.fillStyle = options.color || CANVAS_COLORS.text;
+            ctx.textAlign = align;
+            ctx.textBaseline = 'middle';
+
+            const lines = wrapCanvasText(ctx, value, maxWidth);
+            const textHeight = lines.length * lineHeight;
+            let textY = rect.y + ((rect.h - textHeight) / 2) + (lineHeight / 2);
+            const textX = align === 'right'
+                ? rect.x + rect.w - paddingX
+                : align === 'center'
+                    ? rect.x + (rect.w / 2)
+                    : rect.x + paddingX;
+
+            lines.forEach(line => {
+                ctx.fillText(line, textX, textY);
+                textY += lineHeight;
+            });
+        }
+
+        function drawCanvasCell(ctx, rect, value, options = {}) {
+            ctx.fillStyle = options.fill || '#ffffff';
+            ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+            ctx.strokeStyle = options.stroke || CANVAS_COLORS.border;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+            drawCanvasText(ctx, value, rect, options);
+        }
+
+        function createExportCanvas(width, height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(width * CANVAS_EXPORT_SCALE);
+            canvas.height = Math.ceil(height * CANVAS_EXPORT_SCALE);
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(CANVAS_EXPORT_SCALE, CANVAS_EXPORT_SCALE);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            return { canvas, ctx };
+        }
+
+        function expandCanvasColumns(columns, minWidth) {
+            const nextColumns = columns.map(col => ({ ...col }));
+            const currentWidth = nextColumns.reduce((sum, col) => sum + col.width, 0);
+            const growColumns = nextColumns.filter(col => col.grow);
+            if (currentWidth < minWidth && growColumns.length > 0) {
+                const extra = (minWidth - currentWidth) / growColumns.length;
+                growColumns.forEach(col => { col.width += extra; });
+            }
+            return nextColumns;
+        }
+
+        function planCanvasTable(ctx, columns, rows, footerRow) {
+            const headerRow = {};
+            columns.forEach(col => { headerRow[col.key] = col.label; });
+
+            const headerHeight = measureCanvasRowHeight(ctx, columns, headerRow, {
+                fontWeight: 700,
+                fontSize: 14,
+                lineHeight: 22,
+                minHeight: 46
+            });
+            const rowHeights = rows.map(row => measureCanvasRowHeight(ctx, columns, row, {
+                fontSize: 14,
+                lineHeight: 22,
+                minHeight: 42
+            }));
+            const footerHeight = footerRow ? measureCanvasRowHeight(ctx, columns, footerRow, {
+                fontWeight: 700,
+                fontSize: 15,
+                lineHeight: 24,
+                minHeight: 48
+            }) : 0;
+
+            return {
+                width: columns.reduce((sum, col) => sum + col.width, 0),
+                height: headerHeight + rowHeights.reduce((sum, h) => sum + h, 0) + footerHeight,
+                headerHeight,
+                rowHeights,
+                footerHeight
+            };
+        }
+
+        function drawCanvasTable(ctx, columns, rows, footerRow, x, y, plan, options = {}) {
+            let cursorY = y;
+            const headerRow = {};
+            columns.forEach(col => { headerRow[col.key] = col.label; });
+
+            let cursorX = x;
+            columns.forEach(col => {
+                drawCanvasCell(ctx, { x: cursorX, y: cursorY, w: col.width, h: plan.headerHeight }, headerRow[col.key], {
+                    fill: CANVAS_COLORS.headerBg,
+                    align: col.headerAlign || col.align || 'center',
+                    color: CANVAS_COLORS.title,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    lineHeight: 22
+                });
+                cursorX += col.width;
+            });
+            cursorY += plan.headerHeight;
+
+            rows.forEach((row, rowIndex) => {
+                cursorX = x;
+                const fill = rowIndex % 2 === 1 ? CANVAS_COLORS.rowAlt : '#ffffff';
+                columns.forEach(col => {
+                    const isUnfilledItem = col.key === 'item' && row[col.key] === '未填寫';
+                    drawCanvasCell(ctx, { x: cursorX, y: cursorY, w: col.width, h: plan.rowHeights[rowIndex] }, row[col.key], {
+                        fill,
+                        align: col.align || 'left',
+                        color: isUnfilledItem ? '#94a3b8' : CANVAS_COLORS.text,
+                        fontWeight: col.bodyWeight || 400,
+                        fontStyle: isUnfilledItem ? 'italic' : 'normal',
+                        fontSize: 14,
+                        lineHeight: 22
+                    });
+                    cursorX += col.width;
+                });
+                cursorY += plan.rowHeights[rowIndex];
+            });
+
+            if (footerRow) {
+                cursorX = x;
+                columns.forEach(col => {
+                    const highlight = options.footerAccentKeys?.includes(col.key);
+                    drawCanvasCell(ctx, { x: cursorX, y: cursorY, w: col.width, h: plan.footerHeight }, footerRow[col.key], {
+                        fill: CANVAS_COLORS.footerBg,
+                        align: col.align || 'left',
+                        color: highlight ? CANVAS_COLORS.accent : CANVAS_COLORS.title,
+                        fontWeight: 700,
+                        fontSize: highlight ? 16 : 15,
+                        lineHeight: 24
+                    });
+                    cursorX += col.width;
+                });
+            }
+        }
+
+        function drawCanvasReportTitle(ctx, x, y, title, subtitle, width) {
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'left';
+
+            setCanvasFont(ctx, 700, 30);
+            ctx.fillStyle = CANVAS_COLORS.title;
+            ctx.fillText(title, x, y + 24);
+
+            if (subtitle) {
+                const titleWidth = ctx.measureText(`${title} `).width;
+                setCanvasFont(ctx, 400, 20);
+                ctx.fillStyle = CANVAS_COLORS.muted;
+                ctx.fillText(subtitle, x + titleWidth, y + 27);
+            }
+
+            ctx.strokeStyle = CANVAS_COLORS.darkLine;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x, y + 58);
+            ctx.lineTo(x + width, y + 58);
+            ctx.stroke();
+        }
+
+        function getReportCanvasData(unitMode) {
+            const isPing = unitMode === 'ping';
+            const unitLabel = isPing ? '坪' : '平方公尺';
+            const unitStr = isPing ? '(坪)' : '(㎡)';
+            const ratio = isPing ? PING_RATIO : 1;
+
+            let columns = [
+                { key: 'index', label: '項次', width: 64, align: 'center' }
+            ];
+            if (!state.hiddenCols.has('district')) columns.push({ key: 'district', label: '行政區', width: 112, align: 'left', grow: true });
+            columns.push({ key: 'section', label: '地段', width: 130, align: 'center', grow: true });
+            if (!state.hiddenCols.has('subsection')) columns.push({ key: 'subsection', label: '小段', width: 112, align: 'left', grow: true });
+            columns.push({ key: 'plot', label: '地號', width: 118, align: 'center' });
+            if (!state.hiddenCols.has('zoning')) columns.push({ key: 'zoning', label: '使用分區', width: 130, align: 'left', grow: true });
+            columns.push({ key: 'area', label: `面積 ${unitStr}`, width: 126, align: 'right', bodyWeight: 400 });
+            if (!state.hiddenCols.has('owner')) columns.push({ key: 'owner', label: '所有權人', width: 150, align: 'center', grow: true, bodyWeight: 500 });
+            columns.push({ key: 'share', label: '持分', width: 108, align: 'center' });
+            columns.push({ key: 'shareArea', label: `持分面積 ${unitStr}`, width: 140, align: 'right', bodyWeight: 700 });
+            if (!state.hiddenCols.has('remarks')) columns.push({ key: 'remarks', label: '備註', width: 180, align: 'left', grow: true });
+            columns = expandCanvasColumns(columns, 960);
+
+            let totalShareArea = 0;
+            const rows = state.data.map((row, index) => {
+                const areaSqm = Number(row.area) || 0;
+                const num = Number(row.numerator) || 0;
+                const den = Number(row.denominator) || 1;
+                const shareSqm = den === 0 ? 0 : areaSqm * (num / den);
+                totalShareArea += shareSqm * ratio;
+
+                const outputRow = {
+                    index: index + 1,
+                    district: row.district || '',
+                    section: formatSection(row.section),
+                    subsection: formatSubsection(row.subsection),
+                    plot: row.plot || '',
+                    zoning: row.zoning || '',
+                    area: formatNumber(areaSqm * ratio),
+                    owner: row.owner || '',
+                    share: `${row.numerator ?? ''} / ${row.denominator ?? ''}`,
+                    shareArea: formatNumber(shareSqm * ratio),
+                    remarks: row.remarks || ''
+                };
+                return outputRow;
+            });
+
+            const footerRow = {};
+            columns.forEach(col => { footerRow[col.key] = ''; });
+            const shareIndex = columns.findIndex(col => col.key === 'share');
+            if (shareIndex >= 0) footerRow[columns[shareIndex].key] = '總面積：';
+            footerRow.shareArea = formatNumber(totalShareArea);
+
+            return { columns, rows, footerRow, unitLabel };
+        }
+
+        function buildReportCanvas(unitMode) {
+            const { columns, rows, footerRow, unitLabel } = getReportCanvasData(unitMode);
+            const measureCtx = document.createElement('canvas').getContext('2d');
+            const tablePlan = planCanvasTable(measureCtx, columns, rows, footerRow);
+            const padding = 48;
+            const titleHeight = 74;
+            const width = tablePlan.width + (padding * 2);
+            const height = padding + titleHeight + tablePlan.height + padding;
+            const { canvas, ctx } = createExportCanvas(width, height);
+
+            drawCanvasReportTitle(ctx, padding, padding, '土地清冊', `(${unitLabel})`, tablePlan.width);
+            drawCanvasTable(ctx, columns, rows, footerRow, padding, padding + titleHeight, tablePlan, {
+                footerAccentKeys: ['shareArea']
+            });
+            return canvas;
+        }
+
+        function getSubtotalCanvasData() {
+            const isSqm = state.areaMode === 'sqm' || state.areaMode === 'both';
+            const isPing = state.areaMode === 'ping' || state.areaMode === 'both';
+            let totalShareAreaSqm = 0;
+            const ownerMap = {};
+            const zoningMap = {};
+
+            state.data.forEach(row => {
+                const areaSqm = Number(row.area) || 0;
+                const num = Number(row.numerator) || 0;
+                const den = Number(row.denominator) || 1;
+                const shareSqm = den === 0 ? 0 : areaSqm * (num / den);
+                totalShareAreaSqm += shareSqm;
+
+                const owner = row.owner ? row.owner.trim() : '未填寫';
+                const zoning = row.zoning ? row.zoning.trim() : '未填寫';
+                ownerMap[owner] = (ownerMap[owner] || 0) + shareSqm;
+                zoningMap[zoning] = (zoningMap[zoning] || 0) + shareSqm;
+            });
+
+            const createTable = (title, dataMap) => {
+                let columns = [
+                    { key: 'item', label: '項目', width: 220, align: 'left', grow: true, bodyWeight: 500 }
+                ];
+                if (isSqm) columns.push({ key: 'sqm', label: '持分面積 (㎡)', width: 150, align: 'right' });
+                if (isPing) columns.push({ key: 'ping', label: '持分面積 (坪)', width: 150, align: 'right' });
+                columns.push({ key: 'percent', label: '面積佔比 (%)', width: 140, align: 'right' });
+                columns = expandCanvasColumns(columns, 560);
+
+                const rows = Object.keys(dataMap)
+                    .sort((a, b) => dataMap[b] - dataMap[a])
+                    .map(key => {
+                        const valSqm = dataMap[key];
+                        const row = {
+                            item: key,
+                            percent: totalShareAreaSqm > 0 ? `${((valSqm / totalShareAreaSqm) * 100).toFixed(2)}%` : '0.00%'
+                        };
+                        if (isSqm) row.sqm = formatNumber(valSqm);
+                        if (isPing) row.ping = formatNumber(valSqm * PING_RATIO);
+                        return row;
+                    });
+
+                const footerRow = { item: '總計', percent: '100.00%' };
+                if (isSqm) footerRow.sqm = formatNumber(totalShareAreaSqm);
+                if (isPing) footerRow.ping = formatNumber(totalShareAreaSqm * PING_RATIO);
+                return { title, columns, rows, footerRow };
+            };
+
+            const tables = [];
+            if (state.subtotalOwner) tables.push(createTable('依【所有權人】面積小計', ownerMap));
+            if (state.subtotalZoning) tables.push(createTable('依【使用分區】面積小計', zoningMap));
+            return tables;
+        }
+
+        function buildSubtotalCanvas() {
+            const tables = getSubtotalCanvasData();
+            if (tables.length === 0) return null;
+
+            const measureCtx = document.createElement('canvas').getContext('2d');
+            const titleHeight = 62;
+            const gap = 40;
+            const padding = 48;
+            const plannedTables = tables.map(table => ({
+                ...table,
+                plan: planCanvasTable(measureCtx, table.columns, table.rows, table.footerRow)
+            }));
+            const totalTablesWidth = plannedTables.reduce((sum, table) => sum + table.plan.width, 0) + (gap * (plannedTables.length - 1));
+            const maxTableHeight = Math.max(...plannedTables.map(table => titleHeight + table.plan.height));
+            const width = totalTablesWidth + (padding * 2);
+            const height = maxTableHeight + (padding * 2);
+            const { canvas, ctx } = createExportCanvas(width, height);
+
+            let cursorX = padding;
+            plannedTables.forEach(table => {
+                drawCanvasReportTitle(ctx, cursorX, padding, table.title, '', table.plan.width);
+                drawCanvasTable(ctx, table.columns, table.rows, table.footerRow, cursorX, padding + titleHeight, table.plan, {
+                    footerAccentKeys: ['sqm', 'ping', 'percent']
+                });
+                cursorX += table.plan.width + gap;
+            });
+            return canvas;
+        }
+
+        function downloadCanvasAsPng(canvas, fileName) {
+            return new Promise((resolve, reject) => {
+                canvas.toBlob(blob => {
+                    if (!blob) {
+                        reject(new Error('無法建立圖片檔案'));
+                        return;
+                    }
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    resolve();
+                }, 'image/png');
+            });
+        }
+
+        async function withCanvasExportButton(btn, work, successMessage, errorMessage) {
+            const btnOriginalText = btn.innerHTML;
+            btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
+
+            try {
+                if (document.fonts?.ready) await document.fonts.ready;
+                await new Promise(resolve => setTimeout(resolve, 80));
+                await work();
+                customAlert(successMessage);
+            } catch (err) {
+                console.error('圖片匯出錯誤:', err);
+                customAlert(errorMessage);
+            } finally {
+                btn.innerHTML = btnOriginalText;
+            }
         }
 
         function exportImage(unitMode) {
             validateBeforeExport(() => {
-                const container = document.getElementById(`report-content-${unitMode}`);
                 const btn = document.getElementById(`btn-screenshot-${unitMode}`);
-                const btnOriginalText = btn.innerHTML;
-                btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
-
-                setTimeout(() => {
-                    htmlToImage.toPng(container, {
-                        backgroundColor: '#ffffff',
-                        pixelRatio: 2 // 放大兩倍以提高截圖解析度
-                    }).then(dataUrl => {
-                        const a = document.createElement('a');
-                        a.href = dataUrl;
-                        a.download = `土地清冊報表_${unitMode === 'ping' ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.png`;
-                        a.click();
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("報表圖片下載完成！");
-                    }).catch(err => {
-                        console.error('截圖錯誤:', err);
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("截圖失敗，請稍後再試。");
-                    });
-                }, 100); // 確保 UI 更新後再截圖
+                withCanvasExportButton(
+                    btn,
+                    async () => {
+                        const canvas = buildReportCanvas(unitMode);
+                        await downloadCanvasAsPng(canvas, `土地清冊報表_${unitMode === 'ping' ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.png`);
+                    },
+                    "報表圖片下載完成！",
+                    "圖片另存失敗，請稍後再試。"
+                );
             });
         }
 
@@ -1277,14 +1722,12 @@
                 html += wrapper.innerHTML; 
                 html += '</body></html>';
 
-                const copyHandler = function(e) {
-                    e.clipboardData.setData('text/html', html);
-                    e.preventDefault();
-                };
-                document.addEventListener('copy', copyHandler);
-                document.execCommand('copy');
-                document.removeEventListener('copy', copyHandler);
-                customAlert("統計表已複製！您現在可以在 Excel 或 Word 中貼上。");
+                copyHtmlToClipboard(html)
+                    .then(() => customAlert("統計表已複製！您現在可以在 Excel 或 Word 中貼上。"))
+                    .catch(err => {
+                        console.error('複製錯誤:', err);
+                        customAlert("統計表複製失敗，請再試一次。");
+                    });
             });
         }
 
@@ -1360,28 +1803,22 @@
 
         function exportSubtotalImage() {
             validateBeforeExport(() => {
-                const container = document.getElementById('subtotal-print-container');
-                const btn = document.getElementById('btn-screenshot-subtotal');
-                const btnOriginalText = btn.innerHTML;
-                btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
+                if (!state.subtotalOwner && !state.subtotalZoning) {
+                    customAlert("請先勾選統計項目。");
+                    return;
+                }
 
-                setTimeout(() => {
-                    htmlToImage.toPng(container, {
-                        backgroundColor: '#ffffff',
-                        pixelRatio: 2
-                    }).then(dataUrl => {
-                        const a = document.createElement('a');
-                        a.href = dataUrl;
-                        a.download = `土地清冊統計表_${new Date().toISOString().split('T')[0]}.png`;
-                        a.click();
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("統計表圖片下載完成！");
-                    }).catch(err => {
-                        console.error('截圖錯誤:', err);
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("統計表截圖失敗，請稍後再試。");
-                    });
-                }, 100);
+                const btn = document.getElementById('btn-screenshot-subtotal');
+                withCanvasExportButton(
+                    btn,
+                    async () => {
+                        const canvas = buildSubtotalCanvas();
+                        if (!canvas) throw new Error('沒有可匯出的統計表');
+                        await downloadCanvasAsPng(canvas, `土地清冊統計表_${new Date().toISOString().split('T')[0]}.png`);
+                    },
+                    "統計表圖片下載完成！",
+                    "統計表圖片另存失敗，請稍後再試。"
+                );
             });
         }
 

@@ -24,9 +24,20 @@
             background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, "Microsoft JhengHei";
         }
+        /* 隱藏捲軸但保留捲動功能(備用，以防螢幕過小) */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6 relative">
+<body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-x-hidden">
 
     <!-- ==================== 登入驗證畫面 ==================== -->
     <div id="login-screen" class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center transition-all duration-500">
@@ -62,149 +73,143 @@
     </div>
 
     <!-- ==================== 系統主畫面 (預設隱藏) ==================== -->
-    <div id="main-content" class="hidden w-full flex-col items-center justify-center opacity-0 transition-opacity duration-700">
-        <header class="mb-12 text-center w-full">
-            <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 tracking-wider">信義全球資產小工具</h1>
-            <p class="text-gray-500 mt-2">請選擇您要前往的服務模組</p>
+    <div id="main-content" class="hidden w-full max-w-7xl flex-col items-center justify-center opacity-0 transition-opacity duration-700 h-full max-h-screen my-auto">
+        
+        <!-- 縮小的頭部資訊，節省垂直空間 -->
+        <header class="mb-6 text-center w-full">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 tracking-wider">信義全球資產小工具</h1>
+            <p class="text-gray-500 mt-1 text-sm md:text-base">請選擇您要前往的服務模組</p>
         </header>
 
-        <main class="w-full max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-            <!-- 模組連結列表 -->
-            <a href="https://wwayhome.github.io/sinyiglobal/luyz/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-blue-100 text-blue-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                        <i data-lucide="pencil" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-blue-700">物件提詞</span>
+        <!-- 四大分類網格 -->
+        <main class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 px-2">
+            
+            <!-- 1. 計算類 -->
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all flex flex-col overflow-hidden">
+                <div class="flex items-center gap-3 p-4 bg-emerald-500 text-white">
+                    <i data-lucide="calculator" class="w-6 h-6 text-white"></i>
+                    <h2 class="text-xl font-extrabold text-white">計算類</h2>
                 </div>
-            </a>
+                <div class="flex flex-col gap-3 p-5">
+                    <a href="https://wwayhome.github.io/sinyiglobal/dcab/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="ruler" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-emerald-700 tracking-wide">面積計算</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/dnb6/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-purple-50 border border-transparent hover:border-purple-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-purple-100 text-purple-600 rounded-xl group-hover:bg-purple-500 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="dollar-sign" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-purple-700 tracking-wide">租買分析</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/liaf/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-orange-50 border border-transparent hover:border-orange-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-orange-100 text-orange-600 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="cone" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-orange-700 tracking-wide">土開分析</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/r9fv/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-violet-50 border border-transparent hover:border-violet-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-violet-100 text-violet-600 rounded-xl group-hover:bg-violet-500 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="grid-3x3" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-violet-700 tracking-wide">敏感矩陣</span>
+                    </a>
+                </div>
+            </div>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/dcab/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-emerald-100 text-emerald-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                        <i data-lucide="ruler" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-emerald-700">面積計算</span>
+            <!-- 2. 查詢類 -->
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all flex flex-col overflow-hidden">
+                <div class="flex items-center gap-3 p-4 bg-blue-500 text-white">
+                    <i data-lucide="search-check" class="w-6 h-6 text-white"></i>
+                    <h2 class="text-xl font-extrabold text-white">查詢類</h2>
                 </div>
-            </a>
+                <div class="flex flex-col gap-3 p-5">
+                    <a href="https://wwayhome.github.io/sinyiglobal/luyz/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-blue-100 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="pencil" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-blue-700 tracking-wide">物件提詞</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/6qeb/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="search" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-indigo-700 tracking-wide">營業項目</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/tv2s/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-teal-50 border border-transparent hover:border-teal-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-teal-100 text-teal-600 rounded-xl group-hover:bg-teal-600 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="handshake" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-teal-700 tracking-wide">大型交易</span>
+                    </a>
+                </div>
+            </div>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/dnb6/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-purple-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-purple-100 text-purple-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all">
-                        <i data-lucide="dollar-sign" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-purple-700">租買分析</span>
+            <!-- 3. 圖像類 -->
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all flex flex-col overflow-hidden">
+                <div class="flex items-center gap-3 p-4 bg-amber-500 text-white">
+                    <i data-lucide="image" class="w-6 h-6 text-white"></i>
+                    <h2 class="text-xl font-extrabold text-white">圖像類</h2>
                 </div>
-            </a>
+                <div class="flex flex-col gap-3 p-5">
+                    <a href="https://wwayhome.github.io/sinyiglobal/ucng/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-amber-50 border border-transparent hover:border-amber-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-amber-100 text-amber-600 rounded-xl group-hover:bg-amber-500 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="image" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-amber-700 tracking-wide">照片修圖</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/ad94/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-cyan-50 border border-transparent hover:border-cyan-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-cyan-100 text-cyan-600 rounded-xl group-hover:bg-cyan-600 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="pen-tool" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-cyan-700 tracking-wide">案例製圖</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/rm88/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-pink-50 border border-transparent hover:border-pink-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-pink-100 text-pink-600 rounded-xl group-hover:bg-pink-600 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="palette" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-pink-700 tracking-wide">地圖編輯</span>
+                    </a>
+                </div>
+            </div>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/ucng/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-amber-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-amber-100 text-amber-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all">
-                        <i data-lucide="image" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-amber-700">照片修圖</span>
+            <!-- 4. 文書類 -->
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all flex flex-col overflow-hidden">
+                <div class="flex items-center gap-3 p-4 bg-red-500 text-white">
+                    <i data-lucide="folder-open" class="w-6 h-6 text-white"></i>
+                    <h2 class="text-xl font-extrabold text-white">文書類</h2>
                 </div>
-            </a>
+                <div class="flex flex-col gap-3 p-5">
+                    <a href="https://wwayhome.github.io/sinyiglobal/wr3b/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-red-50 border border-transparent hover:border-red-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-red-100 text-red-600 rounded-xl group-hover:bg-red-600 group-hover:text-white transition-colors shadow-sm flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                                <text x="5" y="16.5" font-family="sans-serif" font-weight="900" font-size="6.5" fill="currentColor" stroke="none">PDF</text>
+                            </svg>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-red-700 tracking-wide">PDF調整</span>
+                    </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/g7de/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-lime-50 border border-transparent hover:border-lime-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-lime-100 text-lime-600 rounded-xl group-hover:bg-lime-600 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="gantt-chart-square" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-lime-700 tracking-wide">專案排程</span>
+                    </a>
+                </div>
+            </div>
 
-            <a href="https://wwayhome.github.io/sinyiglobal/6qeb/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-indigo-100 text-indigo-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                        <i data-lucide="search" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-indigo-700">營業項目</span>
-                </div>
-            </a>
-
-            <a href="https://wwayhome.github.io/sinyiglobal/liaf/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-orange-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-orange-100 text-orange-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all">
-                        <i data-lucide="cone" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-orange-700">土開分析</span>
-                </div>
-            </a>
-
-            <a href="https://wwayhome.github.io/sinyiglobal/ad94/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-cyan-100 text-cyan-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-cyan-600 group-hover:text-white transition-all">
-                        <i data-lucide="pen-tool" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-cyan-700">案例製圖</span>
-                </div>
-            </a>
-
-            <!-- 模組 8 (PDF調整) -->
-            <a href="https://wwayhome.github.io/sinyiglobal/wr3b/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-red-100 text-red-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-red-600 group-hover:text-white transition-all">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-10 h-10 md:w-12 md:h-12">
-                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                            <text x="5" y="16.5" font-family="sans-serif" font-weight="900" font-size="6.5" fill="currentColor" stroke="none">PDF</text>
-                        </svg>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-red-700">PDF調整</span>
-                </div>
-            </a>
-
-            <!-- 模組 9 (大型交易) -->
-            <a href="https://wwayhome.github.io/sinyiglobal/tv2s/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-teal-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-teal-100 text-teal-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-teal-600 group-hover:text-white transition-all">
-                        <i data-lucide="handshake" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-teal-700">大型交易</span>
-                </div>
-            </a>
-
-            <!-- 模組 10 (地圖編輯) -->
-            <a href="https://wwayhome.github.io/sinyiglobal/rm88/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-pink-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-pink-100 text-pink-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-pink-600 group-hover:text-white transition-all">
-                        <i data-lucide="palette" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-pink-700">地圖編輯</span>
-                </div>
-            </a>
-
-            <!-- 模組 11 (敏感矩陣) -->
-            <a href="https://wwayhome.github.io/sinyiglobal/r9fv/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-violet-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-violet-100 text-violet-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-violet-600 group-hover:text-white transition-all">
-                        <i data-lucide="grid-3x3" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-violet-700">敏感矩陣</span>
-                </div>
-            </a>
-
-            <!-- 模組 12 (專案排程) -->
-            <a href="https://wwayhome.github.io/sinyiglobal/g7de/" target="_blank" class="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square flex flex-col items-center justify-center p-6 border border-gray-100 overflow-hidden">
-                <div class="absolute inset-0 bg-lime-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div class="relative z-10 flex flex-col items-center text-center">
-                    <div class="p-4 bg-lime-100 text-lime-600 rounded-full mb-4 group-hover:scale-110 group-hover:bg-lime-600 group-hover:text-white transition-all">
-                        <i data-lucide="gantt-chart-square" class="w-10 h-10 md:w-12 md:h-12"></i>
-                    </div>
-                    <span class="text-xl md:text-2xl font-bold text-gray-700 group-hover:text-lime-700">專案排程</span>
-                </div>
-            </a>
         </main>
 
-        <footer class="mt-16 text-center text-gray-400 text-sm">
-            &copy; 2026 Sinyi Global Portal. All rights reserved.
-            <div class="mt-4 flex flex-col items-center gap-2">
-                <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fwwayhome.github.io%2Fsinyiglobal&label=%E7%80%8F%E8%A6%BD%E4%BA%BA%E6%AC%A1&countColor=%233B82F6" alt="Visitor Count" class="shadow-sm rounded opacity-80">
-                <button onclick="logout()" class="text-blue-500 hover:underline mt-2">登出系統</button>
+        <!-- 扁平化頁尾設計，減少垂直佔用 -->
+        <footer class="mt-10 mb-2 w-full flex flex-col sm:flex-row items-center justify-between text-gray-400 text-sm px-6 border-t border-gray-200 pt-5 gap-4">
+            <div>&copy; 2026 Sinyi Global Portal. All rights reserved.</div>
+            <div class="flex items-center gap-5">
+                <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fwwayhome.github.io%2Fsinyiglobal&label=%E7%80%8F%E8%A6%BD%E4%BA%BA%E6%AC%A1&countColor=%233B82F6" alt="Visitor Count" class="h-[29px] rounded opacity-80 shadow-sm">
+                <button onclick="logout()" class="text-blue-500 hover:text-blue-600 hover:underline font-bold flex items-center gap-2 transition-colors text-[17px]">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>登出系統
+                </button>
             </div>
         </footer>
     </div>

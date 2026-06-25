@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>信義全球資產小工具</title>
-
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
     <script>
@@ -13,7 +12,6 @@
       gtag('js', new Date());
       gtag('config', 'G-5YQY4RT9H2');
     </script>
-
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Lucide Icons -->
@@ -35,12 +33,28 @@
             background: #cbd5e1;
             border-radius: 10px;
         }
+        
+        /* 紀錄彈窗內的捲軸美化 */
+        .modal-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .modal-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .modal-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-x-hidden">
 
     <!-- ==================== 登入驗證畫面 ==================== -->
-    <div id="login-screen" class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center transition-all duration-500">
+    <div id="login-screen" class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center transition-all duration-500 z-10">
         <div class="mb-6 flex justify-center">
             <div class="p-4 bg-blue-100 text-blue-600 rounded-full">
                 <i data-lucide="lock" class="w-12 h-12"></i>
@@ -51,8 +65,8 @@
         
         <div class="space-y-4">
             <div class="relative w-full">
-                <input type="password" id="pwd-input" maxlength="8" 
-                       class="w-full px-5 py-3 text-center text-2xl tracking-[0.5em] font-mono border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                <input type="password" id="pwd-input" maxlength="8"
+                        class="w-full px-5 py-3 text-center text-2xl tracking-[0.5em] font-mono border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
                        placeholder="••••••••"
                        onkeypress="if(event.key === 'Enter') checkPassword()">
                 
@@ -76,9 +90,19 @@
     <div id="main-content" class="hidden w-full max-w-7xl flex-col items-center justify-center opacity-0 transition-opacity duration-700 h-full max-h-screen my-auto">
         
         <!-- 縮小的頭部資訊，節省垂直空間 -->
-        <header class="mb-6 text-center w-full">
+        <header class="mb-6 text-center w-full relative">
             <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 tracking-wider">信義全球資產小工具</h1>
             <p class="text-gray-500 mt-1 text-sm md:text-base">請選擇您要前往的服務模組</p>
+            
+            <!-- 更新日期與紀錄按鈕 -->
+            <div class="mt-3 flex items-center justify-center gap-3 text-sm">
+                <span class="text-gray-500 bg-gray-100 px-3 py-1 rounded-full font-medium shadow-inner border border-gray-200">
+                    最後更新：2026/6/25
+                </span>
+                <button onclick="openHistoryModal()" class="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full font-bold transition-colors shadow-sm border border-blue-200">
+                    <i data-lucide="history" class="w-4 h-4"></i>查看紀錄
+                </button>
+            </div>
         </header>
 
         <!-- 四大分類網格 -->
@@ -211,9 +235,8 @@
                     </a>
                 </div>
             </div>
-
         </main>
-
+        
         <!-- 扁平化頁尾設計，減少垂直佔用 -->
         <footer class="mt-10 mb-2 w-full flex flex-col sm:flex-row items-center justify-between text-gray-400 text-sm px-6 border-t border-gray-200 pt-5 gap-4">
             <div>&copy; 2026 Sinyi Global Portal. All rights reserved.</div>
@@ -224,6 +247,293 @@
                 </button>
             </div>
         </footer>
+    </div>
+
+    <!-- ==================== 更新紀錄 Modal ==================== -->
+    <div id="history-modal-overlay" class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity duration-300" onclick="closeHistoryModal()"></div>
+    <div id="history-modal" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-3xl bg-white rounded-2xl shadow-2xl z-50 hidden scale-95 opacity-0 transition-all duration-300 flex-col max-h-[85vh]">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <i data-lucide="history" class="w-5 h-5 text-blue-500"></i>
+                系統更新紀錄
+            </h3>
+            <div class="flex items-center gap-2">
+                <button id="toggle-all-btn" onclick="toggleAllDetails()" class="text-sm text-gray-500 hover:text-blue-600 bg-white border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="fold-vertical" class="w-4 h-4" id="toggle-icon"></i>
+                    <span id="toggle-text">全部收合</span>
+                </button>
+                <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Content (Scrollable) -->
+        <div class="p-6 overflow-y-auto modal-scrollbar flex-1 space-y-8">
+            
+            <!-- 2026/6/25 -->
+            <div class="relative pl-6 border-l-2 border-blue-400">
+                <div class="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 shadow-[0_0_0_4px_rgba(59,130,246,0.2)]"></div>
+                <h4 class="text-lg font-bold text-blue-600 mb-3 flex items-center gap-2">
+                    2026/6/25 更新
+                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">最新</span>
+                </h4>
+                <div class="space-y-4 text-sm text-gray-700 leading-relaxed">
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 font-bold flex items-center gap-2 shadow-sm">
+                        <i data-lucide="sparkles" class="w-5 h-5 text-blue-500"></i> 首頁變更全新版面及新增維護紀錄
+                    </div>
+                    <ul class="space-y-3 list-none">
+                        <li><strong class="text-gray-900">14.建物清冊 (新增)：</strong><span class="text-blue-600 font-medium">手動輸入面積整理建物清冊，適合整棟等建號較多的案件類型，適合開發前期評估或銷講製作。內建複製表格、匯出CSV及截圖功能。</span></li>
+                        <li><strong class="text-gray-900">13.土地清冊 (新增)：</strong><span class="text-blue-600 font-medium">手動輸入面積整理土地清冊，適合開發整合或多地號的案件類型，適合開發前期評估或銷講製作。內建持分面積檢核，及小計使用分區及所有權人統計表格功能。內建複製表格、匯出CSV及截圖功能。</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 2026/6/22 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/6/22 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">12.專案排程 (新增)：</strong>可以快速排列專案的甘特圖，分成簡易版與進階版，簡易版為直接輸入或調整專案每個工作項目天數，進階版有導入前後任務關聯，可調整前置任務後，連動調整後面日期。可採用日/月/季/年等不同方式顯示甘特圖，並支援儲存專案及截圖匯出功能。目前有設立範本功能，可載入不動產標售的參考時程範本，再視定專案起始日期或編修調整。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/6/15 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/6/15 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">10.地圖編輯 (優化)：</strong>新增箭頭、鐵路&公車、及學校&醫院地標。</li>
+                            <li><strong class="text-gray-700">9.大型交易 (優化)：</strong>資料庫更新至 2026.05。</li>
+                            <li><strong class="text-gray-700">5.營業項目 (優化)：</strong>新增以使用組別或土地使用分區查詢對照表。</li>
+                            <li><strong class="text-gray-700">2.面積計算 (修復)：</strong>優化版面及修復平面縮圖無法顯示問題。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/6/9 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/6/9 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">11.敏感矩陣 (新增)：</strong>快速試算租金、售價、毛報酬率的工具，並且設定加減5%、10%、15%或指定數值(*1倍,*2倍,*3倍)的變動率，快速產出敏感度分析的表格後，可用單價計算，或是輸入面積後顯示總價，並可下載網頁截圖，貼到簡報中使用。</li>
+                            <li><strong class="text-gray-700">4.照片修圖 (優化)：</strong>新增一次上傳多張照片(10張內)整批修圖功能，並增加冷色濾鏡及修圖強度調節。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/5/28 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/5/28 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">10.地圖編輯 (優化)：</strong>增加匯出透明PNG、畫道路按shift鍵強制水平/垂直、新增視覺輔助網格、及道路寬度調整為5種粗細。</li>
+                            <li><strong class="text-gray-700">7.案例製圖 (優化)：</strong>修正CSV匯入中文語系問題，新增地圖圖標數字自定義(例如改成編號6~10)。刪除資訊卡牌後，地圖自動延伸補滿功能。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/5/25 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/5/25 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">10.地圖編輯 (新增)：</strong>簡易快速繪製道路及案件位置圖或示意圖的工具，支援存檔及讀取檔案，可以將成果存起來重複利用或編修。內建三種顏色色彩搭配(經典/柔和/深色)。另外也支援套疊"底圖"功能。可將地圖照片(例如google map) 疊在繪圖區下方，幫助描繪路型。匯出檔案可選擇是否要包含底圖，所以也可使用半透明範圍+底圖繪製譬如基地範圍圖，或周邊重大交通路線。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/5/22 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/5/22 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">9.大型交易 (新增)：</strong>快速查詢全球資產彙整的上市櫃及公開發行公司取得及處分資產的紀錄。設定查詢年度區間(最多10年)、縣市區域、總價帶、產品別。或輸入標的名稱或買賣方名稱搜尋字元。篩選結果以列表方式呈現。並可以手動調整要顯示的欄位及排序。建議利用方式為網頁截圖或一鍵複製後貼到EXCEL中可以再編輯加工。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/5/14 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/5/14 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">8.PDF調整 (新增)：</strong>PDF檔案需要刪減、合併、搬移、旋轉頁面，可以不用上傳到外部網站，直接透過本地瀏覽器處理後匯出。先上傳檔案、選取(支援多選)或拖曳要移動的頁面，也可刪除、或旋轉頁面。然後全部匯出，或指定頁數匯出。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/5/11 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/5/11 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">7.案例製圖 (新增)：</strong>可以透過(A)詳細地址 或 (B)GIS座標(譬如純土地只有地號，可從google map 查詢GIS座標數字)將物件資訊定位道地圖上(支援四種底圖)，一次最多可放六個案件(含本案)，適合製作提案的比較案例分布圖，或是成交行情分布圖。做完圖後請截圖後貼到簡報上即可使用。六個資訊圖卡支援拖曳對調位置，或關閉未使用的案例圖卡方便截圖，亦支援一鍵下載截圖。另外資訊圖卡的六個標題亦可自訂修改，並支援複製自訂標題至所有圖卡。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/4/30 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/4/30 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">6.土地開發分析估價 (優化)：</strong>功能細節與參數預設值調整優化。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/4/23 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/4/23 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">6.土地開發分析估價 (新增)：</strong>可以快速進行建地估價土地(或估合建比例)。土地面積、容積建蔽率、獎勵容積、未來售價、工程造價須自己輸入。其餘參數有預設值可參考，也可自己輸入調整，推估合理建地價格。</li>
+                            <li><strong class="text-gray-700">系統上線：</strong>將之前作的AI小工具，搬移到專屬網址，方便版本管理與更新。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/4/8 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/4/8 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">3.租買分析 (新增)：</strong>比較客戶購買不動產與租賃不動產哪一個成本比較低(本系統需要具備基礎財務知識，後續有機會再跟大家說明)。</li>
+                            <li><strong class="text-gray-700">4.照片修圖 (新增)：</strong>上傳一張物件照片(譬如天氣不好偏暗)，可以一鍵快速美化(堪用)，並下載美化後的照片。</li>
+                            <li><strong class="text-gray-700">5.營業項目 (新增)：</strong>可以輸入公司登記的營業項目名稱或編碼，快速查詢是屬於台北市土管哪一個類組或建築管理上的哪一個類組，後續請再對照物件的使用分區或不動產說明書附錄，以判斷該客戶業種是否可以合法營業。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2026/3/26 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/3/26 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">1.物件提詞 (新增)：</strong>請依序選取產品與特色，快速產生您的物件特色，最多選取8個，並可按下方一鍵複製文字。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 2025/12/18 -->
+            <div class="relative pl-6 border-l-2 border-transparent">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2025/12/18 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">2.面積計算 (新增)：</strong>可以由員人數及使用空間反推自用型客戶所需的辦公室面積，或換算租金、售價。</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+            
+        </div>
     </div>
 
     <script>
@@ -323,6 +633,70 @@
         function logout() {
             sessionStorage.removeItem('isLoggedIn');
             location.reload();
+        }
+
+        // --- 更新紀錄 Modal 邏輯 ---
+        
+        let isAllExpanded = true; // 追蹤全部展開/收合的狀態
+
+        function toggleAllDetails() {
+            const detailsElements = document.querySelectorAll('details.history-detail');
+            const toggleIcon = document.getElementById('toggle-icon');
+            const toggleText = document.getElementById('toggle-text');
+
+            isAllExpanded = !isAllExpanded;
+
+            detailsElements.forEach(detail => {
+                if (isAllExpanded) {
+                    detail.setAttribute('open', '');
+                } else {
+                    detail.removeAttribute('open');
+                }
+            });
+
+            if (isAllExpanded) {
+                toggleText.innerText = "全部收合";
+                toggleIcon.setAttribute('data-lucide', 'fold-vertical');
+            } else {
+                toggleText.innerText = "全部展開";
+                toggleIcon.setAttribute('data-lucide', 'unfold-vertical');
+            }
+            lucide.createIcons(); // 重新渲染 icon
+        }
+
+        function openHistoryModal() {
+            const overlay = document.getElementById('history-modal-overlay');
+            const modal = document.getElementById('history-modal');
+            
+            overlay.classList.remove('hidden');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Trigger reflow
+            void modal.offsetWidth;
+            
+            overlay.classList.remove('opacity-0');
+            overlay.classList.add('opacity-100');
+            
+            modal.classList.remove('scale-95', 'opacity-0');
+            modal.classList.add('scale-100', 'opacity-100');
+        }
+
+        function closeHistoryModal() {
+            const overlay = document.getElementById('history-modal-overlay');
+            const modal = document.getElementById('history-modal');
+            
+            overlay.classList.remove('opacity-100');
+            overlay.classList.add('opacity-0');
+            
+            modal.classList.remove('scale-100', 'opacity-100');
+            modal.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300); // Wait for transition to finish
         }
     </script>
 </body>

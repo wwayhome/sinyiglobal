@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>土地清冊系統</title>
-
+    <title>建物清冊系統</title>
     <!-- Google Fonts: Noto Sans TC -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -22,14 +20,10 @@
             }
         }
     </script>
-
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- 引入 html-to-image (現代化套件，完美處理 CORS 問題，避免讀取外部樣式表出錯) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-
     <style>
         body { background-color: #f8fafc; }
         
@@ -37,9 +31,11 @@
         .hide-col { display: none !important; }
         
         /* 編輯區表格樣式 (優化捲動與框線) */
-        .table-container { max-height: calc(100vh - 350px); overflow-y: auto; }
-        #inputTable { border-collapse: separate; border-spacing: 0; }
-        #inputTable th { 
+        .table-container { max-height: calc(100vh - 450px); overflow: auto; }
+        .pub-table-container { overflow-x: auto; }
+        
+        #inputTable, #pubTable, .pub-table { border-collapse: separate; border-spacing: 0; }
+        #inputTable th, #pubTable th, .pub-table th { 
             position: sticky; top: 0; 
             background: rgba(241, 245, 249, 0.95); 
             backdrop-filter: blur(4px);
@@ -47,8 +43,14 @@
             border-bottom: 2px solid #cbd5e1;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        #inputTable td { border-bottom: 1px solid #e2e8f0; }
-        #inputTable tbody tr:hover { background-color: #f1f5f9 !important; }
+        #inputTable td, #pubTable td, .pub-table td { border-bottom: 1px solid #e2e8f0; }
+        #inputTable tbody tr:hover { background-color: #f1f5f9; }
+        
+        /* 主檔選擇狀態 (Active Row) */
+        .active-row { background-color: #eff6ff !important; }
+        .active-row td { border-top: 1px solid #bfdbfe; border-bottom: 1px solid #bfdbfe; }
+        .active-indicator { width: 4px; height: 100%; background-color: #3b82f6; position: absolute; left: 0; top: 0; display: none; }
+        .active-row .active-indicator { display: block; }
         
         .drag-handle { cursor: grab; transition: color 0.2s; }
         .drag-handle:hover { color: #64748b; }
@@ -65,6 +67,15 @@
             box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.15);
         }
         .input-cell:hover:not(:focus) { border-color: #fde047; background-color: #fffbeb; }
+        .attached-detail-grid .input-cell {
+            height: 30px;
+            padding: 4px 6px;
+            font-size: 0.8125rem;
+        }
+        .attached-detail-grid .attached-type-input,
+        .attached-detail-grid .attached-area-input {
+            width: 92px;
+        }
         
         /* 錯誤警示框 */
         .input-error { 
@@ -98,7 +109,7 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        /* 隱藏特定數字輸入框的上下微調箭頭 (例如面積，保留持分的按鈕) */
+        /* 隱藏特定數字輸入框的上下微調箭頭 */
         .hide-spin::-webkit-outer-spin-button,
         .hide-spin::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -110,25 +121,23 @@
     </style>
 </head>
 <body class="text-slate-800 font-sans min-h-screen flex flex-col">
-
     <!-- 頂部導覽與工具列 -->
     <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 flex-shrink-0 border-b border-slate-200" id="main-header">
-        <!-- 第一層：標題與工具按鈕 -->
         <div class="max-w-[1600px] mx-auto px-6 py-3 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center gap-3">
                 <div class="bg-blue-100 text-primary p-2 rounded-lg">
-                    <i class="ph-fill ph-map-trifold text-2xl"></i>
+                    <i class="ph-fill ph-buildings text-2xl"></i>
                 </div>
-                <h1 class="text-2xl font-bold text-slate-800 tracking-tight">土地清冊系統</h1>
+                <h1 class="text-2xl font-bold text-slate-800 tracking-tight">建物清冊系統</h1>
             </div>
 
-            <!-- 工具按鈕區 (加回儲存、讀取、清空) -->
+            <!-- 工具按鈕區 -->
             <div class="flex items-center gap-2 text-sm flex-wrap">
                 <button onclick="exportJSON()" class="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-lg font-medium transition active:scale-95">
-                    <i class="ph ph-download-simple text-lg"></i> 儲存專案
+                    <i class="ph ph-floppy-disk text-lg"></i> 儲存專案
                 </button>
                 <label class="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-lg font-medium transition cursor-pointer active:scale-95">
-                    <i class="ph ph-upload-simple text-lg"></i> 讀取專案
+                    <i class="ph ph-folder-open text-lg"></i> 讀取專案
                     <input type="file" accept=".json" class="hidden" onchange="importJSON(event)">
                 </label>
                 <div class="h-6 w-px bg-slate-300 mx-1 hidden sm:block"></div>
@@ -138,7 +147,7 @@
             </div>
         </div>
 
-        <!-- 第二層：顯示設定列 (夾在資料編輯區跟最上方按鈕中間層) -->
+        <!-- 第二層：顯示設定列 -->
         <div class="max-w-[1600px] mx-auto px-6 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-4 text-sm items-center">
             <!-- 顯示欄位控制 -->
             <div class="flex items-center bg-slate-200/50 p-1.5 rounded-lg border border-slate-200 shadow-inner overflow-x-auto w-full sm:w-auto">
@@ -148,13 +157,19 @@
                         <input type="checkbox" onchange="toggleColumn('district', this.checked)" class="accent-primary w-4 h-4 rounded"> 行政區
                     </label>
                     <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
-                        <input type="checkbox" onchange="toggleColumn('subsection', this.checked)" class="accent-primary w-4 h-4 rounded"> 小段
+                        <input type="checkbox" onchange="toggleColumn('doorplate', this.checked)" checked class="accent-primary w-4 h-4 rounded"> 門牌
                     </label>
                     <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
-                        <input type="checkbox" onchange="toggleColumn('zoning', this.checked)" class="accent-primary w-4 h-4 rounded"> 使用分區
+                        <input type="checkbox" onchange="toggleColumn('section', this.checked)" class="accent-primary w-4 h-4 rounded"> 地段
                     </label>
                     <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
-                        <input type="checkbox" checked onchange="toggleColumn('owner', this.checked)" class="accent-primary w-4 h-4 rounded"> 所有權人
+                        <input type="checkbox" onchange="toggleColumn('useType', this.checked)" class="accent-primary w-4 h-4 rounded"> 主要用途
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                        <input type="checkbox" onchange="toggleColumn('owner', this.checked)" class="accent-primary w-4 h-4 rounded"> 所有權人
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
+                        <input type="checkbox" onchange="toggleColumn('privateShare', this.checked)" class="accent-primary w-4 h-4 rounded"> 專有持分
                     </label>
                     <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-slate-200 hover:border-primary hover:text-primary transition text-slate-700 font-medium">
                         <input type="checkbox" onchange="toggleColumn('remarks', this.checked)" class="accent-primary w-4 h-4 rounded"> 備註
@@ -164,95 +179,73 @@
         </div>
     </header>
 
-    <main class="flex-grow p-6 max-w-[1600px] mx-auto w-full flex flex-col gap-8" id="main-content">
-        
-        <!-- 上半部：輸入與編輯區塊 -->
-        <section class="flex flex-col gap-3">
-            <div class="flex flex-wrap items-center justify-between mb-2 gap-4">
-                <div class="flex items-center gap-2">
-                    <i class="ph-fill ph-pencil-simple text-2xl text-slate-400"></i>
-                    <h2 class="text-xl font-bold text-slate-800">1. 資料編輯區</h2>
-                    <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2 hidden sm:inline-block">黃色底色為可輸入欄位</span>
-                </div>
+    <main class="flex-grow p-6 max-w-[1600px] mx-auto w-full flex flex-col gap-6" id="main-content">
+        <!-- 上半部：主建物輸入區塊 -->
+        <section class="flex flex-col gap-2">
+            <div class="flex items-center gap-2 mb-1">
+                <i class="ph-fill ph-pencil-simple text-2xl text-slate-400"></i>
+                <h2 class="text-xl font-bold text-slate-800">1. 建物主檔編輯區</h2>
+                <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2">黃色底色為可輸入欄位，點擊列可於下方編輯公設</span>
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
-                <div class="table-container">
+                <div class="table-container relative">
                     <table class="w-full text-left whitespace-nowrap" id="inputTable">
                         <thead class="text-sm text-slate-600 tracking-wide">
                             <tr>
                                 <th class="py-3 px-3 w-10 text-center"></th>
                                 <th class="py-3 px-3 w-12 text-center">項次</th>
                                 <th class="py-3 px-3 w-28 col-district">行政區</th>
-                                <th class="py-3 px-3 w-36 cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('section')" title="點擊依地段排序">
-                                    <div class="flex items-center gap-1">地段 <i id="sort-icon-section" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
+                                <th class="py-3 px-3 w-44 col-doorplate">門牌</th>
+                                <th class="py-3 px-3 w-36 cursor-pointer hover:bg-slate-200/60 transition select-none group col-section" onclick="sortTable('section')" title="點擊依段排序">
+                                    <div class="flex items-center gap-1">段 <i id="sort-icon-section" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
                                 </th>
-                                <th class="py-3 px-3 w-28 col-subsection cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('subsection')" title="點擊依小段排序">
-                                    <div class="flex items-center gap-1">小段 <i id="sort-icon-subsection" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
+                                <th class="py-3 px-3 w-36 cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('buildNo')" title="點擊依建號排序">
+                                    <div class="flex items-center gap-1 text-primary font-bold">主建號 <i id="sort-icon-buildNo" class="ph-fill ph-caret-up text-blue-300 group-hover:text-blue-500 transition"></i></div>
                                 </th>
-                                <th class="py-3 px-3 w-36 cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('plot')" title="點擊依地號排序">
-                                    <div class="flex items-center gap-1">地號 <i id="sort-icon-plot" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
-                                </th>
-                                <th class="py-3 px-3 w-32 col-zoning cursor-pointer hover:bg-slate-200/60 transition select-none group" onclick="sortTable('zoning')" title="點擊依使用分區排序">
-                                    <div class="flex items-center gap-1">使用分區 <i id="sort-icon-zoning" class="ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition"></i></div>
-                                </th>
-                                <th class="py-3 px-3 w-36 text-right">面積 (㎡)</th>
+                                <th class="py-3 px-3 w-32 col-useType">主要用途</th>
+                                <th class="py-3 px-3 w-32 text-right">主建物面積(㎡)</th>
+                                <th class="py-3 px-3 w-56 text-left">附屬建物明細(㎡)</th>
+                                <th class="py-3 px-3 w-32 text-right">附屬總面積(㎡)</th>
                                 <th class="py-3 px-3 w-36 col-owner">所有權人</th>
-                                <th class="py-3 px-3 text-center" colspan="3">持分 (分子/分母)</th>
-                                <th class="py-3 px-3 w-36 text-right">持分面積 (㎡)</th>
+                                <th class="py-3 px-3 text-center col-privateShare" colspan="3" title="指專有部分之持分">專有持分</th>
+                                <th class="py-3 px-3 w-32 text-right">公設面積(㎡)</th>
+                                <th class="py-3 px-3 w-32 text-right">總面積(㎡)</th>
                                 <th class="py-3 px-3 w-48 col-remarks">備註</th>
-                                <th class="py-3 px-3 w-44 text-center action-col">操作</th>
+                                <th class="py-3 px-2 text-center action-col" style="width:56px; min-width:56px; max-width:56px;">操作</th>
                             </tr>
                         </thead>
                         <tbody id="input-table-body" class="text-sm text-slate-700">
                             <!-- 輸入列由 JS 動態生成 -->
                         </tbody>
-                        <!-- 新增：固定於底部的即時加總列 -->
-                        <tfoot class="bg-indigo-50/95 border-t-[3px] border-indigo-200 text-indigo-900 font-bold sticky bottom-0 z-20 backdrop-blur-md shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                            <tr>
-                                <td class="py-3 px-3"></td>
-                                <td class="py-3 px-3"></td>
-                                <td class="py-3 px-3 col-district"></td>
-                                <td class="py-3 px-3"></td>
-                                <td class="py-3 px-3 col-subsection"></td>
-                                <td class="py-3 px-3"></td>
-                                <td class="py-3 px-3 col-zoning"></td>
-                                <td class="py-3 px-3"></td>
-                                <td class="py-3 px-3 col-owner"></td>
-                                <td class="py-3 px-3 text-right" colspan="3">目前面積累加：</td>
-                                <td class="py-3 px-3 text-right font-mono text-lg text-primary" id="input-total-share-area">0.00</td>
-                                <td class="py-3 px-3 col-remarks"></td>
-                                <td class="py-3 px-3"></td>
-                            </tr>
-                        </tfoot>
+                        <tfoot id="input-table-foot" class="bg-indigo-50/95 border-t-[3px] border-indigo-200 text-indigo-900 font-bold sticky bottom-0 z-20 backdrop-blur-md shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"></tfoot>
                     </table>
                 </div>
             </div>
 
-            <!-- 快捷按鈕與小計 -->
-            <div class="flex flex-wrap justify-between items-start gap-4 mt-2">
-                <div class="flex gap-3">
-                    <button onclick="duplicateLastRow()" class="flex items-center gap-1.5 bg-white hover:bg-indigo-50 text-indigo-600 px-5 py-2.5 rounded-lg shadow-sm border border-slate-200 transition font-medium active:scale-95" title="複製最後一筆的所有資料，適合用於輸入同一個人的不同地號">
-                        <i class="ph ph-copy text-lg"></i> 複製最後一筆
-                    </button>
-                    <button onclick="addNewRow()" class="flex items-center gap-1.5 bg-primary hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md transition font-medium active:scale-95">
-                        <i class="ph ph-plus text-lg text-white"></i> 新增空白列
-                    </button>
-                </div>
+            <div class="flex gap-3 mt-1">
+                <button onclick="duplicateLastRow()" class="flex items-center gap-1.5 bg-white hover:bg-indigo-50 text-indigo-600 px-5 py-2.5 rounded-lg shadow-sm border border-slate-200 transition font-medium active:scale-95" title="複製最後一筆資料">
+                    <i class="ph ph-copy text-lg"></i> 複製最後一筆
+                </button>
+                <button onclick="addNewRow()" class="flex items-center gap-1.5 bg-primary hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md transition font-medium active:scale-95">
+                    <i class="ph ph-plus text-lg text-white"></i> 新增主建物
+                </button>
+            </div>
+        </section>
 
-                <!-- 各地號持分檢核小計 -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 w-full md:w-[400px]">
-                    <h3 class="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-2 flex items-center gap-2 text-sm">
-                        <i class="ph-fill ph-check-square-offset text-primary text-lg"></i> 持分檢核狀態
-                    </h3>
-                    <div class="overflow-y-auto max-h-40 pr-2">
-                        <table class="w-full text-sm">
-                            <tbody id="subtotal-body" class="divide-y divide-slate-100">
-                                <!-- 小計由 JS 動態生成 -->
-                            </tbody>
-                        </table>
-                    </div>
+        <!-- 中間部：公設明細編輯區 (Master-Detail 聯動區) -->
+        <section class="flex flex-col gap-2 bg-slate-100 rounded-xl p-4 border border-slate-300 shadow-inner relative overflow-hidden" id="pub-facility-section">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-circles-three-plus text-2xl text-blue-600"></i>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        2. 公設明細編輯區 
+                    </h2>
                 </div>
+            </div>
+
+            <div id="pub-groups-wrapper" class="flex flex-col gap-4">
+                <!-- 每筆主建物的公設明細由 JS 動態生成 -->
             </div>
         </section>
 
@@ -261,11 +254,10 @@
             <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
                 <div class="flex items-center gap-2">
                     <i class="ph-fill ph-printer text-2xl text-primary"></i>
-                    <h2 class="text-xl font-bold text-slate-800">2. 報表輸出區</h2>
+                    <h2 class="text-xl font-bold text-slate-800">3. 報表輸出區</h2>
                     <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2 hidden sm:inline-block">點選各報表右上角進行獨立輸出</span>
                 </div>
                 
-                <!-- 報表輸出區設定控制整合 -->
                 <div class="flex flex-wrap items-center gap-3">
                     <!-- 產出單位 -->
                     <div class="flex items-center bg-slate-200/50 p-1.5 rounded-lg border border-slate-200 shadow-inner">
@@ -282,19 +274,6 @@
                             </label>
                         </div>
                     </div>
-
-                    <!-- 報表小計 -->
-                    <div class="flex items-center bg-indigo-50 p-1.5 rounded-lg border border-indigo-100 shadow-inner">
-                        <span class="font-semibold text-indigo-800 text-sm px-3 flex items-center gap-1.5"><i class="ph-fill ph-chart-pie-slice text-indigo-500 text-base"></i> 報表小計：</span>
-                        <div class="flex items-center gap-1.5">
-                            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-indigo-200 hover:border-indigo-600 hover:text-indigo-700 transition text-slate-700 font-medium">
-                                <input type="checkbox" onchange="toggleSubtotal('owner', this.checked)" class="accent-indigo-600 w-4 h-4 rounded"> 所有權人
-                            </label>
-                            <label class="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm border border-indigo-200 hover:border-indigo-600 hover:text-indigo-700 transition text-slate-700 font-medium">
-                                <input type="checkbox" onchange="toggleSubtotal('zoning', this.checked)" class="accent-indigo-600 w-4 h-4 rounded"> 使用分區
-                            </label>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -303,39 +282,10 @@
                 <!-- 獨立的美觀表格（含對應操作按鈕）將由 JS 動態生成 -->
             </div>
         </section>
-
-        <!-- 下半部之二：統計分析區塊 -->
-        <section id="subtotal-section" class="flex flex-col gap-3 border-t border-slate-200 pt-8 mt-2 hidden">
-            <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                    <i class="ph-fill ph-chart-pie-slice text-2xl text-indigo-600"></i>
-                    <h2 class="text-xl font-bold text-slate-800">3. 統計分析區</h2>
-                    <span class="text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-2">持分面積佔比分析</span>
-                </div>
-            </div>
-
-            <!-- 統一風格的操作工具列 -->
-            <div class="flex justify-end gap-2 mb-1">
-                <button onclick="copySubtotalToClipboard()" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm border border-slate-200">
-                    <i class="ph ph-copy text-lg"></i> 複製統計表
-                </button>
-                <button onclick="exportSubtotalCSV()" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm border border-slate-200">
-                    <i class="ph ph-file-csv text-lg"></i> 匯出統計表 CSV
-                </button>
-                <button id="btn-screenshot-subtotal" onclick="exportSubtotalImage()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm">
-                    <i class="ph ph-camera text-lg text-white"></i> 截圖統計表
-                </button>
-            </div>
-
-            <!-- 這個容器是統計區專屬的截圖目標 (改用 grid 固定雙欄排版) -->
-            <div id="subtotal-print-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-10 grid grid-cols-1 md:grid-cols-2 gap-10 items-start w-full">
-                <!-- 統計表格將由 JS 動態生成 -->
-            </div>
-        </section>
     </main>
 
     <script>
-        // --- Custom Alert & Confirm replacements (Enhanced UI) ---
+        // --- Custom Alert & Confirm ---
         window.customAlert = function(msg) {
             const toastId = 'toast-' + Date.now();
             const toast = document.createElement('div');
@@ -344,10 +294,7 @@
             toast.innerHTML = `<i class="ph-fill ph-info text-blue-400 text-xl"></i> ${msg}`;
             document.body.appendChild(toast);
             
-            // Trigger animation
-            requestAnimationFrame(() => {
-                toast.classList.remove('translate-y-10', 'opacity-0');
-            });
+            requestAnimationFrame(() => toast.classList.remove('translate-y-10', 'opacity-0'));
 
             setTimeout(() => {
                 toast.classList.add('translate-y-10', 'opacity-0');
@@ -370,46 +317,37 @@
                 </div>
                 <p class="mb-8 text-slate-600 leading-relaxed">${msg}</p>
                 <div class="flex justify-end gap-3">
-                    <button class="px-5 py-2.5 bg-slate-100 rounded-lg text-slate-700 hover:bg-slate-200 transition font-medium" id="btn-cancel">取消</button>
-                    <button class="px-5 py-2.5 bg-primary rounded-lg text-white hover:bg-blue-700 transition font-medium shadow-md shadow-blue-500/20" id="btn-confirm">確定執行</button>
+                    <button class="btn-cancel px-5 py-2.5 bg-slate-100 rounded-lg text-slate-700 hover:bg-slate-200 transition font-medium">取消</button>
+                    <button class="btn-confirm px-5 py-2.5 bg-primary rounded-lg text-white hover:bg-blue-700 transition font-medium shadow-md shadow-blue-500/20">確定執行</button>
                 </div>
             `;
             overlay.appendChild(box);
             document.body.appendChild(overlay);
 
-            // Animate in
-            requestAnimationFrame(() => {
-                overlay.classList.remove('opacity-0');
-                box.classList.remove('scale-95');
-            });
+            requestAnimationFrame(() => { overlay.classList.remove('opacity-0'); box.classList.remove('scale-95'); });
 
             const close = () => {
-                overlay.classList.add('opacity-0');
-                box.classList.add('scale-95');
+                overlay.classList.add('opacity-0'); box.classList.add('scale-95');
                 setTimeout(() => overlay.remove(), 300);
             };
 
-            document.getElementById('btn-cancel').onclick = close;
-            document.getElementById('btn-confirm').onclick = () => {
-                close();
-                setTimeout(onConfirm, 100);
-            };
+            box.querySelector('.btn-cancel').onclick = close;
+            box.querySelector('.btn-confirm').onclick = () => { close(); setTimeout(onConfirm, 100); };
         };
 
         // --- 核心狀態管理 ---
         let state = {
             data: [], 
-            areaMode: 'sqm', // 'sqm', 'ping', 'both'
-            hiddenCols: new Set(['district', 'subsection', 'zoning', 'remarks']), // 預設隱藏行政區、小段、使用分區與備註
-            subtotalOwner: false, // 是否顯示所有權人小計
-            subtotalZoning: false, // 是否顯示使用分區小計
-            sortKey: null, // 'section', 'subsection', 'plot', 'zoning'
-            sortAsc: true  // 排序方向，true為升冪，false為降冪
+            activeRowId: null, // 用於記錄目前在下方編輯公設的列
+            areaMode: 'sqm', 
+            hiddenCols: new Set(['district', 'section', 'useType', 'remarks', 'owner', 'privateShare']), // 預設隱藏
+            sortKey: null, 
+            sortAsc: true  
         };
 
         const PING_RATIO = 0.3025;
 
-        // --- 防呆輔助函式：全形轉半形 ---
+        // 防呆輔助：全形轉半形
         function toHalfWidth(str) {
             if (str == null) return '';
             return String(str).replace(/[\uff01-\uff5e]/g, function(ch) {
@@ -421,6 +359,7 @@
             if (state.data.length === 0) addNewRow(); 
             updateSortIcons();
             renderInputTable();
+            renderPubFacilityTable();
             renderOutputTables();
             initSortable();
             setupBeforeUnload();
@@ -428,19 +367,12 @@
 
         // --- 排序功能 ---
         function sortTable(key) {
-            // 切換排序狀態
-            if (state.sortKey === key) {
-                state.sortAsc = !state.sortAsc; // 反轉方向
-            } else {
-                state.sortKey = key;
-                state.sortAsc = true;   // 預設為升冪
-            }
+            if (state.sortKey === key) { state.sortAsc = !state.sortAsc; } 
+            else { state.sortKey = key; state.sortAsc = true; }
 
             state.data.sort((a, b) => {
                 let valA = (a[key] || '').toString();
                 let valB = (b[key] || '').toString();
-                
-                // 使用 localeCompare 並開啟 numeric 屬性，達成自然排序 (例如 "2" 會排在 "10" 前面)
                 let comparison = valA.localeCompare(valB, 'zh-TW', { numeric: true });
                 return state.sortAsc ? comparison : -comparison;
             });
@@ -450,66 +382,54 @@
         }
 
         function updateSortIcons() {
-            const keys = ['section', 'subsection', 'plot', 'zoning'];
+            const keys = ['section', 'buildNo'];
             keys.forEach(k => {
                 const iconEl = document.getElementById(`sort-icon-${k}`);
                 if (iconEl) {
-                    if (state.sortKey === k) {
-                        iconEl.className = state.sortAsc ? 'ph-fill ph-caret-up text-primary drop-shadow-sm' : 'ph-fill ph-caret-down text-primary drop-shadow-sm';
-                    } else {
-                        // 恢復為預設 (未啟動)
-                        iconEl.className = 'ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition';
-                    }
+                    if (state.sortKey === k) iconEl.className = state.sortAsc ? 'ph-fill ph-caret-up text-primary drop-shadow-sm' : 'ph-fill ph-caret-down text-primary drop-shadow-sm';
+                    else iconEl.className = 'ph-fill ph-caret-up text-slate-300 group-hover:text-slate-400 transition';
                 }
             });
         }
 
         // --- 資料操作邏輯 ---
-        function generateId() {
-            return Date.now().toString() + Math.random().toString(36).substr(2, 5);
-        }
+        function generateId() { return Date.now().toString() + Math.random().toString(36).substr(2, 5); }
 
         function createEmptyRow() {
             return {
-                id: generateId(), district: '', section: '', subsection: '', plot: '', zoning: '', 
-                area: '', owner: '', numerator: 1, denominator: 1, remarks: ''
+                id: generateId(), district: '', doorplate: '', section: '', buildNo: '', useType: '', 
+                mainArea: '', attachedArea: '', attachedType1: '', attachedArea1: '', attachedType2: '', attachedArea2: '',
+                owner: '', numerator: 1, denominator: 1, remarks: '',
+                publicFacilities: [] // 公設清單
             };
         }
 
-        function addNewRow() {
-            state.data.push(createEmptyRow());
-            triggerUpdate();
-            setTimeout(() => { 
-                const inputs = document.querySelectorAll('#input-table-body tr:last-child input');
-                if(inputs.length > 0) {
-                    inputs.forEach(inp => { if(inp.dataset.field === 'section' && state.hiddenCols.has('district')) inp.focus(); });
-                    if(document.activeElement.tagName !== 'INPUT') inputs[0].focus();
-                }
-            }, 50);
+        function createEmptyPubFacility() {
+            return { id: generateId(), pubBuildNo: '', pubUseType: '', totalArea: '', numerator: 1, denominator: 1 };
         }
 
-        function addCoOwnerRow(index) {
-            const prevRow = state.data[index];
+        function setActiveRow(id) {
+            if (state.activeRowId === id) return;
+            state.activeRowId = id;
+            
+            // UI 更新標記
+            document.querySelectorAll('#input-table-body tr').forEach(tr => {
+                if(tr.dataset.id === id) tr.classList.add('active-row');
+                else tr.classList.remove('active-row');
+            });
+
+            renderPubFacilityTable();
+        }
+
+        function addNewRow() {
             const newRow = createEmptyRow();
-            
-            // 只複製土地基本屬性
-            newRow.district = prevRow.district;
-            newRow.section = prevRow.section;
-            newRow.subsection = prevRow.subsection;
-            newRow.plot = prevRow.plot;
-            newRow.zoning = prevRow.zoning;
-            newRow.area = prevRow.area;
-            
-            // 差異化優化：預設帶入相同分母，並清空分子讓使用者重填
-            newRow.denominator = prevRow.denominator;
-            newRow.numerator = '';
-            
-            state.data.splice(index + 1, 0, newRow);
+            state.data.push(newRow);
+            setActiveRow(newRow.id); // 自動選中新增的列
             triggerUpdate();
             
-            setTimeout(() => {
-                const trs = document.querySelectorAll('#input-table-body tr');
-                if(trs[index + 1]) trs[index + 1].querySelector('input[data-field="owner"]')?.focus();
+            setTimeout(() => { 
+                const tr = document.querySelector(`tr[data-id="${newRow.id}"]`);
+                if(tr) tr.querySelector('input[data-field="buildNo"]')?.focus();
             }, 50);
         }
 
@@ -519,23 +439,26 @@
             const newRow = createEmptyRow();
             
             Object.keys(prevRow).forEach(key => {
-                if(key !== 'id') newRow[key] = prevRow[key];
+                if(key !== 'id' && key !== 'publicFacilities') newRow[key] = prevRow[key];
             });
-            
-            // 差異化優化：清空地號讓使用者重填
-            newRow.plot = '';
+            newRow.buildNo = '';
+            newRow.publicFacilities = prevRow.publicFacilities.map(pub => ({...pub, id: generateId()}));
             
             state.data.push(newRow);
+            setActiveRow(newRow.id);
             triggerUpdate();
             
             setTimeout(() => { 
                 const tr = document.querySelector('#input-table-body tr:last-child');
-                if(tr) tr.querySelector('input[data-field="plot"]')?.focus(); 
+                if(tr) tr.querySelector('input[data-field="buildNo"]')?.focus(); 
             }, 50);
         }
 
         function deleteRow(id) {
             state.data = state.data.filter(row => row.id !== id);
+            if (state.activeRowId === id) {
+                state.activeRowId = state.data.length > 0 ? state.data[0].id : null;
+            }
             if (state.data.length === 0) addNewRow();
             triggerUpdate();
         }
@@ -543,18 +466,46 @@
         function clearAllData() {
             customConfirm("確定要清空所有資料嗎？此動作無法復原。", () => {
                 state.data = [];
+                state.activeRowId = null;
                 addNewRow();
                 triggerUpdate();
             });
         }
 
+        // --- 公設操作邏輯 ---
+        function addPubFacility(rowId) {
+            const row = state.data.find(r => r.id === rowId);
+            if(row) {
+                row.publicFacilities.push(createEmptyPubFacility());
+                renderPubFacilityTable();
+                updateInputCalculationsAndUI();
+                renderOutputTables();
+                
+                setTimeout(() => { 
+                    const inputs = document.querySelectorAll(`.pub-build-group[data-row-id="${rowId}"] tbody tr:last-child input`);
+                    if(inputs.length > 0) inputs[0].focus();
+                }, 50);
+            }
+        }
+
+        function deletePubFacility(rowId, pubId) {
+            const row = state.data.find(r => r.id === rowId);
+            if(row) {
+                row.publicFacilities = row.publicFacilities.filter(p => p.id !== pubId);
+                renderPubFacilityTable();
+                updateInputCalculationsAndUI();
+                renderOutputTables();
+            }
+        }
+
         // --- 集中更新處理 ---
         function triggerUpdate() {
             renderInputTable();
+            renderPubFacilityTable();
             renderOutputTables();
-            renderSubtotals(); // 觸發小計更新
         }
 
+        // 主表輸入事件監聽
         document.getElementById('input-table-body').addEventListener('input', (e) => {
             if(e.target.tagName !== 'INPUT') return;
             const tr = e.target.closest('tr');
@@ -567,8 +518,7 @@
             if (row && field) {
                 let value = e.target.value;
 
-                // 防呆 1：數字相關欄位自動將「全形轉半形」並去除多餘空白
-                if (['plot', 'area', 'numerator', 'denominator'].includes(field)) {
+                if (['doorplate', 'buildNo', 'mainArea', 'attachedArea', 'attachedType1', 'attachedArea1', 'attachedType2', 'attachedArea2', 'numerator', 'denominator'].includes(field)) {
                     value = toHalfWidth(value).trim();
                     if (e.target.value !== value && value !== '') e.target.value = value;
                 }
@@ -577,12 +527,8 @@
                     value = value.replace(/段$/, '');
                     if (e.target.value !== value) e.target.value = value;
                 }
-                if (field === 'subsection') {
-                    value = value.replace(/小段$/, '');
-                    if (e.target.value !== value) e.target.value = value;
-                }
-                if (['area', 'numerator', 'denominator'].includes(field)) {
-                    // 防呆 2：面積與持分不允許負數
+
+                if (['mainArea', 'attachedArea', 'attachedArea1', 'attachedArea2', 'numerator', 'denominator'].includes(field)) {
                     let numVal = Number(value);
                     if (numVal < 0) {
                         numVal = Math.abs(numVal);
@@ -593,8 +539,83 @@
                 }
                 row[field] = value;
                 
+                // 如果修改建號或門牌，同步更新下方公設區的標題
+                if(field === 'buildNo' || field === 'doorplate') {
+                    const group = document.querySelector(`.pub-build-group[data-row-id="${id}"]`);
+                    if (group) {
+                        const buildLabel = group.querySelector('.pub-group-build-no');
+                        const doorLabel = group.querySelector('.pub-group-doorplate');
+                        if (buildLabel) buildLabel.textContent = row.buildNo || '未填寫';
+                        if (doorLabel) doorLabel.textContent = row.doorplate || '未填門牌';
+                    }
+                }
+
                 updateInputCalculationsAndUI(); 
                 renderOutputTables();
+            }
+        });
+
+        // 點擊列即選取為 active row
+        document.getElementById('input-table-body').addEventListener('click', (e) => {
+            const tr = e.target.closest('tr');
+            if (!tr) return;
+            // 避免點擊刪除按鈕或輸入框時產生問題，只要點擊這列就觸發
+            if(e.target.closest('button')) return; // 點按鈕不觸發 (按鈕自己有邏輯)
+            setActiveRow(tr.dataset.id);
+        });
+
+        // Focus 輸入框時也自動選取
+        document.getElementById('input-table-body').addEventListener('focusin', (e) => {
+            const tr = e.target.closest('tr');
+            if (tr && tr.dataset.id !== state.activeRowId) {
+                setActiveRow(tr.dataset.id);
+            }
+        });
+
+        // 公設表輸入事件監聽
+        document.getElementById('pub-groups-wrapper').addEventListener('input', (e) => {
+            if(e.target.tagName !== 'INPUT') return;
+            const tr = e.target.closest('tr');
+            const group = e.target.closest('.pub-build-group');
+            if (!tr || !group) return;
+            
+            const rowId = group.dataset.rowId;
+            const pubId = tr.dataset.pubid;
+            const field = e.target.dataset.field;
+            const row = state.data.find(r => r.id === rowId);
+            
+            if (row) {
+                const pub = row.publicFacilities.find(p => p.id === pubId);
+                if(pub && field) {
+                    let value = e.target.value;
+                    if (['pubBuildNo', 'pubUseType', 'totalArea', 'numerator', 'denominator'].includes(field)) {
+                        value = toHalfWidth(value).trim();
+                        if (e.target.value !== value && value !== '') e.target.value = value;
+                    }
+                    if (['totalArea', 'numerator', 'denominator'].includes(field)) {
+                        let numVal = Number(value);
+                        if (numVal < 0) { numVal = Math.abs(numVal); e.target.value = numVal; value = numVal; }
+                        value = value === '' ? '' : numVal;
+                    }
+                    pub[field] = value;
+                    
+                    // 只局部更新數值，不重新渲染整張表，避免失去焦點
+                    const pTotal = Number(pub.totalArea) || 0;
+                    const pNum = Number(pub.numerator) || 0;
+                    const pDen = Number(pub.denominator) || 1;
+                    const pShareArea = pDen === 0 ? 0 : pTotal * (pNum / pDen);
+                    
+                    const shareAreaCell = tr.querySelector('.pub-share-area');
+                    if (shareAreaCell) shareAreaCell.textContent = formatNumber(pShareArea);
+
+                    const denInput = tr.querySelector('input[data-field="denominator"]');
+                    if (denInput) {
+                        pDen === 0 ? denInput.classList.add('input-error') : denInput.classList.remove('input-error');
+                    }
+                    
+                    updateInputCalculationsAndUI(); // 更新主表總面積
+                    renderOutputTables();
+                }
             }
         });
 
@@ -604,296 +625,322 @@
             return s.endsWith('段') ? s : s + '段';
         }
 
-        function formatSubsection(sub) {
-            if (!sub || String(sub).trim() === '') return '';
-            let s = String(sub).trim();
-            return s.endsWith('小段') ? s : s + '小段';
-        }
-
         function formatNumber(num) {
             if (num === '' || isNaN(num)) return '0.00';
             return (Math.round(num * 100) / 100).toFixed(2);
         }
 
-        function analyzeGroups() {
-            const groups = {};
-            const groupStatus = {};
-            const plotRegex = /^\d+(-\d+)?$/; // 地號格式檢核
+        function getAttachedArea1(row) {
+            return row.attachedArea1 !== undefined ? row.attachedArea1 : (row.attachedArea || '');
+        }
 
-            state.data.forEach(row => {
-                const num = Number(row.numerator) || 0;
-                const den = Number(row.denominator) || 1;
-                const area = Number(row.area) || 0;
-                const shareArea = den === 0 ? 0 : area * (num / den);
-                const isPlotInvalid = row.plot !== '' && !plotRegex.test(row.plot); 
-                
-                groupStatus[row.id] = {
-                    shareStatus: 'ok', areaInconsistent: false,
-                    zoningInconsistent: false, hasDuplicateOwner: false,
-                    denZero: den === 0, numGtDen: num > den && den !== 0, 
-                    plotInvalid: isPlotInvalid,
-                    shareAreaSqm: shareArea, groupKey: '-'
-                };
+        function getAttachedArea2(row) {
+            return row.attachedArea2 || '';
+        }
 
-                const s = formatSection(row.section);
-                const sub = formatSubsection(row.subsection);
-                const p = (row.plot || '').trim();
-                
-                if (!s && !p) return; 
-                
-                const key = [s, sub, p].filter(Boolean).join('-');
-                if (!groups[key]) {
-                    groups[key] = { rows: [], totalShare: 0, areas: new Set(), zonings: new Set(), owners: new Set(), shareAreaSumSqm: 0 };
-                }
-                groups[key].rows.push(row);
-                groups[key].totalShare += (num / den);
-                
-                if (row.area !== '') groups[key].areas.add(Number(row.area));
-                if (row.zoning !== '') groups[key].zonings.add(row.zoning);
-                if (row.owner !== '') {
-                    if (groups[key].owners.has(row.owner)) groups[key].hasDuplicateOwner = true;
-                    groups[key].owners.add(row.owner);
-                }
-            });
+        function getAttachedAreaSum(row) {
+            return (Number(getAttachedArea1(row)) || 0) + (Number(getAttachedArea2(row)) || 0);
+        }
 
-            for (const key in groups) {
-                const g = groups[key];
-                const epsilon = 1e-6;
-                let shareStatus = 'ok';
-                if (g.totalShare > 1 + epsilon) shareStatus = 'overflow';
-                else if (g.totalShare < 1 - epsilon) shareStatus = 'underflow';
-
-                const areaInconsistent = g.areas.size > 1;
-                const zoningInconsistent = g.zonings.size > 1;
-
-                g.rows.forEach(r => {
-                    groupStatus[r.id].shareStatus = shareStatus;
-                    groupStatus[r.id].areaInconsistent = areaInconsistent;
-                    groupStatus[r.id].zoningInconsistent = zoningInconsistent;
-                    groupStatus[r.id].hasDuplicateOwner = g.hasDuplicateOwner && r.owner !== '';
-                    groupStatus[r.id].groupKey = key;
-                });
+        function calculateRowAreas(row) {
+            const mArea = Number(row.mainArea) || 0;
+            const aArea = getAttachedAreaSum(row);
+            const num = Number(row.numerator) || 0;
+            const den = Number(row.denominator) || 1;
+            
+            const privateArea = mArea + aArea;
+            const privateShareArea = den === 0 ? 0 : privateArea * (num / den);
+            
+            let pubShareAreaSum = 0;
+            if(row.publicFacilities && row.publicFacilities.length > 0) {
+                pubShareAreaSum = row.publicFacilities.reduce((sum, pub) => {
+                    const pTotal = Number(pub.totalArea) || 0;
+                    const pNum = Number(pub.numerator) || 0;
+                    const pDen = Number(pub.denominator) || 1;
+                    return sum + (pDen === 0 ? 0 : pTotal * (pNum / pDen));
+                }, 0);
             }
-            return { groups, groupStatus };
+            
+            return {
+                privateShareArea,
+                attachedAreaSum: aArea,
+                pubShareAreaSum,
+                totalShareArea: privateShareArea + pubShareAreaSum,
+                denZero: den === 0,
+                numGtDen: num > den && den !== 0
+            };
+        }
+
+        function calculateInputTotals() {
+            return state.data.reduce((totals, row) => {
+                const calcs = calculateRowAreas(row);
+                totals.totalPublic += calcs.pubShareAreaSum;
+                totals.totalAll += calcs.totalShareArea;
+                return totals;
+            }, { totalPublic: 0, totalAll: 0 });
+        }
+
+        function renderInputSummary(totals = calculateInputTotals()) {
+            const tfoot = document.getElementById('input-table-foot');
+            if (!tfoot) return;
+
+            let leadingColspan = 6; // 拖曳、項次、建號、主建物、附屬明細、附屬總面積
+            if (!state.hiddenCols.has('district')) leadingColspan++;
+            if (!state.hiddenCols.has('doorplate')) leadingColspan++;
+            if (!state.hiddenCols.has('section')) leadingColspan++;
+            if (!state.hiddenCols.has('useType')) leadingColspan++;
+            if (!state.hiddenCols.has('owner')) leadingColspan++;
+            if (!state.hiddenCols.has('privateShare')) leadingColspan += 3;
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td class="py-3 px-3 text-right" colspan="${leadingColspan}">所有建物面積累加：</td>
+                    <td class="py-3 px-3 text-right font-mono text-lg text-slate-700" id="input-total-public-area">${formatNumber(totals.totalPublic)}</td>
+                    <td class="py-3 px-3 text-right font-mono text-lg text-primary" id="input-total-share-area">${formatNumber(totals.totalAll)}</td>
+                    ${!state.hiddenCols.has('remarks') ? '<td class="py-3 px-3"></td>' : ''}
+                    <td class="py-3 px-2" style="width:56px; min-width:56px; max-width:56px;"></td>
+                </tr>
+            `;
         }
 
         function renderInputTable() {
             const tbody = document.getElementById('input-table-body');
             tbody.innerHTML = '';
             
-            const analysis = analyzeGroups();
-            const groupStatus = analysis.groupStatus;
+            let totalPublic = 0;
+            let totalAll = 0;
 
             state.data.forEach((row, index) => {
-                const status = groupStatus[row.id] || {};
-                let rowBg = 'bg-white';
-                let shareIcon = '';
-                
-                if (status.shareStatus === 'overflow') {
-                    rowBg = 'bg-red-50/50';
-                    shareIcon = `<i class="ph-fill ph-warning-circle text-red-500 text-lg drop-shadow-sm" title="此地號持分加總超過 1/1"></i>`;
-                } else if (status.shareStatus === 'underflow') {
-                    shareIcon = `<i class="ph-fill ph-info text-amber-500 text-lg drop-shadow-sm" title="此地號持分加總不足 1/1"></i>`;
-                } else if (status.shareStatus === 'ok') {
-                    shareIcon = `<i class="ph-fill ph-check-circle text-emerald-500 text-lg drop-shadow-sm" title="持分完整 = 1/1"></i>`;
-                }
+                const calcs = calculateRowAreas(row);
+                totalPublic += calcs.pubShareAreaSum;
+                totalAll += calcs.totalShareArea;
 
-                const areaClass = status.areaInconsistent ? 'input-error' : '';
-                const zoningClass = status.zoningInconsistent ? 'input-error' : '';
-                const denClass = status.denZero ? 'input-error' : '';
-                const numClass = status.numGtDen ? 'input-error font-bold' : '';
-                const ownerClass = status.hasDuplicateOwner ? 'input-error' : '';
-                const plotClass = status.plotInvalid ? 'input-error' : '';
-
-                const shareArea = status.denZero ? 0 : (Number(row.area) || 0) * ((Number(row.numerator) || 0) / (Number(row.denominator) || 1));
+                const denClass = calcs.denZero ? 'input-error' : '';
+                const numClass = calcs.numGtDen ? 'input-error font-bold' : '';
                 const displaySection = (row.section || '').replace(/段$/, '');
-                const displaySubsection = (row.subsection || '').replace(/小段$/, '');
+                const attachedArea1 = getAttachedArea1(row);
+                const attachedArea2 = getAttachedArea2(row);
+                
+                const activeClass = row.id === state.activeRowId ? 'active-row' : '';
 
                 const tr = document.createElement('tr');
-                tr.className = `transition-colors duration-200 ${rowBg}`;
+                tr.className = `transition-colors duration-200 bg-white relative cursor-pointer ${activeClass}`;
                 tr.dataset.id = row.id;
 
                 tr.innerHTML = `
-                    <td class="py-2 px-2 text-center action-col"><i class="ph ph-dots-six-vertical text-slate-400 drag-handle text-xl"></i></td>
+                    <td class="py-2 px-2 text-center action-col relative">
+                        <div class="active-indicator"></div>
+                        <i class="ph ph-dots-six-vertical text-slate-400 drag-handle text-xl"></i>
+                    </td>
                     <td class="py-2 px-2 text-center text-slate-400 font-mono text-sm">${index + 1}</td>
                     <td class="py-2 px-2 col-district"><input type="text" data-field="district" value="${row.district}" class="input-cell" placeholder="例: 中正區"></td>
-                    <td class="py-2 px-2">
+                    <td class="py-2 px-2 col-doorplate"><input type="text" data-field="doorplate" value="${row.doorplate || ''}" class="input-cell" placeholder="例: 信義路1段1號"></td>
+                    <td class="py-2 px-2 col-section">
                         <div class="flex items-center relative">
                             <input type="text" data-field="section" value="${displaySection}" class="input-cell pr-6" placeholder="例: 中正">
                             <span class="text-slate-400 whitespace-nowrap absolute right-2 text-sm pointer-events-none">段</span>
                         </div>
                     </td>
-                    <td class="py-2 px-2 col-subsection">
-                        <div class="flex items-center relative">
-                            <input type="text" data-field="subsection" value="${displaySubsection}" class="input-cell pr-8" placeholder="例: 一">
-                            <span class="text-slate-400 whitespace-nowrap absolute right-2 text-sm pointer-events-none">小段</span>
+                    <td class="py-2 px-2">
+                        <input type="text" data-field="buildNo" value="${row.buildNo}" class="input-cell font-mono font-medium text-blue-700" placeholder="00000-000">
+                    </td>
+                    <td class="py-2 px-2 col-useType"><input type="text" data-field="useType" value="${row.useType}" class="input-cell" placeholder="例: 住家用"></td>
+                    <td class="py-2 px-2"><input type="number" step="any" data-field="mainArea" value="${row.mainArea}" class="input-cell text-right font-mono hide-spin" placeholder="0.00"></td>
+                    <td class="py-2 px-2 min-w-[230px]">
+                        <div class="attached-detail-grid grid grid-cols-[36px_92px_92px] gap-1.5 items-center">
+                            <span class="text-[11px] text-slate-400 font-semibold">面積</span>
+                            <input type="number" step="any" data-field="attachedArea1" value="${attachedArea1}" class="input-cell attached-area-input text-right font-mono hide-spin" placeholder="0.00">
+                            <input type="number" step="any" data-field="attachedArea2" value="${attachedArea2}" class="input-cell attached-area-input text-right font-mono hide-spin" placeholder="0.00">
+                            <span class="text-[11px] text-slate-400 font-semibold">類型</span>
+                            <input type="text" data-field="attachedType1" value="${row.attachedType1 || ''}" class="input-cell attached-type-input" placeholder="附屬1">
+                            <input type="text" data-field="attachedType2" value="${row.attachedType2 || ''}" class="input-cell attached-type-input" placeholder="附屬2">
                         </div>
                     </td>
-                    <td class="py-2 px-2 relative">
-                        <input type="text" data-field="plot" value="${row.plot}" class="input-cell font-mono pr-8 ${plotClass}" placeholder="0001-0000" title="${status.plotInvalid ? '建議格式為數字或加上一個橫線 (例: 0001-0000)' : ''}">
-                        <div class="absolute right-3 top-1/2 -translate-y-1/2 group-icon-container">${shareIcon}</div>
+                    <td class="py-2 px-3 text-right">
+                        <div class="font-semibold text-slate-700 font-mono text-base attached-total-area" data-val="${calcs.attachedAreaSum}">${formatNumber(calcs.attachedAreaSum)}</div>
                     </td>
-                    <td class="py-2 px-2 col-zoning"><input type="text" data-field="zoning" value="${row.zoning}" class="input-cell ${zoningClass}" placeholder="分區"></td>
-                    <td class="py-2 px-2"><input type="number" step="any" data-field="area" value="${row.area}" class="input-cell text-right font-mono hide-spin ${areaClass}" placeholder="0.00"></td>
-                    <td class="py-2 px-2 col-owner relative">
-                        <input type="text" data-field="owner" value="${row.owner}" class="input-cell pr-8 ${ownerClass}" placeholder="姓名">
-                        <div class="absolute right-3 top-1/2 -translate-y-1/2 owner-icon-container">${status.hasDuplicateOwner ? `<i class="ph-fill ph-warning text-red-500 text-lg" title="注意：此地號有重複輸入的所有權人"></i>` : ''}</div>
+                    
+                    <td class="py-2 px-2 col-owner">
+                        <input type="text" data-field="owner" value="${row.owner}" class="input-cell" placeholder="姓名">
                     </td>
-                    <td class="py-2 px-0 w-14 text-right relative">
-                        <input type="number" data-field="numerator" value="${row.numerator}" class="input-cell text-center font-mono px-1 ${numClass}" title="${status.numGtDen ? '分子不應大於分母' : ''}">
+                    <td class="py-2 px-0 w-14 text-right col-privateShare">
+                        <input type="number" data-field="numerator" value="${row.numerator}" class="input-cell text-center font-mono px-1 ${numClass}" title="${calcs.numGtDen ? '分子不應大於分母' : ''}">
                     </td>
-                    <td class="py-2 px-1 w-4 text-center text-slate-300 font-bold text-lg">/</td>
-                    <td class="py-2 px-0 w-14 text-left">
+                    <td class="py-2 px-1 w-4 text-center text-slate-300 font-bold text-lg col-privateShare">/</td>
+                    <td class="py-2 px-0 w-14 text-left col-privateShare">
                         <input type="number" data-field="denominator" value="${row.denominator}" class="input-cell text-center font-mono px-1 ${denClass}">
                     </td>
-                    <td class="py-2 px-3 text-right font-semibold text-primary font-mono readonly-text share-area-display" data-val="${shareArea}">
-                        ${formatNumber(shareArea)}
+                    
+                    <td class="py-2 px-3 text-right">
+                        <div class="font-semibold text-slate-700 font-mono text-base public-share-area" data-val="${calcs.pubShareAreaSum}">${formatNumber(calcs.pubShareAreaSum)}</div>
                     </td>
-                    <td class="py-2 px-2 col-remarks"><input type="text" data-field="remarks" value="${row.remarks}" class="input-cell" placeholder="備註事項..."></td>
-                    <td class="py-2 px-2 text-center action-col whitespace-nowrap">
-                        <div class="flex items-center justify-center gap-1.5">
-                            <button onclick="addCoOwnerRow(${index})" class="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded border border-blue-100 font-medium transition shadow-sm active:scale-95" title="新增共同持有人">
-                                <i class="ph-fill ph-users-three text-lg"></i><span class="text-xs">新增共有人</span>
-                            </button>
-                            <button onclick="deleteRow('${row.id}')" class="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded border border-red-100 font-medium transition shadow-sm active:scale-95" title="刪除此筆資料">
-                                <i class="ph-fill ph-trash text-lg"></i><span class="text-xs">刪除</span>
-                            </button>
-                        </div>
+                    <td class="py-2 px-3 text-right">
+                        <div class="font-semibold text-primary font-mono text-base total-share-area" data-val="${calcs.totalShareArea}" title="專有面積 ${formatNumber(calcs.privateShareArea)} + 公設面積 ${formatNumber(calcs.pubShareAreaSum)}">${formatNumber(calcs.totalShareArea)}</div>
+                    </td>
+                    <td class="py-2 px-2 col-remarks"><input type="text" data-field="remarks" value="${row.remarks}" class="input-cell" placeholder="備註..."></td>
+                    <td class="py-2 px-1 text-center action-col whitespace-nowrap" style="width:56px; min-width:56px; max-width:56px;">
+                        <button onclick="deleteRow('${row.id}')" class="inline-flex items-center justify-center w-8 h-8 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded border border-red-100 font-medium transition shadow-sm active:scale-95" title="刪除此筆資料">
+                            <i class="ph-fill ph-trash text-lg"></i>
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
 
             applyColumnVisibility();
-            updateSubtotalSummary(analysis);
+            renderInputSummary({ totalPublic, totalAll });
+        }
+
+        // 渲染下半部的公設編輯表
+        function renderPubFacilityTable() {
+            const wrapper = document.getElementById('pub-groups-wrapper');
+            if (!wrapper) return;
+            wrapper.innerHTML = '';
+
+            if (state.data.length === 0) {
+                wrapper.innerHTML = `<div class="py-8 text-center text-slate-400 italic bg-white rounded-lg border border-dashed border-slate-300">尚無主建物資料。</div>`;
+                return;
+            }
+
+            state.data.forEach((row, rowIndex) => {
+                const buildNo = row.buildNo || '未填寫';
+                const doorplate = row.doorplate || '未填門牌';
+                const publicFacilities = row.publicFacilities || [];
+                let rowsHtml = '';
+
+                if (publicFacilities.length === 0) {
+                    rowsHtml = `<tr><td colspan="9" class="py-5 text-center text-slate-400 italic bg-slate-50 border-b border-slate-200">此主建物目前無公設資料。點擊本區下方按鈕新增。</td></tr>`;
+                } else {
+                    publicFacilities.forEach((pub, index) => {
+                        const pTotal = Number(pub.totalArea) || 0;
+                        const pNum = Number(pub.numerator) || 0;
+                        const pDen = Number(pub.denominator) || 1;
+                        const pShareArea = pDen === 0 ? 0 : pTotal * (pNum / pDen);
+
+                        rowsHtml += `
+                            <tr data-pubid="${pub.id}" class="hover:bg-slate-50 transition-colors">
+                                <td class="py-2 px-3 text-center text-slate-400 font-mono text-sm">${index + 1}</td>
+                                <td class="py-2 px-3"><input type="text" data-field="pubBuildNo" value="${pub.pubBuildNo || ''}" class="input-cell font-mono text-slate-700" placeholder="公設建號"></td>
+                                <td class="py-2 px-3"><input type="text" data-field="pubUseType" value="${pub.pubUseType || ''}" class="input-cell" placeholder="停車場、大公、當層梯間"></td>
+                                <td class="py-2 px-3"><input type="number" step="any" data-field="totalArea" value="${pub.totalArea}" class="input-cell text-right font-mono hide-spin" placeholder="0.00"></td>
+                                <td class="py-2 px-1 w-16 text-right"><input type="number" data-field="numerator" value="${pub.numerator}" class="input-cell text-center font-mono px-1"></td>
+                                <td class="py-2 px-1 w-4 text-center text-slate-300 font-bold text-lg">/</td>
+                                <td class="py-2 px-1 w-16 text-left"><input type="number" data-field="denominator" value="${pub.denominator}" class="input-cell text-center font-mono px-1 ${pDen===0?'input-error':''}"></td>
+                                <td class="py-2 px-3 text-right font-semibold text-blue-600 font-mono pub-share-area">${formatNumber(pShareArea)}</td>
+                                <td class="py-2 px-3 text-center">
+                                    <button onclick="deletePubFacility('${row.id}', '${pub.id}')" class="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded transition" title="移除此公設">
+                                        <i class="ph-fill ph-trash text-lg"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                wrapper.insertAdjacentHTML('beforeend', `
+                    <div class="pub-build-group bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden" data-row-id="${row.id}">
+                        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border-b border-slate-200 px-4 py-3">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-xs font-semibold text-slate-400">主建物 ${rowIndex + 1}</span>
+                                <span class="bg-blue-600 text-white text-sm px-3 py-0.5 rounded-md font-mono shadow-sm">
+                                    建號: <span class="pub-group-build-no">${buildNo}</span>
+                                </span>
+                                <span class="bg-slate-200 text-slate-600 text-sm px-3 py-0.5 rounded-md">
+                                    門牌: <span class="pub-group-doorplate">${doorplate}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="pub-table-container">
+                            <table class="pub-table w-full text-left whitespace-nowrap">
+                                <thead class="text-sm text-slate-600 tracking-wide bg-slate-50">
+                                    <tr>
+                                        <th class="py-2 px-3 w-12 text-center border-b border-slate-200">項次</th>
+                                        <th class="py-2 px-3 w-40 border-b border-slate-200">公設建號</th>
+                                        <th class="py-2 px-3 w-40 border-b border-slate-200">用途</th>
+                                        <th class="py-2 px-3 w-36 text-right border-b border-slate-200">公設總面積 (㎡)</th>
+                                        <th class="py-2 px-3 text-center border-b border-slate-200" colspan="3">公設持分 (分子/分母)</th>
+                                        <th class="py-2 px-3 w-40 text-right border-b border-slate-200">持分面積預覽</th>
+                                        <th class="py-2 px-3 w-24 text-center border-b border-slate-200">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm text-slate-700">
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="px-4 py-3 bg-white border-t border-slate-100">
+                            <button onclick="addPubFacility('${row.id}')" class="flex items-center gap-1.5 bg-primary hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md transition font-medium active:scale-95">
+                                <i class="ph ph-plus text-lg text-white"></i> 新增一筆公設
+                            </button>
+                        </div>
+                    </div>
+                `);
+            });
         }
 
         function updateInputCalculationsAndUI() {
-            const analysis = analyzeGroups();
-            const groupStatus = analysis.groupStatus;
-
+            let totalPublic = 0;
+            let totalAll = 0;
             state.data.forEach(row => {
-                const status = groupStatus[row.id] || {};
-                const tr = document.querySelector(`tr[data-id="${row.id}"]`);
+                const calcs = calculateRowAreas(row);
+                totalPublic += calcs.pubShareAreaSum;
+                totalAll += calcs.totalShareArea;
+
+                const tr = document.querySelector(`#input-table-body tr[data-id="${row.id}"]`);
                 if (!tr) return;
 
-                const newBgClass = status.shareStatus === 'overflow' ? 'bg-red-50/50' : 'bg-white';
-                // Remove old bg class and add new one carefully
-                tr.classList.remove('bg-white', 'bg-red-50/50');
-                tr.classList.add(newBgClass);
-                
-                const iconContainer = tr.querySelector('.group-icon-container');
-                if (iconContainer) {
-                    let newIcon = '';
-                    if (status.shareStatus === 'overflow') newIcon = `<i class="ph-fill ph-warning-circle text-red-500 text-lg drop-shadow-sm"></i>`;
-                    else if (status.shareStatus === 'underflow') newIcon = `<i class="ph-fill ph-info text-amber-500 text-lg drop-shadow-sm"></i>`;
-                    else if (status.shareStatus === 'ok') newIcon = `<i class="ph-fill ph-check-circle text-emerald-500 text-lg drop-shadow-sm"></i>`;
-                    if (iconContainer.innerHTML !== newIcon) iconContainer.innerHTML = newIcon;
-                }
-
-                const toggleClass = (el, force, cls) => {
-                    if(!el) return;
-                    if(force) el.classList.add(cls); else el.classList.remove(cls);
-                };
-                
-                toggleClass(tr.querySelector('input[data-field="area"]'), status.areaInconsistent, 'input-error');
-                toggleClass(tr.querySelector('input[data-field="zoning"]'), status.zoningInconsistent, 'input-error');
-                toggleClass(tr.querySelector('input[data-field="denominator"]'), status.denZero, 'input-error');
-                
-                const plotInput = tr.querySelector('input[data-field="plot"]');
-                if (plotInput) {
-                    toggleClass(plotInput, status.plotInvalid, 'input-error');
-                    if (status.plotInvalid) plotInput.title = "建議格式為數字或加上一個橫線 (例: 0001-0000)"; 
-                    else plotInput.removeAttribute('title');
-                }
-
+                const denInput = tr.querySelector('input[data-field="denominator"]');
                 const numInput = tr.querySelector('input[data-field="numerator"]');
-                if (numInput) {
-                    toggleClass(numInput, status.numGtDen, 'input-error');
-                    toggleClass(numInput, status.numGtDen, 'font-bold');
-                    if (status.numGtDen) numInput.title = "分子不應大於分母"; else numInput.removeAttribute('title');
+                if(denInput) calcs.denZero ? denInput.classList.add('input-error') : denInput.classList.remove('input-error');
+                if(numInput) {
+                    calcs.numGtDen ? numInput.classList.add('input-error', 'font-bold') : numInput.classList.remove('input-error', 'font-bold');
+                    numInput.title = calcs.numGtDen ? "分子不應大於分母" : "";
                 }
 
-                const ownerInput = tr.querySelector('input[data-field="owner"]');
-                if(ownerInput) {
-                    toggleClass(ownerInput, status.hasDuplicateOwner, 'input-error');
+                const attachedCell = tr.querySelector('.attached-total-area');
+                const publicCell = tr.querySelector('.public-share-area');
+                const totalCell = tr.querySelector('.total-share-area');
+                
+                if (attachedCell && attachedCell.dataset.val !== String(calcs.attachedAreaSum)) {
+                    attachedCell.innerHTML = formatNumber(calcs.attachedAreaSum);
+                    attachedCell.dataset.val = calcs.attachedAreaSum;
                 }
 
-                const ownerIconContainer = tr.querySelector('.owner-icon-container');
-                if (ownerIconContainer) {
-                    ownerIconContainer.innerHTML = status.hasDuplicateOwner ? `<i class="ph-fill ph-warning text-red-500 text-lg" title="注意：此地號有重複輸入的所有權人"></i>` : '';
+                if (publicCell && publicCell.dataset.val !== String(calcs.pubShareAreaSum)) {
+                    publicCell.innerHTML = formatNumber(calcs.pubShareAreaSum);
+                    publicCell.dataset.val = calcs.pubShareAreaSum;
                 }
 
-                const shareAreaCell = tr.querySelector('.share-area-display');
-                if (shareAreaCell && shareAreaCell.dataset.val !== String(status.shareAreaSqm)) {
-                    shareAreaCell.innerHTML = formatNumber(status.shareAreaSqm);
-                    shareAreaCell.dataset.val = status.shareAreaSqm;
+                if (totalCell && totalCell.dataset.val !== String(calcs.totalShareArea)) {
+                    totalCell.innerHTML = formatNumber(calcs.totalShareArea);
+                    totalCell.dataset.val = calcs.totalShareArea;
+                }
+
+                if (totalCell) {
+                    totalCell.title = `專有面積 ${formatNumber(calcs.privateShareArea)} + 公設面積 ${formatNumber(calcs.pubShareAreaSum)}`;
                 }
             });
-            updateSubtotalSummary(analysis);
-        }
 
-        function updateSubtotalSummary(analysis) {
-            const subtotalBody = document.getElementById('subtotal-body');
-            subtotalBody.innerHTML = '';
-            let valid = 0;
-            let totalShareAreaAll = 0; // 新增：用於編輯區下方的總計
-
-            // 計算所有資料列的持分面積加總
-            state.data.forEach(row => {
-                const num = Number(row.numerator) || 0;
-                const den = Number(row.denominator) || 1;
-                const area = Number(row.area) || 0;
-                totalShareAreaAll += (den === 0 ? 0 : area * (num / den));
-            });
-
-            // 即時更新編輯區底部的總計數值
-            const totalEl = document.getElementById('input-total-share-area');
-            if (totalEl) totalEl.textContent = formatNumber(totalShareAreaAll);
-
-            for (const key in analysis.groups) {
-                const g = analysis.groups[key];
-                if(key === '-') continue; 
-                valid++;
-                let shareStr = '', shareColor = '';
-                if (Math.abs(g.totalShare - 1) < 1e-6) { shareStr = '完整 1/1'; shareColor = 'text-emerald-600 bg-emerald-50'; } 
-                else if (g.totalShare > 1) { shareStr = `溢出 (${formatNumber(g.totalShare)})`; shareColor = 'text-red-600 bg-red-50'; } 
-                else { shareStr = `未滿 (${formatNumber(g.totalShare)})`; shareColor = 'text-amber-600 bg-amber-50'; }
-
-                subtotalBody.innerHTML += `
-                    <tr>
-                        <td class="py-2 pr-2 font-mono text-slate-700">${key}</td>
-                        <td class="py-2 text-right">
-                            <span class="${shareColor} px-2.5 py-1 rounded-md font-bold text-xs tracking-wide">${shareStr}</span>
-                        </td>
-                    </tr>`;
-            }
-            if(valid === 0) subtotalBody.innerHTML = `<tr><td colspan="2" class="py-4 text-center text-slate-400 italic">尚無有效土地資料</td></tr>`;
+            renderInputSummary({ totalPublic, totalAll });
         }
 
         function renderOutputTables() {
             const wrapper = document.getElementById('output-tables-wrapper');
             wrapper.innerHTML = '';
 
-            if (state.areaMode === 'sqm' || state.areaMode === 'both') {
-                wrapper.appendChild(createOutputTableHTML('sqm'));
-            }
-            if (state.areaMode === 'ping' || state.areaMode === 'both') {
-                wrapper.appendChild(createOutputTableHTML('ping'));
-            }
+            if (state.areaMode === 'sqm' || state.areaMode === 'both') wrapper.appendChild(createOutputTableHTML('sqm'));
+            if (state.areaMode === 'ping' || state.areaMode === 'both') wrapper.appendChild(createOutputTableHTML('ping'));
         }
 
         function createOutputTableHTML(unitMode) {
             const isPing = (unitMode === 'ping');
             const unitLabel = isPing ? '坪' : '平方公尺';
-            const unitSuffix = isPing ? ' 坪' : ' ㎡';
-            const unitStr = isPing ? '(坪)' : '(㎡)'; // 新增：用於表頭的單位文字
+            const unitStr = isPing ? '(坪)' : '(㎡)'; 
             const ratio = isPing ? PING_RATIO : 1;
 
             const container = document.createElement('div');
             container.className = 'flex flex-col mb-4';
 
-            // 每個報表的獨立操作工具列
             const actionBarHtml = `
                 <div class="flex justify-end gap-2 mb-3">
                     <button onclick="copyToClipboard('${unitMode}')" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-medium transition active:scale-95 shadow-sm border border-slate-200">
@@ -908,67 +955,87 @@
                 </div>
             `;
 
-            // 標題 (已移除製表日期)
             const headerHtml = `
-                <div class="border-b-[3px] border-slate-800 pb-3 mb-2">
-                    <h3 class="text-3xl font-bold text-slate-900 tracking-widest">土地清冊 <span class="text-xl text-slate-600 font-normal">(${unitLabel})</span></h3>
+                <div class="flex justify-start items-end border-b-[3px] border-slate-800 pb-3 mb-2">
+                    <h3 class="text-3xl font-bold text-slate-900 tracking-widest">建物清冊 <span class="text-xl text-slate-600 font-normal">(${unitLabel})</span></h3>
                 </div>
             `;
 
-            // 欄位標題過濾
-            let thHtml = `<th style="width:60px;">項次</th>`;
+            let thHtml = `<th style="width:40px;">項次</th>`;
             if (!state.hiddenCols.has('district')) thHtml += `<th>行政區</th>`;
-            thHtml += `<th class="text-center">地段</th>`;
-            if (!state.hiddenCols.has('subsection')) thHtml += `<th>小段</th>`;
-            thHtml += `<th class="text-center">地號</th>`;
-            if (!state.hiddenCols.has('zoning')) thHtml += `<th>使用分區</th>`;
-            thHtml += `<th class="text-center">面積 ${unitStr}</th>`;
+            if (!state.hiddenCols.has('doorplate')) thHtml += `<th>門牌</th>`;
+            if (!state.hiddenCols.has('section')) thHtml += `<th class="text-center">段</th>`;
+            thHtml += `<th class="text-center">建號</th>`;
+            if (!state.hiddenCols.has('useType')) thHtml += `<th>主要用途</th>`;
+            thHtml += `<th class="text-center">主建物${unitStr}</th>`;
+            thHtml += `<th class="text-center">附屬${unitStr}</th>`;
             if (!state.hiddenCols.has('owner')) thHtml += `<th class="text-center">所有權人</th>`;
-            thHtml += `<th>持分</th><th class="text-center">持分面積 ${unitStr}</th>`;
+            if (!state.hiddenCols.has('privateShare')) thHtml += `<th>專有持分</th>`;
+            thHtml += `<th class="text-center">專有面積${unitStr}</th>`;
+            thHtml += `<th class="text-center">公設面積${unitStr}</th>`;
+            thHtml += `<th class="text-center">總面積${unitStr}</th>`;
             if (!state.hiddenCols.has('remarks')) thHtml += `<th>備註</th>`;
 
-            // 資料列
             let trsHtml = '';
-            let totalShareArea = 0;
+            let grandTotalMain = 0, grandTotalAttached = 0, grandTotalPrivateShare = 0, grandTotalPubShare = 0, grandTotalAll = 0;
 
             state.data.forEach((row, index) => {
-                const areaSqm = Number(row.area) || 0;
-                const num = Number(row.numerator) || 0;
-                const den = Number(row.denominator) || 1;
-                const shareSqm = den === 0 ? 0 : areaSqm * (num / den);
-
-                const displayArea = areaSqm * ratio;
-                const displayShareArea = shareSqm * ratio;
+                const calcs = calculateRowAreas(row);
                 
-                totalShareArea += displayShareArea;
+                const dMain = (Number(row.mainArea)||0) * ratio;
+                const dAttached = calcs.attachedAreaSum * ratio;
+                const dPrivShare = calcs.privateShareArea * ratio;
+                const dPubShare = calcs.pubShareAreaSum * ratio;
+                const dTotal = calcs.totalShareArea * ratio;
+
+                grandTotalMain += dMain;
+                grandTotalAttached += dAttached;
+                grandTotalPrivateShare += dPrivShare;
+                grandTotalPubShare += dPubShare;
+                grandTotalAll += dTotal;
 
                 trsHtml += `<tr><td class="text-slate-500 text-center">${index + 1}</td>`;
                 if (!state.hiddenCols.has('district')) trsHtml += `<td class="text-left">${row.district || ''}</td>`;
-                trsHtml += `<td class="text-center">${formatSection(row.section)}</td>`;
-                if (!state.hiddenCols.has('subsection')) trsHtml += `<td class="text-left">${formatSubsection(row.subsection)}</td>`;
-                trsHtml += `<td class="text-center font-mono font-medium">${row.plot || ''}</td>`;
-                if (!state.hiddenCols.has('zoning')) trsHtml += `<td class="text-left">${row.zoning || ''}</td>`;
-                trsHtml += `<td class="text-right font-mono">${formatNumber(displayArea)}</td>`;
+                if (!state.hiddenCols.has('doorplate')) trsHtml += `<td class="text-left">${row.doorplate || ''}</td>`;
+                if (!state.hiddenCols.has('section')) trsHtml += `<td class="text-center">${formatSection(row.section)}</td>`;
+                trsHtml += `<td class="text-center font-mono font-medium">${row.buildNo || ''}</td>`;
+                if (!state.hiddenCols.has('useType')) trsHtml += `<td class="text-left">${row.useType || ''}</td>`;
+                
+                trsHtml += `<td class="text-right font-mono text-slate-600">${formatNumber(dMain)}</td>`;
+                trsHtml += `<td class="text-right font-mono text-slate-600">${formatNumber(dAttached)}</td>`;
+                
                 if (!state.hiddenCols.has('owner')) trsHtml += `<td class="text-center font-medium text-slate-800">${row.owner || ''}</td>`;
-                // 加入 xl-text 類別與 mso-number-format 確保貼到 Excel 為純文字
-                trsHtml += `<td class="xl-text font-mono text-slate-600 text-center" style="mso-number-format:'\\@';">${row.numerator} / ${row.denominator}</td><td class="text-right font-mono font-bold text-slate-900">${formatNumber(displayShareArea)}</td>`;
+                if (!state.hiddenCols.has('privateShare')) trsHtml += `<td class="xl-text font-mono text-slate-600 text-center" style="mso-number-format:'\\@';">${row.numerator} / ${row.denominator}</td>`;
+                
+                trsHtml += `<td class="text-right font-mono text-slate-700">${formatNumber(dPrivShare)}</td>`;
+                trsHtml += `<td class="text-right font-mono text-slate-700">${formatNumber(dPubShare)}</td>`;
+                trsHtml += `<td class="text-right font-mono font-bold text-slate-900">${formatNumber(dTotal)}</td>`;
+                
                 if (!state.hiddenCols.has('remarks')) trsHtml += `<td class="text-left text-slate-500">${row.remarks || ''}</td>`;
                 trsHtml += `</tr>`;
             });
 
-            // 計算底部總計列的跨欄數 (Colspan)
-            let beforeColspan = 5; // 固定的 5 欄：項次, 地段, 地號, 面積, 持分
-            if (!state.hiddenCols.has('district')) beforeColspan++;
-            if (!state.hiddenCols.has('subsection')) beforeColspan++;
-            if (!state.hiddenCols.has('zoning')) beforeColspan++;
-            if (!state.hiddenCols.has('owner')) beforeColspan++;
+            // 計算合計列跨欄
+            let beforeColspan = 4; // 項次, 段, 建號, 專有持分 (位置不對，持分在右邊，所以我們依序計算)
+            // 項次(1)
+            let sumColspan = 1;
+            if (!state.hiddenCols.has('district')) sumColspan++;
+            if (!state.hiddenCols.has('doorplate')) sumColspan++;
+            if (!state.hiddenCols.has('section')) sumColspan++;
+            sumColspan++; // 建號
+            if (!state.hiddenCols.has('useType')) sumColspan++;
 
-            // 總計列 (整合於表格最下列)
             const tfootHtml = `
                 <tfoot class="bg-indigo-50/50 border-t-[3px] border-slate-400 font-bold text-slate-900">
                     <tr>
-                        <td colspan="${beforeColspan}" class="text-right py-3 text-lg tracking-wider">總面積：</td>
-                        <td class="text-right font-mono text-xl text-indigo-700">${formatNumber(totalShareArea)}</td>
+                        <td colspan="${sumColspan}" class="text-right py-3 text-lg tracking-wider">合計：</td>
+                        <td class="text-right font-mono text-indigo-700">${formatNumber(grandTotalMain)}</td>
+                        <td class="text-right font-mono text-indigo-700">${formatNumber(grandTotalAttached)}</td>
+                        ${!state.hiddenCols.has('owner') ? '<td></td>' : ''}
+                        ${!state.hiddenCols.has('privateShare') ? '<td></td>' : ''}
+                        <td class="text-right font-mono text-indigo-700">${formatNumber(grandTotalPrivateShare)}</td>
+                        <td class="text-right font-mono text-indigo-700">${formatNumber(grandTotalPubShare)}</td>
+                        <td class="text-right font-mono text-lg text-indigo-800">${formatNumber(grandTotalAll)}</td>
                         ${!state.hiddenCols.has('remarks') ? '<td></td>' : ''}
                     </tr>
                 </tfoot>
@@ -991,7 +1058,6 @@
         function changeAreaMode(mode) {
             state.areaMode = mode;
             renderOutputTables();
-            renderSubtotals(); // 切換單位時同步更新小計區
         }
 
         function toggleColumn(colName, isVisible) {
@@ -999,113 +1065,12 @@
             else state.hiddenCols.add(colName);
             
             applyColumnVisibility();
+            renderInputSummary();
             renderOutputTables();
         }
 
-        // --- 小計功能 ---
-        function toggleSubtotal(type, isChecked) {
-            if (type === 'owner') state.subtotalOwner = isChecked;
-            if (type === 'zoning') state.subtotalZoning = isChecked;
-            renderSubtotals();
-        }
-
-        function renderSubtotals() {
-            const section = document.getElementById('subtotal-section');
-            const container = document.getElementById('subtotal-print-container');
-            container.innerHTML = '';
-
-            // 如果都沒有勾選，隱藏整個區塊
-            if (!state.subtotalOwner && !state.subtotalZoning) {
-                section.classList.add('hidden');
-                return;
-            }
-            section.classList.remove('hidden');
-
-            // 計算基礎資料
-            let totalShareAreaSqm = 0;
-            const ownerMap = {};
-            const zoningMap = {};
-
-            state.data.forEach(row => {
-                const areaSqm = Number(row.area) || 0;
-                const num = Number(row.numerator) || 0;
-                const den = Number(row.denominator) || 1;
-                const shareSqm = den === 0 ? 0 : areaSqm * (num / den);
-                totalShareAreaSqm += shareSqm;
-
-                // 若為空值，則歸類為「未填寫」
-                const owner = row.owner ? row.owner.trim() : '未填寫';
-                const zoning = row.zoning ? row.zoning.trim() : '未填寫';
-
-                ownerMap[owner] = (ownerMap[owner] || 0) + shareSqm;
-                zoningMap[zoning] = (zoningMap[zoning] || 0) + shareSqm;
-            });
-
-            // 生成表格
-            if (state.subtotalOwner) {
-                container.appendChild(createSubtotalTableHTML('依【所有權人】面積小計', ownerMap, totalShareAreaSqm));
-            }
-            if (state.subtotalZoning) {
-                container.appendChild(createSubtotalTableHTML('依【使用分區】面積小計', zoningMap, totalShareAreaSqm));
-            }
-        }
-
-        function createSubtotalTableHTML(title, dataMap, grandTotalSqm) {
-            const isSqm = state.areaMode === 'sqm' || state.areaMode === 'both';
-            const isPing = state.areaMode === 'ping' || state.areaMode === 'both';
-
-            const container = document.createElement('div');
-            container.className = 'flex flex-col gap-3 w-full'; // 移除 flex-1，改由外層的 grid 系統強制控制為 50% 寬度
-
-            let thHtml = `<th class="text-left w-1/3">項目</th>`;
-            if (isSqm) thHtml += `<th class="text-right">持分面積 (㎡)</th>`;
-            if (isPing) thHtml += `<th class="text-right">持分面積 (坪)</th>`;
-            thHtml += `<th class="text-right w-1/4">面積佔比 (%)</th>`;
-
-            let trsHtml = '';
-            // 依據面積大小降序排序
-            const sortedKeys = Object.keys(dataMap).sort((a, b) => dataMap[b] - dataMap[a]);
-
-            sortedKeys.forEach(key => {
-                const valSqm = dataMap[key];
-                const valPing = valSqm * PING_RATIO;
-                // 防止除以 0
-                const percent = grandTotalSqm > 0 ? ((valSqm / grandTotalSqm) * 100).toFixed(2) : '0.00';
-                
-                // 如果是未填寫，文字設為灰色斜體
-                const keyClass = key === '未填寫' ? 'text-slate-400 italic' : 'text-slate-800';
-
-                trsHtml += `<tr class="hover:bg-slate-50">
-                    <td class="text-left font-medium ${keyClass}">${key}</td>`;
-                if (isSqm) trsHtml += `<td class="text-right font-mono">${formatNumber(valSqm)}</td>`;
-                if (isPing) trsHtml += `<td class="text-right font-mono">${formatNumber(valPing)}</td>`;
-                trsHtml += `<td class="text-right font-mono font-medium">${percent}%</td>
-                </tr>`;
-            });
-
-            // 總計列
-            const grandTotalPing = grandTotalSqm * PING_RATIO;
-            trsHtml += `<tr class="bg-indigo-50/50 border-t-[3px] border-slate-300">
-                <td class="text-left font-bold text-slate-900 py-3">總計</td>`;
-            if (isSqm) trsHtml += `<td class="text-right font-mono font-bold text-indigo-700">${formatNumber(grandTotalSqm)}</td>`;
-            if (isPing) trsHtml += `<td class="text-right font-mono font-bold text-indigo-700">${formatNumber(grandTotalPing)}</td>`;
-            trsHtml += `<td class="text-right font-mono font-bold text-indigo-700">100.00%</td>
-            </tr>`;
-
-            container.innerHTML = `
-                <div class="flex justify-between items-end border-b-[3px] border-slate-800 pb-2 mb-1">
-                    <h3 class="text-2xl font-bold text-slate-900 tracking-wider">${title}</h3>
-                </div>
-                <table class="output-table !mb-0">
-                    <thead><tr>${thHtml}</tr></thead>
-                    <tbody>${trsHtml}</tbody>
-                </table>
-            `;
-            return container;
-        }
-
         function applyColumnVisibility() {
-            const allCols = ['district', 'subsection', 'zoning', 'owner', 'remarks'];
+            const allCols = ['district', 'doorplate', 'section', 'useType', 'owner', 'privateShare', 'remarks'];
             allCols.forEach(col => {
                 const elements = document.querySelectorAll(`.col-${col}`);
                 elements.forEach(el => {
@@ -1116,14 +1081,20 @@
         }
 
         function initSortable() {
-            new Sortable(document.getElementById('input-table-body'), {
+            const inputBody = document.getElementById('input-table-body');
+            if (!inputBody) return;
+            if (typeof Sortable === 'undefined') {
+                console.warn('SortableJS 未載入，拖曳排序暫停。');
+                return;
+            }
+
+            new Sortable(inputBody, {
                 handle: '.drag-handle',
                 animation: 200,
                 ghostClass: 'bg-indigo-50',
                 onEnd: function (evt) {
                     const item = state.data.splice(evt.oldIndex, 1)[0];
                     state.data.splice(evt.newIndex, 0, item);
-                    // 拖曳改變順序後，取消當前的標題排序狀態
                     state.sortKey = null;
                     updateSortIcons();
                     triggerUpdate();
@@ -1133,7 +1104,7 @@
 
         function setupBeforeUnload() {
             window.addEventListener('beforeunload', (e) => {
-                if (state.data.length > 1 || (state.data.length === 1 && state.data[0].section !== '')) {
+                if (state.data.length > 1 || (state.data.length === 1 && state.data[0].buildNo !== '')) {
                     e.preventDefault(); e.returnValue = '';
                 }
             });
@@ -1143,7 +1114,7 @@
             const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `土地清冊專案_${new Date().toISOString().split('T')[0]}.json`;
+            a.href = url; a.download = `建物清冊專案_${new Date().toISOString().split('T')[0]}.json`;
             a.click(); URL.revokeObjectURL(url);
             customAlert("專案儲存成功！");
         }
@@ -1155,234 +1126,321 @@
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    if (Array.isArray(data)) { state.data = data; triggerUpdate(); customAlert("專案讀取成功！"); } 
-                    else customAlert("檔案格式錯誤！請確定匯入正確的專案檔。");
+                    if (Array.isArray(data)) { 
+                        state.data = data; 
+                        state.activeRowId = data.length > 0 ? data[0].id : null;
+                        triggerUpdate(); 
+                        customAlert("專案讀取成功！"); 
+                    } else customAlert("檔案格式錯誤！請確定匯入正確的專案檔。");
                 } catch (err) { customAlert("讀取失敗：檔案損毀或不支援的格式。"); }
                 event.target.value = '';
             };
             reader.readAsText(file);
         }
 
-        function validateBeforeExport(onSuccess) {
-            const hasEmpty = state.data.some(row => !row.section || !row.plot || row.area === '' || !row.owner);
-            if (hasEmpty) {
-                customConfirm("有部分關鍵資料（地段、地號、面積或所有權人）尚未填寫完整，確定要繼續執行匯出/複製嗎？", onSuccess);
-            } else {
-                onSuccess();
+        function exportCSV(unitMode) {
+            const isPing = unitMode === 'ping';
+            const ratio = isPing ? PING_RATIO : 1;
+            const unitStr = isPing ? '(坪)' : '(㎡)';
+
+            let csv = "\uFEFF"; 
+            
+            const headers = ["項次"];
+            if (!state.hiddenCols.has('district')) headers.push("行政區");
+            if (!state.hiddenCols.has('doorplate')) headers.push("門牌");
+            if (!state.hiddenCols.has('section')) headers.push("段");
+            headers.push("建號");
+            if (!state.hiddenCols.has('useType')) headers.push("主要用途");
+            headers.push(`主建面積${unitStr}`);
+            headers.push(`附屬面積${unitStr}`);
+            if (!state.hiddenCols.has('owner')) headers.push("所有權人");
+            if (!state.hiddenCols.has('privateShare')) headers.push("專有持分");
+            headers.push(`專有持分面積${unitStr}`);
+            headers.push(`公設持分面積${unitStr}`);
+            headers.push(`總持分面積${unitStr}`);
+            if (!state.hiddenCols.has('remarks')) headers.push("備註");
+
+            csv += headers.join(",") + "\n";
+
+            state.data.forEach((row, idx) => {
+                const calcs = calculateRowAreas(row);
+                
+                const rowData = [idx + 1];
+                if (!state.hiddenCols.has('district')) rowData.push(`"${row.district || ''}"`);
+                if (!state.hiddenCols.has('doorplate')) rowData.push(`"${row.doorplate || ''}"`);
+                if (!state.hiddenCols.has('section')) rowData.push(`"${formatSection(row.section)}"`);
+                rowData.push(`="${row.buildNo || ''}"`);
+                if (!state.hiddenCols.has('useType')) rowData.push(`"${row.useType || ''}"`);
+                
+                rowData.push(((Number(row.mainArea)||0) * ratio).toFixed(2));
+                rowData.push((calcs.attachedAreaSum * ratio).toFixed(2));
+                
+                if (!state.hiddenCols.has('owner')) rowData.push(`"${row.owner || ''}"`);
+                if (!state.hiddenCols.has('privateShare')) rowData.push(`="${row.numerator}/${row.denominator}"`);
+                
+                rowData.push((calcs.privateShareArea * ratio).toFixed(2));
+                rowData.push((calcs.pubShareAreaSum * ratio).toFixed(2));
+                rowData.push((calcs.totalShareArea * ratio).toFixed(2));
+                
+                if (!state.hiddenCols.has('remarks')) rowData.push(`"${row.remarks || ''}"`);
+                
+                csv += rowData.join(",") + "\n";
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; 
+            a.download = `建物清冊_${isPing ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.csv`; 
+            a.click();
+            customAlert(`CSV 檔案 (${isPing ? '坪' : '平方公尺'}) 下載完成！`);
+        }
+
+        function getReportPlainText(wrapper) {
+            const title = wrapper.querySelector('h3')?.innerText.trim() || '建物清冊';
+            const tableText = Array.from(wrapper.querySelectorAll('table tr')).map(tr => {
+                return Array.from(tr.children).map(cell => cell.innerText.trim()).join('\t');
+            }).join('\n');
+            return `${title}\n${tableText}`;
+        }
+
+        function fallbackCopyReport(html, plainText) {
+            const copyHandler = function(e) {
+                e.clipboardData.setData('text/html', html);
+                e.clipboardData.setData('text/plain', plainText);
+                e.preventDefault();
+            };
+            document.addEventListener('copy', copyHandler);
+            const copied = document.execCommand('copy');
+            document.removeEventListener('copy', copyHandler);
+            return copied;
+        }
+
+        async function copyToClipboard(unitMode) {
+            const wrapper = document.getElementById(`report-content-${unitMode}`);
+            if (!wrapper) {
+                customAlert("找不到可複製的報表。");
+                return;
+            }
+
+            let html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><style>table{border-collapse:collapse;} td,th{border:1px solid #000; padding:4px;} .xl-text{mso-number-format:"\\@";}</style></head><body>';
+            html += wrapper.innerHTML; 
+            html += '</body></html>';
+            const plainText = getReportPlainText(wrapper);
+
+            try {
+                if (navigator.clipboard && window.ClipboardItem) {
+                    await navigator.clipboard.write([
+                        new ClipboardItem({
+                            'text/html': new Blob([html], { type: 'text/html' }),
+                            'text/plain': new Blob([plainText], { type: 'text/plain' })
+                        })
+                    ]);
+                } else if (!fallbackCopyReport(html, plainText)) {
+                    throw new Error('execCommand copy failed');
+                }
+                customAlert("報表已複製！您現在可以在 Excel 或 Word 中貼上。");
+            } catch (err) {
+                if (fallbackCopyReport(html, plainText)) {
+                    customAlert("報表已複製！您現在可以在 Excel 或 Word 中貼上。");
+                    return;
+                }
+                console.error('複製錯誤:', err);
+                customAlert("複製失敗，請稍後再試。");
             }
         }
 
-        function exportCSV(unitMode) {
-            validateBeforeExport(() => {
-                const isPing = unitMode === 'ping';
-                const ratio = isPing ? PING_RATIO : 1;
-                const unitStr = isPing ? '(坪)' : '(㎡)';
+        function renderReportTableToPng(element, options = {}) {
+            return new Promise((resolve, reject) => {
+                const table = element.querySelector('table');
+                if (!table) {
+                    reject(new Error('找不到報表表格'));
+                    return;
+                }
 
-                let csv = "\uFEFF"; 
-                
-                // 動態生成 CSV 標頭，僅包含勾選顯示的欄位
-                const headers = ["項次"];
-                if (!state.hiddenCols.has('district')) headers.push("行政區");
-                headers.push("地段");
-                if (!state.hiddenCols.has('subsection')) headers.push("小段");
-                headers.push("地號");
-                if (!state.hiddenCols.has('zoning')) headers.push("使用分區");
-                headers.push(`面積${unitStr}`);
-                if (!state.hiddenCols.has('owner')) headers.push("所有權人");
-                headers.push("持分");
-                headers.push(`持分面積${unitStr}`);
-                if (!state.hiddenCols.has('remarks')) headers.push("備註");
+                const pixelRatio = options.pixelRatio || 2;
+                const backgroundColor = options.backgroundColor || '#ffffff';
+                const title = element.querySelector('h3')?.innerText.trim() || '建物清冊';
+                const measureCanvas = document.createElement('canvas');
+                const measureCtx = measureCanvas.getContext('2d');
+                measureCtx.font = '14px "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif';
 
-                csv += headers.join(",") + "\n";
-
-                state.data.forEach((row, idx) => {
-                    const area = Number(row.area) || 0;
-                    const num = Number(row.numerator) || 0;
-                    const den = Number(row.denominator) || 1;
-                    const share = den === 0 ? 0 : area * (num / den);
-                    
-                    const rowData = [idx + 1];
-                    if (!state.hiddenCols.has('district')) rowData.push(`"${row.district || ''}"`);
-                    rowData.push(`"${formatSection(row.section)}"`);
-                    if (!state.hiddenCols.has('subsection')) rowData.push(`"${formatSubsection(row.subsection)}"`);
-                    rowData.push(`="${row.plot || ''}"`);
-                    if (!state.hiddenCols.has('zoning')) rowData.push(`"${row.zoning || ''}"`);
-                    rowData.push((area * ratio).toFixed(2));
-                    if (!state.hiddenCols.has('owner')) rowData.push(`"${row.owner || ''}"`);
-                    rowData.push(`="${num}/${den}"`);
-                    rowData.push((share * ratio).toFixed(2));
-                    if (!state.hiddenCols.has('remarks')) rowData.push(`"${row.remarks || ''}"`);
-                    
-                    csv += rowData.join(",") + "\n";
+                const tableRows = Array.from(table.querySelectorAll('tr')).map(tr => {
+                    const section = tr.closest('thead') ? 'head' : tr.closest('tfoot') ? 'foot' : 'body';
+                    return {
+                        section,
+                        cells: Array.from(tr.children).map(cell => ({
+                            text: cell.innerText.trim().replace(/\s+/g, ' '),
+                            colSpan: cell.colSpan || 1,
+                            align: cell.classList.contains('text-right') ? 'right' : cell.classList.contains('text-left') ? 'left' : 'center'
+                        }))
+                    };
                 });
 
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; 
-                a.download = `土地清冊_${isPing ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.csv`; 
-                a.click();
-                customAlert(`CSV 檔案 (${isPing ? '坪' : '平方公尺'}) 下載完成！`);
+                const columnCount = Math.max(...tableRows.map(row => row.cells.reduce((sum, cell) => sum + cell.colSpan, 0)));
+                const columnWidths = Array.from({ length: columnCount }, (_, index) => index === 0 ? 54 : 86);
+                tableRows.forEach(row => {
+                    let colIndex = 0;
+                    row.cells.forEach(cell => {
+                        if (cell.colSpan === 1) {
+                            const measured = Math.ceil(measureCtx.measureText(cell.text).width) + 28;
+                            columnWidths[colIndex] = Math.min(Math.max(columnWidths[colIndex], measured), 220);
+                        }
+                        colIndex += cell.colSpan;
+                    });
+                });
+
+                const margin = 36;
+                const titleHeight = 64;
+                const rowHeight = 38;
+                const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+                const width = tableWidth + margin * 2;
+                const height = titleHeight + tableRows.length * rowHeight + margin * 2;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width * pixelRatio;
+                canvas.height = height * pixelRatio;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(pixelRatio, pixelRatio);
+                ctx.fillStyle = backgroundColor;
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '700 30px "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(title, margin, margin + 24);
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(margin, margin + titleHeight - 10);
+                ctx.lineTo(margin + tableWidth, margin + titleHeight - 10);
+                ctx.stroke();
+
+                let y = margin + titleHeight;
+                tableRows.forEach(row => {
+                    let x = margin;
+                    let colIndex = 0;
+                    row.cells.forEach(cell => {
+                        const cellWidth = columnWidths.slice(colIndex, colIndex + cell.colSpan).reduce((sum, width) => sum + width, 0);
+                        ctx.fillStyle = row.section === 'head' ? '#f8fafc' : row.section === 'foot' ? '#eef2ff' : '#ffffff';
+                        ctx.fillRect(x, y, cellWidth, rowHeight);
+                        ctx.strokeStyle = '#cbd5e1';
+                        ctx.lineWidth = row.section === 'head' ? 1.5 : 1;
+                        ctx.strokeRect(x, y, cellWidth, rowHeight);
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.rect(x + 4, y + 2, cellWidth - 8, rowHeight - 4);
+                        ctx.clip();
+                        ctx.fillStyle = row.section === 'foot' ? '#1e40af' : '#1e293b';
+                        ctx.font = `${row.section === 'head' || row.section === 'foot' ? '700' : '500'} 14px "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif`;
+                        ctx.textBaseline = 'middle';
+                        ctx.textAlign = cell.align;
+                        const textX = cell.align === 'right' ? x + cellWidth - 12 : cell.align === 'left' ? x + 12 : x + cellWidth / 2;
+                        ctx.fillText(cell.text, textX, y + rowHeight / 2);
+                        ctx.restore();
+
+                        x += cellWidth;
+                        colIndex += cell.colSpan;
+                    });
+                    y += rowHeight;
+                });
+
+                resolve(canvas.toDataURL('image/png'));
             });
         }
 
-        function copyToClipboard(unitMode) {
-            validateBeforeExport(() => {
-                const wrapper = document.getElementById(`report-content-${unitMode}`);
-                let html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><style>table{border-collapse:collapse;} td,th{border:1px solid #000; padding:4px;} .xl-text{mso-number-format:"\\@";}</style></head><body>';
-                html += wrapper.innerHTML; 
-                html += '</body></html>';
+        function inlineComputedStyles(source, clone) {
+            const sourceNodes = [source, ...source.querySelectorAll('*')];
+            const cloneNodes = [clone, ...clone.querySelectorAll('*')];
+            sourceNodes.forEach((sourceNode, index) => {
+                const cloneNode = cloneNodes[index];
+                if (!cloneNode || sourceNode.nodeType !== 1) return;
+                const computed = window.getComputedStyle(sourceNode);
+                let styleText = '';
+                for (let i = 0; i < computed.length; i++) {
+                    const property = computed[i];
+                    styleText += `${property}:${computed.getPropertyValue(property)};`;
+                }
+                cloneNode.setAttribute('style', styleText);
+            });
+        }
 
-                const copyHandler = function(e) {
-                    e.clipboardData.setData('text/html', html);
-                    e.preventDefault();
+        function fallbackElementToPng(element, options = {}) {
+            return new Promise((resolve, reject) => {
+                const backgroundColor = options.backgroundColor || '#ffffff';
+                const pixelRatio = options.pixelRatio || 2;
+                const rect = element.getBoundingClientRect();
+                const width = Math.ceil(element.scrollWidth || rect.width);
+                const height = Math.ceil(element.scrollHeight || rect.height);
+                const clone = element.cloneNode(true);
+
+                inlineComputedStyles(element, clone);
+                clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+                clone.style.width = `${width}px`;
+                clone.style.minHeight = `${height}px`;
+                clone.style.backgroundColor = backgroundColor;
+
+                const serialized = new XMLSerializer().serializeToString(clone);
+                const svg = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+                        <foreignObject width="100%" height="100%">${serialized}</foreignObject>
+                    </svg>
+                `;
+                const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+                const image = new Image();
+                image.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width * pixelRatio;
+                        canvas.height = height * pixelRatio;
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(pixelRatio, pixelRatio);
+                        ctx.fillStyle = backgroundColor;
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.drawImage(image, 0, 0);
+                        URL.revokeObjectURL(svgUrl);
+                        resolve(canvas.toDataURL('image/png'));
+                    } catch (err) {
+                        URL.revokeObjectURL(svgUrl);
+                        reject(err);
+                    }
                 };
-                document.addEventListener('copy', copyHandler);
-                document.execCommand('copy');
-                document.removeEventListener('copy', copyHandler);
-                customAlert("報表已複製！您現在可以在 Excel 或 Word 中貼上。");
+                image.onerror = () => {
+                    URL.revokeObjectURL(svgUrl);
+                    reject(new Error('SVG 截圖轉換失敗'));
+                };
+                image.src = svgUrl;
             });
         }
 
         function exportImage(unitMode) {
-            validateBeforeExport(() => {
-                const container = document.getElementById(`report-content-${unitMode}`);
-                const btn = document.getElementById(`btn-screenshot-${unitMode}`);
-                const btnOriginalText = btn.innerHTML;
-                btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
+            const container = document.getElementById(`report-content-${unitMode}`);
+            const btn = document.getElementById(`btn-screenshot-${unitMode}`);
+            const btnOriginalText = btn.innerHTML;
+            btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
 
-                setTimeout(() => {
-                    htmlToImage.toPng(container, {
-                        backgroundColor: '#ffffff',
-                        pixelRatio: 2 // 放大兩倍以提高截圖解析度
-                    }).then(dataUrl => {
-                        const a = document.createElement('a');
-                        a.href = dataUrl;
-                        a.download = `土地清冊報表_${unitMode === 'ping' ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.png`;
-                        a.click();
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("報表圖片下載完成！");
-                    }).catch(err => {
-                        console.error('截圖錯誤:', err);
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("截圖失敗，請稍後再試。");
-                    });
-                }, 100); // 確保 UI 更新後再截圖
-            });
-        }
-
-        function copySubtotalToClipboard() {
-            validateBeforeExport(() => {
-                const wrapper = document.getElementById('subtotal-print-container');
-                let html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><style>table{border-collapse:collapse;} td,th{border:1px solid #000; padding:4px;} .xl-text{mso-number-format:"\\@";}</style></head><body>';
-                html += wrapper.innerHTML; 
-                html += '</body></html>';
-
-                const copyHandler = function(e) {
-                    e.clipboardData.setData('text/html', html);
-                    e.preventDefault();
+            setTimeout(() => {
+                const renderOptions = {
+                    backgroundColor: '#ffffff',
+                    pixelRatio: 2
                 };
-                document.addEventListener('copy', copyHandler);
-                document.execCommand('copy');
-                document.removeEventListener('copy', copyHandler);
-                customAlert("統計表已複製！您現在可以在 Excel 或 Word 中貼上。");
-            });
-        }
-
-        function exportSubtotalCSV() {
-            validateBeforeExport(() => {
-                if (!state.subtotalOwner && !state.subtotalZoning) return;
-
-                let csv = "\uFEFF"; 
-                const isSqm = state.areaMode === 'sqm' || state.areaMode === 'both';
-                const isPing = state.areaMode === 'ping' || state.areaMode === 'both';
-
-                let totalShareAreaSqm = 0;
-                const ownerMap = {};
-                const zoningMap = {};
-
-                // 重新計算最新資料
-                state.data.forEach(row => {
-                    const areaSqm = Number(row.area) || 0;
-                    const num = Number(row.numerator) || 0;
-                    const den = Number(row.denominator) || 1;
-                    const shareSqm = den === 0 ? 0 : areaSqm * (num / den);
-                    totalShareAreaSqm += shareSqm;
-
-                    const owner = row.owner ? row.owner.trim() : '未填寫';
-                    const zoning = row.zoning ? row.zoning.trim() : '未填寫';
-
-                    ownerMap[owner] = (ownerMap[owner] || 0) + shareSqm;
-                    zoningMap[zoning] = (zoningMap[zoning] || 0) + shareSqm;
+                const renderPng = renderReportTableToPng(container, renderOptions).catch(() => {
+                    return fallbackElementToPng(container, renderOptions);
                 });
 
-                // 產生單一表格的 CSV 內容函式
-                const generateTableCSV = (title, dataMap) => {
-                    let tableCsv = `${title}\n`;
-                    let headers = ["項目"];
-                    if (isSqm) headers.push("持分面積(㎡)");
-                    if (isPing) headers.push("持分面積(坪)");
-                    headers.push("面積佔比(%)");
-                    tableCsv += headers.join(",") + "\n";
-
-                    const sortedKeys = Object.keys(dataMap).sort((a, b) => dataMap[b] - dataMap[a]);
-                    sortedKeys.forEach(key => {
-                        const valSqm = dataMap[key];
-                        const valPing = valSqm * PING_RATIO;
-                        const percent = totalShareAreaSqm > 0 ? ((valSqm / totalShareAreaSqm) * 100).toFixed(2) : '0.00';
-                        
-                        let rowData = [`"${key}"`];
-                        if (isSqm) rowData.push(valSqm.toFixed(2));
-                        if (isPing) rowData.push(valPing.toFixed(2));
-                        rowData.push(`="${percent}%"`);
-                        tableCsv += rowData.join(",") + "\n";
-                    });
-                    
-                    // 總計列
-                    let footerData = ["總計"];
-                    if (isSqm) footerData.push(totalShareAreaSqm.toFixed(2));
-                    if (isPing) footerData.push((totalShareAreaSqm * PING_RATIO).toFixed(2));
-                    footerData.push('="100.00%"');
-                    tableCsv += footerData.join(",") + "\n\n";
-                    return tableCsv;
-                };
-
-                if (state.subtotalOwner) csv += generateTableCSV('依【所有權人】面積小計', ownerMap);
-                if (state.subtotalZoning) csv += generateTableCSV('依【使用分區】面積小計', zoningMap);
-
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; 
-                a.download = `土地清冊統計表_${new Date().toISOString().split('T')[0]}.csv`; 
-                a.click();
-                customAlert("統計表 CSV 檔案下載完成！");
-            });
-        }
-
-        function exportSubtotalImage() {
-            validateBeforeExport(() => {
-                const container = document.getElementById('subtotal-print-container');
-                const btn = document.getElementById('btn-screenshot-subtotal');
-                const btnOriginalText = btn.innerHTML;
-                btn.innerHTML = `<i class="ph ph-spinner animate-spin text-lg text-white"></i> 處理中...`;
-
-                setTimeout(() => {
-                    htmlToImage.toPng(container, {
-                        backgroundColor: '#ffffff',
-                        pixelRatio: 2
-                    }).then(dataUrl => {
-                        const a = document.createElement('a');
-                        a.href = dataUrl;
-                        a.download = `土地清冊統計表_${new Date().toISOString().split('T')[0]}.png`;
-                        a.click();
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("統計表圖片下載完成！");
-                    }).catch(err => {
-                        console.error('截圖錯誤:', err);
-                        btn.innerHTML = btnOriginalText;
-                        customAlert("統計表截圖失敗，請稍後再試。");
-                    });
-                }, 100);
-            });
+                renderPng.then(dataUrl => {
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = `建物清冊報表_${unitMode === 'ping' ? '坪' : '平方公尺'}_${new Date().toISOString().split('T')[0]}.png`;
+                    a.click();
+                    btn.innerHTML = btnOriginalText;
+                    customAlert("報表圖片下載完成！");
+                }).catch(err => {
+                    console.error('截圖錯誤:', err);
+                    btn.innerHTML = btnOriginalText;
+                    customAlert("截圖失敗，請稍後再試。");
+                });
+            }, 100); 
         }
 
         window.onload = init;

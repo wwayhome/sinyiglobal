@@ -259,7 +259,7 @@
       <!-- 新增：複製按鈕區塊 (置中對齊) -->
       <div class="bg-gray-50 border-t border-gray-200 p-4 flex justify-center shrink-0">
         <button id="copyTableBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
           複製篩選結果
         </button>
       </div>
@@ -854,8 +854,12 @@
       
       const ths = ui.tableHeadRow.querySelectorAll('th');
       const headers = Array.from(ths).map(th => {
-        const span = th.querySelector('span'); 
-        return span ? span.textContent.trim() : th.textContent.trim();
+        // 透過 querySelector 取得文字所在的 div，並將所有空白、換行移除，使標題與單位合併 (例如：交易金額(億元))
+        const textDiv = th.querySelector('.flex > div:first-child');
+        if (textDiv) {
+          return textDiv.textContent.replace(/\s+/g, '').trim();
+        }
+        return th.textContent.replace(/\s+/g, '').trim();
       });
       tsv += headers.join('\t') + '\n';
 

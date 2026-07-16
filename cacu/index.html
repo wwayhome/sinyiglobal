@@ -87,8 +87,8 @@
     };
 
     // UI 共用元件：智慧型千分位 + 浮動計算機輸入框
-    // 加入 smallMobileText 屬性，用來針對特定長數字(如總租金)做縮小處理
-    const NumberInput = ({ label, icon: Icon, value, onChange, unit, disabled, highlight, step = "any", smallMobileText = false }) => {
+    // 新增 isOutput 屬性，用來將結果輸出區塊變成「實心藍底白字」
+    const NumberInput = ({ label, icon: Icon, value, onChange, unit, disabled, highlight, isOutput, step = "any", smallMobileText = false }) => {
       const [showCalc, setShowCalc] = useState(false);
       const [calcStr, setCalcStr] = useState("");
       const containerRef = useRef(null);
@@ -164,10 +164,26 @@
       // 防止點擊虛擬鍵盤時讓 input 失去焦點
       const preventFocusLoss = (e) => e.preventDefault();
 
+      // 判斷樣式狀態：如果被標記為 Output，顯示實心藍色背景白字
+      const isSolid = isOutput && !showCalc;
+
       // 判斷字體大小邏輯
-      let textClass = highlight || showCalc ? 'text-4xl sm:text-5xl text-blue-600' : 'text-3xl sm:text-4xl text-slate-800';
+      let textClass = 'text-3xl sm:text-4xl text-slate-800'; // default
+      if (isSolid) {
+        textClass = 'text-4xl sm:text-5xl text-white';
+      } else if (highlight || showCalc) {
+        textClass = 'text-4xl sm:text-5xl text-blue-600';
+      }
+
+      // 如果有額外的針對手機版的縮小字體設定 (例如月租總計)
       if (smallMobileText) {
-        textClass = highlight || showCalc ? 'text-2xl sm:text-5xl text-blue-600' : 'text-xl sm:text-4xl text-slate-800';
+        if (isSolid) {
+          textClass = 'text-2xl sm:text-5xl text-white';
+        } else if (highlight || showCalc) {
+          textClass = 'text-2xl sm:text-5xl text-blue-600';
+        } else {
+          textClass = 'text-xl sm:text-4xl text-slate-800';
+        }
       }
 
       return (
@@ -175,12 +191,11 @@
           ref={containerRef}
           tabIndex="-1" 
           onBlur={handleBlur}
-          // 還原到較為寬裕的 Padding 讓畫面不擁擠
-          className={`relative flex flex-col gap-1 sm:gap-2 px-3 py-2 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 outline-none ${showCalc ? 'border-blue-500 bg-blue-50 shadow-lg z-40' : highlight ? 'border-blue-500 bg-blue-50/50 shadow-md sm:transform sm:scale-[1.02] z-10' : 'border-slate-100 bg-white hover:border-blue-200 z-10'}`}
+          className={`relative flex flex-col gap-1 sm:gap-2 px-3 py-2 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 outline-none ${showCalc ? 'border-blue-500 bg-blue-50 shadow-lg z-40' : isSolid ? 'border-blue-600 bg-blue-600 shadow-md sm:transform sm:scale-[1.02] z-10' : highlight ? 'border-blue-500 bg-blue-50/50 shadow-md sm:transform sm:scale-[1.02] z-10' : 'border-slate-100 bg-white hover:border-blue-200 z-10'}`}
         >
           {/* 標題與圖示 */}
-          <div className="flex items-center text-slate-500 gap-1 sm:gap-2 text-xs sm:text-base font-medium">
-            {Icon && <Icon size={16} className={`shrink-0 ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`} />}
+          <div className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-base font-medium ${isSolid ? 'text-blue-100' : 'text-slate-500'}`}>
+            {Icon && <Icon size={16} className={`shrink-0 ${isSolid ? 'text-blue-200' : highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`} />}
             <span className="truncate">{label}</span>
           </div>
 
@@ -205,13 +220,13 @@
                   handleCalcBtn('=');
                 }
               }}
-              className={`w-full min-w-0 bg-transparent outline-none font-mono font-black tracking-tight text-right ${textClass} ${disabled ? 'opacity-70' : ''}`}
+              className={`w-full min-w-0 bg-transparent outline-none font-mono font-black tracking-tight text-right ${textClass} ${disabled && !isSolid ? 'opacity-70' : ''}`}
               placeholder="0"
             />
-            <span className={`pb-0.5 sm:pb-1 font-bold whitespace-nowrap text-xs sm:text-base ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`}>{unit}</span>
+            <span className={`pb-0.5 sm:pb-1 font-bold whitespace-nowrap text-xs sm:text-base ${isSolid ? 'text-blue-200' : highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`}>{unit}</span>
           </div>
 
-          {/* 浮動小算盤 - 縮小 Padding/Gap 節省高度 */}
+          {/* 浮動小算盤 */}
           {showCalc && (
             <div className="fixed inset-x-0 bottom-0 pb-4 p-2 sm:absolute sm:inset-auto sm:top-[100%] sm:right-0 sm:mt-3 bg-slate-800 sm:p-3 sm:pb-3 rounded-t-2xl sm:rounded-2xl shadow-[0_-15px_40px_rgba(0,0,0,0.3)] sm:shadow-2xl z-[100] sm:z-50 w-full sm:w-[260px] animate-in slide-in-from-bottom-8 sm:slide-in-from-top-2 border-t border-slate-700 sm:border">
               <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
@@ -523,7 +538,7 @@
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-bold transition-all whitespace-nowrap text-sm sm:text-base snap-center ${
                       activeTab === tab.id 
-                        ? 'bg-white text-blue-600 shadow-sm' 
+                        ? 'bg-blue-600 text-white shadow-md' 
                         : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                     }`}
                   >
@@ -545,13 +560,13 @@
                     <div className="flex bg-slate-200 p-1 rounded-lg sm:rounded-xl w-full sm:w-auto">
                       <button 
                         onClick={() => setCalcTarget('total')}
-                        className={`flex-1 sm:flex-none px-3 sm:px-6 py-1.5 sm:py-2 rounded-md sm:rounded-lg font-bold transition-all text-sm sm:text-base ${calcTarget === 'total' ? 'bg-white text-blue-600 shadow' : 'text-slate-500'}`}
+                        className={`flex-1 sm:flex-none px-3 sm:px-6 py-1.5 sm:py-2 rounded-md sm:rounded-lg font-bold transition-all text-sm sm:text-base ${calcTarget === 'total' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-300/50'}`}
                       >
                         求總價
                       </button>
                       <button 
                         onClick={() => setCalcTarget('unit')}
-                        className={`flex-1 sm:flex-none px-3 sm:px-6 py-1.5 sm:py-2 rounded-md sm:rounded-lg font-bold transition-all text-sm sm:text-base ${calcTarget === 'unit' ? 'bg-white text-blue-600 shadow' : 'text-slate-500'}`}
+                        className={`flex-1 sm:flex-none px-3 sm:px-6 py-1.5 sm:py-2 rounded-md sm:rounded-lg font-bold transition-all text-sm sm:text-base ${calcTarget === 'unit' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-300/50'}`}
                       >
                         求單價
                       </button>
@@ -568,7 +583,7 @@
                         label="房屋單價" icon={CircleDollarSign} 
                         value={basicUnitPrice} onChange={setBasicUnitPrice} unit="萬/坪"
                         disabled={calcTarget === 'unit'}
-                        highlight={calcTarget === 'unit'}
+                        isOutput={calcTarget === 'unit'}
                       />
                     </div>
                     <div className="space-y-3 sm:space-y-6">
@@ -586,7 +601,7 @@
                         label="總價 (含車位)" icon={Landmark} 
                         value={basicTotal} onChange={setBasicTotal} unit="萬"
                         disabled={calcTarget === 'total'}
-                        highlight={calcTarget === 'total'}
+                        isOutput={calcTarget === 'total'}
                       />
                     </div>
                   </div>

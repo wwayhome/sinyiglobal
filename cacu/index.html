@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>房地產綜合計算機</title>
+  
+  <!-- GA4 Tracking Code -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-5YQY4RT9H2');
+  </script>
+
+  <!-- Google Fonts: Roboto Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['"Roboto Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- 內建 SVG 圖示 ---
+    const IconWrapper = ({ children, size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        {children}
+      </svg>
+    );
+    const Calculator = (props) => <IconWrapper {...props}><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></IconWrapper>;
+    const Building2 = (props) => <IconWrapper {...props}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></IconWrapper>;
+    const CarFront = (props) => <IconWrapper {...props}><path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8"/><path d="M7 14h.01"/><path d="M17 14h.01"/><rect width="18" height="8" x="3" y="10" rx="2"/><path d="M5 18v2"/><path d="M19 18v2"/></IconWrapper>;
+    const CircleDollarSign = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></IconWrapper>;
+    const Store = (props) => <IconWrapper {...props}><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></IconWrapper>;
+    const Building = (props) => <IconWrapper {...props}><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></IconWrapper>;
+    const Percent = (props) => <IconWrapper {...props}><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></IconWrapper>;
+    const Landmark = (props) => <IconWrapper {...props}><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></IconWrapper>;
+    const PiggyBank = (props) => <IconWrapper {...props}><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5z"/><path d="M2 9v1c0 1.1.9 2 2 2h1"/><path d="M16 11h.01"/></IconWrapper>;
+    const ArrowRightLeft = (props) => <IconWrapper {...props}><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></IconWrapper>;
+    const ArrowDownCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></IconWrapper>;
+    const TrendingUp = (props) => <IconWrapper {...props}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></IconWrapper>;
+    const Equal = (props) => <IconWrapper {...props}><line x1="5" x2="19" y1="9" y2="9"/><line x1="5" x2="19" y1="15" y2="15"/></IconWrapper>;
+    
+    // 新增：加號、垃圾桶、圖層 (用於動態空間)
+    const PlusCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></IconWrapper>;
+    const Trash2 = (props) => <IconWrapper {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconWrapper>;
+    const Layers = (props) => <IconWrapper {...props}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></IconWrapper>;
+
+    // 全域數字格式化輔助函式
+    const fmtNum = (num, minDecimals = 0, maxDecimals = 4) => {
+      const n = Number(num);
+      return isNaN(n) ? '0' : n.toLocaleString('en-US', { 
+        minimumFractionDigits: minDecimals, 
+        maximumFractionDigits: maxDecimals 
+      });
+    };
+
+    // UI 共用元件：智慧型千分位 + 浮動計算機輸入框
+    const NumberInput = ({ label, icon: Icon, value, onChange, unit, disabled, highlight, step = "any" }) => {
+      const [showCalc, setShowCalc] = useState(false);
+      const [calcStr, setCalcStr] = useState("");
+      const containerRef = useRef(null);
+      const inputRef = useRef(null);
+
+      // 當不顯示運算面板時，呈現千分位；顯示時，呈現使用者輸入的完整算式字串
+      const displayValue = showCalc ? calcStr : (value === 0 && !disabled ? '' : fmtNum(value));
+
+      // 核心：安全解析數學算式
+      const evaluateExpr = (expr) => {
+        try {
+          // 清除所有非數字、算數符號的內容以防出錯
+          let safeExpr = String(expr).replace(/[^0-9+\-*/.()]/g, '');
+          if (!safeExpr) return 0;
+          const result = new Function('return ' + safeExpr)();
+          if (Number.isFinite(result)) {
+            return Math.round(result * 10000) / 10000;
+          }
+          return 0;
+        } catch (e) {
+          return value; // 解析失敗則保留原值
+        }
+      };
+
+      const handleFocus = () => {
+        if (disabled) return;
+        setCalcStr(value === 0 ? '' : String(value));
+        setShowCalc(true);
+      };
+
+      // 利用 relatedTarget 來判斷點擊是否在組件外部，在外部才關閉計算機並結算
+      const handleBlur = (e) => {
+        if (containerRef.current && !containerRef.current.contains(e.relatedTarget)) {
+          const res = evaluateExpr(calcStr);
+          onChange(res);
+          setShowCalc(false);
+        }
+      };
+
+      const handleCalcBtn = (btn) => {
+        if (btn === 'C') {
+          setCalcStr("");
+          inputRef.current?.focus();
+        } else if (btn === '=') {
+          const res = evaluateExpr(calcStr);
+          setCalcStr(String(res));
+          inputRef.current?.focus();
+        } else if (btn === 'OK') {
+          const res = evaluateExpr(calcStr);
+          onChange(res);
+          setShowCalc(false);
+          inputRef.current?.blur();
+        } else if (btn === 'BACK') {
+          setCalcStr(prev => prev.slice(0, -1));
+          inputRef.current?.focus();
+        } else {
+          setCalcStr(prev => prev + btn);
+          inputRef.current?.focus();
+        }
+      };
+
+      return (
+        <div 
+          ref={containerRef}
+          tabIndex="-1" 
+          onBlur={handleBlur}
+          className={`relative flex flex-col gap-1 sm:gap-2 px-3 py-2 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 outline-none ${showCalc ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-[1.02] z-40' : highlight ? 'border-blue-500 bg-blue-50/50 shadow-md transform scale-[1.02] z-10' : 'border-slate-100 bg-white hover:border-blue-200 z-10'}`}
+        >
+          {/* 標題與圖示 */}
+          <div className="flex items-center text-slate-500 gap-1.5 sm:gap-2 text-xs sm:text-base font-medium">
+            {Icon && <Icon size={16} className={`shrink-0 ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`} />}
+            <span className="truncate">{label}</span>
+          </div>
+
+          {/* 輸入區 */}
+          <div className="flex items-end gap-1.5 sm:gap-2">
+            <input
+              ref={inputRef}
+              type="text" 
+              inputMode="decimal"
+              disabled={disabled}
+              value={displayValue}
+              onChange={(e) => {
+                if (showCalc) setCalcStr(e.target.value);
+              }}
+              onFocus={handleFocus}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCalcBtn('OK');
+                } else if (e.key === '=') {
+                  e.preventDefault();
+                  handleCalcBtn('=');
+                }
+              }}
+              className={`w-full min-w-0 bg-transparent outline-none font-mono font-black tracking-tight text-right ${highlight || showCalc ? 'text-4xl sm:text-5xl text-blue-600' : 'text-3xl sm:text-4xl text-slate-800'} ${disabled ? 'opacity-70' : ''}`}
+              placeholder="0"
+            />
+            <span className={`pb-0.5 sm:pb-1 font-bold whitespace-nowrap text-sm sm:text-base ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`}>{unit}</span>
+          </div>
+
+          {/* 浮動小算盤 */}
+          {showCalc && (
+            <div className="absolute top-[100%] right-0 mt-3 bg-slate-800 p-2.5 sm:p-3 rounded-2xl shadow-2xl z-50 w-full sm:w-[260px] animate-in fade-in slide-in-from-top-2 border border-slate-700">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                {['C', '(', ')', '/'].map(b => (
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className="bg-slate-700 text-slate-300 hover:bg-slate-600 p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors">{b}</button>
+                ))}
+                {['7', '8', '9', '*'].map(b => (
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors ${b==='*'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                ))}
+                {['4', '5', '6', '-'].map(b => (
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors ${b==='-'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                ))}
+                {['1', '2', '3', '+'].map(b => (
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors ${b==='+'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                ))}
+                {['0', '.', 'BACK', '='].map(b => {
+                  let display = b;
+                  if (b === 'BACK') display = '⌫';
+                  let btnClass = 'bg-slate-600 text-white hover:bg-slate-500';
+                  if (b === 'BACK') btnClass = 'bg-slate-700 text-red-400 hover:bg-slate-600 hover:text-red-300';
+                  if (b === '=') btnClass = 'bg-blue-600 text-white hover:bg-blue-500';
+                  return (
+                    <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`${btnClass} p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors`}>{display}</button>
+                  );
+                })}
+              </div>
+              <button 
+                type="button"
+                tabIndex="-1"
+                onMouseDown={e => e.preventDefault()} 
+                onClick={() => handleCalcBtn('OK')} 
+                className="mt-2 w-full bg-emerald-600 text-white hover:bg-emerald-500 p-2.5 rounded-xl font-bold tracking-widest transition-colors shadow-sm"
+              >
+                確認輸入
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // 主要應用程式元件
+    function App() {
+      const [activeTab, setActiveTab] = useState('basic');
+
+      // --- 基本計算機 State ---
+      const [calcTarget, setCalcTarget] = useState('total'); 
+      const [basicTotal, setBasicTotal] = useState(2500); 
+      const [basicArea, setBasicArea] = useState(120); 
+      const [basicUnitPrice, setBasicUnitPrice] = useState(80); 
+      const [basicParkCount, setBasicParkCount] = useState(1); 
+      const [basicParkPrice, setBasicParkPrice] = useState(200); 
+
+      // --- 進階計算機 (樓層效用比) State ---
+      const [advBaseUnitPrice, setAdvBaseUnitPrice] = useState(50); 
+      const [advStoreArea, setAdvStoreArea] = useState(30); 
+      const [advStoreRatio, setAdvStoreRatio] = useState(1.5); 
+      const [advNormalArea, setAdvNormalArea] = useState(150); 
+      const [advNormalRatio, setAdvNormalRatio] = useState(1.0); 
+      const [advBasementArea, setAdvBasementArea] = useState(30); 
+      const [advBasementRatio, setAdvBasementRatio] = useState(0.4); 
+      
+      // 動態樓層/空間 State
+      const [extraFloors, setExtraFloors] = useState([]); 
+
+      // 固定車位 State
+      const [advParkCount, setAdvParkCount] = useState(2);
+      const [advParkPrice, setAdvParkPrice] = useState(200);
+
+      // 動態車位 State
+      const [extraParks, setExtraParks] = useState([]); 
+
+      // --- 擴充應用 (房貸) State ---
+      const [extTotalPrice, setExtTotalPrice] = useState(2500);
+      const [extLoanRatio, setExtLoanRatio] = useState(70); 
+      const [extYears, setExtYears] = useState(20); 
+      const [extRate, setExtRate] = useState(2.5); 
+
+      // --- 擴充應用 (租金與投報率) State ---
+      const [basicRentUnit, setBasicRentUnit] = useState(1500); 
+      const [basicRentTotal, setBasicRentTotal] = useState(60000); 
+      
+      const [advStoreRentUnit, setAdvStoreRentUnit] = useState(3000); 
+      const [advStoreRentTotal, setAdvStoreRentTotal] = useState(90000); 
+      const [advNormalRentUnit, setAdvNormalRentUnit] = useState(1200); 
+      const [advNormalRentTotal, setAdvNormalRentTotal] = useState(180000); 
+      const [advBasementRentUnit, setAdvBasementRentUnit] = useState(500); 
+      const [advBasementRentTotal, setAdvBasementRentTotal] = useState(15000); 
+      const [advParkRentUnit, setAdvParkRentUnit] = useState(2500); 
+      const [advParkRentTotal, setAdvParkRentTotal] = useState(5000); 
+
+      // --- 租金面積與數量連動邏輯 ---
+      useEffect(() => { setBasicRentTotal(Math.round(basicRentUnit * basicArea)); }, [basicArea]);
+      useEffect(() => { setAdvStoreRentTotal(Math.round(advStoreRentUnit * advStoreArea)); }, [advStoreArea]);
+      useEffect(() => { setAdvNormalRentTotal(Math.round(advNormalRentUnit * advNormalArea)); }, [advNormalArea]);
+      useEffect(() => { setAdvBasementRentTotal(Math.round(advBasementRentUnit * advBasementArea)); }, [advBasementArea]);
+      useEffect(() => { setAdvParkRentTotal(Math.round(advParkRentUnit * advParkCount)); }, [advParkCount]);
+
+      // --- 動態樓層 Handlers ---
+      const addExtraFloor = () => {
+        setExtraFloors([...extraFloors, {
+          id: Date.now(),
+          name: '新增空間',
+          area: 20,
+          ratio: 1.0,
+          rentUnit: 1000,
+          rentTotal: 20000
+        }]);
+      };
+
+      const removeExtraFloor = (id) => {
+        setExtraFloors(extraFloors.filter(f => f.id !== id));
+      };
+
+      const updateExtraFloor = (id, field, value) => {
+        setExtraFloors(prev => prev.map(floor => {
+          if (floor.id !== id) return floor;
+          const updated = { ...floor, [field]: value };
+          
+          // 面積與租金的連動計算 (與固定樓層邏輯一致)
+          if (field === 'area') {
+            updated.rentTotal = Math.round(updated.rentUnit * (parseFloat(value) || 0));
+          } else if (field === 'rentUnit') {
+            updated.rentTotal = Math.round((parseFloat(value) || 0) * updated.area);
+          } else if (field === 'rentTotal') {
+            updated.rentUnit = updated.area > 0 ? Math.round((parseFloat(value) || 0) / updated.area) : 0;
+          }
+          
+          return updated;
+        }));
+      };
+
+      // --- 動態車位 Handlers ---
+      const addExtraPark = () => {
+        setExtraParks([...extraParks, {
+          id: Date.now(),
+          name: '機械車位',
+          count: 1,
+          price: 150,
+          rentUnit: 2000,
+          rentTotal: 2000
+        }]);
+      };
+
+      const removeExtraPark = (id) => {
+        setExtraParks(extraParks.filter(p => p.id !== id));
+      };
+
+      const updateExtraPark = (id, field, value) => {
+        setExtraParks(prev => prev.map(park => {
+          if (park.id !== id) return park;
+          const updated = { ...park, [field]: value };
+          
+          // 數量與租金的連動計算 (邏輯: 數量 * 單價)
+          if (field === 'count') {
+            updated.rentTotal = Math.round(updated.rentUnit * (parseFloat(value) || 0));
+          } else if (field === 'rentUnit') {
+            updated.rentTotal = Math.round((parseFloat(value) || 0) * updated.count);
+          } else if (field === 'rentTotal') {
+            updated.rentUnit = updated.count > 0 ? Math.round((parseFloat(value) || 0) / updated.count) : 0;
+          }
+          
+          return updated;
+        }));
+      };
+
+      // --- 基本租金雙向輸入 Handlers ---
+      const handleBasicRentUnitChange = (val) => {
+        const num = parseFloat(val) || 0;
+        setBasicRentUnit(num);
+        setBasicRentTotal(Math.round(num * basicArea));
+      };
+      const handleBasicRentTotalChange = (val) => {
+        const num = parseFloat(val) || 0; 
+        setBasicRentTotal(num);
+        if (basicArea > 0) setBasicRentUnit(Math.round(num / basicArea));
+      };
+
+      // --- 整棟租金雙向輸入 Handlers ---
+      const handleAdvStoreRentUnitChange = (val) => {
+        const num = parseFloat(val) || 0;
+        setAdvStoreRentUnit(num);
+        setAdvStoreRentTotal(Math.round(num * advStoreArea));
+      };
+      const handleAdvStoreRentTotalChange = (val) => {
+        const num = parseFloat(val) || 0; 
+        setAdvStoreRentTotal(num);
+        if (advStoreArea > 0) setAdvStoreRentUnit(Math.round(num / advStoreArea));
+      };
+
+      const handleAdvNormalRentUnitChange = (val) => {
+        const num = parseFloat(val) || 0;
+        setAdvNormalRentUnit(num);
+        setAdvNormalRentTotal(Math.round(num * advNormalArea));
+      };
+      const handleAdvNormalRentTotalChange = (val) => {
+        const num = parseFloat(val) || 0; 
+        setAdvNormalRentTotal(num);
+        if (advNormalArea > 0) setAdvNormalRentUnit(Math.round(num / advNormalArea));
+      };
+
+      const handleAdvBasementRentUnitChange = (val) => {
+        const num = parseFloat(val) || 0;
+        setAdvBasementRentUnit(num);
+        setAdvBasementRentTotal(Math.round(num * advBasementArea));
+      };
+      const handleAdvBasementRentTotalChange = (val) => {
+        const num = parseFloat(val) || 0; 
+        setAdvBasementRentTotal(num);
+        if (advBasementArea > 0) setAdvBasementRentUnit(Math.round(num / advBasementArea));
+      };
+
+      const handleAdvParkRentUnitChange = (val) => {
+        const num = parseFloat(val) || 0;
+        setAdvParkRentUnit(num);
+        setAdvParkRentTotal(Math.round(num * advParkCount));
+      };
+      const handleAdvParkRentTotalChange = (val) => {
+        const num = parseFloat(val) || 0; 
+        setAdvParkRentTotal(num);
+        if (advParkCount > 0) setAdvParkRentUnit(Math.round(num / advParkCount));
+      };
+
+      // --- 基本計算機邏輯 ---
+      useEffect(() => {
+        if (calcTarget === 'total') {
+          const houseTotal = (parseFloat(basicArea) || 0) * (parseFloat(basicUnitPrice) || 0);
+          const parkTotal = (parseFloat(basicParkCount) || 0) * (parseFloat(basicParkPrice) || 0);
+          setBasicTotal(Math.round((houseTotal + parkTotal) * 100) / 100);
+        } else if (calcTarget === 'unit') {
+          const parkTotal = (parseFloat(basicParkCount) || 0) * (parseFloat(basicParkPrice) || 0);
+          const remainingHouseTotal = (parseFloat(basicTotal) || 0) - parkTotal;
+          const area = parseFloat(basicArea) || 0;
+          if (area > 0) {
+            setBasicUnitPrice(Math.round((remainingHouseTotal / area) * 100) / 100);
+          } else {
+            setBasicUnitPrice(0);
+          }
+        }
+      }, [calcTarget, basicTotal, basicArea, basicUnitPrice, basicParkCount, basicParkPrice]);
+
+      // --- 進階計算機邏輯 ---
+      const advStoreTotal = (parseFloat(advStoreArea) || 0) * (parseFloat(advBaseUnitPrice) || 0) * (parseFloat(advStoreRatio) || 0);
+      const advNormalTotal = (parseFloat(advNormalArea) || 0) * (parseFloat(advBaseUnitPrice) || 0) * (parseFloat(advNormalRatio) || 0);
+      const advBasementTotal = (parseFloat(advBasementArea) || 0) * (parseFloat(advBaseUnitPrice) || 0) * (parseFloat(advBasementRatio) || 0);
+      const advParkTotal = (parseFloat(advParkCount) || 0) * (parseFloat(advParkPrice) || 0);
+      
+      // 動態空間的總價加總
+      const extraFloorsTotalValue = extraFloors.reduce((sum, f) => sum + (parseFloat(f.area) || 0) * (parseFloat(advBaseUnitPrice) || 0) * (parseFloat(f.ratio) || 0), 0);
+      // 動態車位的總價加總 (數量 * 單價)
+      const extraParksTotalValue = extraParks.reduce((sum, p) => sum + (parseFloat(p.count) || 0) * (parseFloat(p.price) || 0), 0);
+      
+      const advGrandTotal = advStoreTotal + advNormalTotal + advBasementTotal + advParkTotal + extraFloorsTotalValue + extraParksTotalValue;
+
+      // --- 連動總價邏輯 ---
+      useEffect(() => {
+        if (activeTab === 'basic') {
+          setExtTotalPrice(basicTotal);
+        } else if (activeTab === 'advanced') {
+          setExtTotalPrice(advGrandTotal);
+        }
+      }, [basicTotal, advGrandTotal, activeTab]);
+
+      // --- 房貸與投報計算邏輯 ---
+      const getMonthlyPayment = () => {
+        const principal = (parseFloat(extTotalPrice) || 0) * 10000 * ((parseFloat(extLoanRatio) || 0) / 100);
+        const monthlyRate = (parseFloat(extRate) || 0) / 100 / 12;
+        const totalMonths = (parseFloat(extYears) || 0) * 12;
+        if (monthlyRate === 0 || totalMonths === 0) return principal / (totalMonths || 1);
+        return principal * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+      };
+
+      const getActiveMonthlyRentTotal = () => {
+        if (activeTab === 'basic') return basicRentTotal; 
+        
+        // 加入動態空間的總租金
+        const extraFloorsRentSum = extraFloors.reduce((sum, f) => sum + (parseFloat(f.rentTotal) || 0), 0);
+        // 加入動態車位的總租金
+        const extraParksRentSum = extraParks.reduce((sum, p) => sum + (parseFloat(p.rentTotal) || 0), 0);
+        
+        return (advStoreRentTotal || 0) + (advNormalRentTotal || 0) + (advBasementRentTotal || 0) + (advParkRentTotal || 0) + extraFloorsRentSum + extraParksRentSum; 
+      };
+
+      const getRentalYield = () => {
+        const monthlyRent = getActiveMonthlyRentTotal(); 
+        const annualRent = monthlyRent * 12; 
+        const total = parseFloat(extTotalPrice) || 0; 
+        if (total === 0) return 0;
+        return (annualRent / (total * 10000)) * 100;
+      };
+
+      return (
+        <div className="min-h-screen p-2 sm:p-4 md:p-8 pb-20 overflow-x-hidden">
+          <div className="max-w-4xl mx-auto space-y-3 sm:space-y-6">
+            
+            {/* 標題與選單 */}
+            <div className="text-center mb-4 sm:mb-8">
+              <h1 className="text-xl sm:text-3xl font-extrabold text-slate-800 mb-3 sm:mb-6 flex items-center justify-center gap-2 sm:gap-3">
+                <Landmark className="text-blue-600 shrink-0" size={24} />
+                <span className="truncate">房地產綜合計算機</span>
+              </h1>
+              <div className="inline-flex bg-slate-200 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-inner overflow-x-auto max-w-full w-full sm:w-auto snap-x">
+                {[
+                  { id: 'basic', icon: Calculator, label: '基本拆算' },
+                  { id: 'advanced', icon: Building2, label: '整棟拆算' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-bold transition-all whitespace-nowrap text-sm sm:text-base snap-center ${
+                      activeTab === tab.id 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    <tab.icon size={16} className="shrink-0" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* --- 上方區塊：總價計算模組 --- */}
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-slate-100 p-3 sm:p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 relative z-10">
+              
+              {/* 基本計算機 */}
+              {activeTab === 'basic' && (
+                <div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-4 bg-slate-50 p-2 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+                    <span className="font-bold text-slate-600 text-sm sm:text-base px-1">計算目標：</span>
+                    <div className="flex bg-slate-200 p-1 rounded-lg sm:rounded-xl w-full sm:w-auto">
+                      <button 
+                        onClick={() => setCalcTarget('total')}
+                        className={`flex-1 sm:flex-none px-3 sm:px-6 py-1.5 sm:py-2 rounded-md sm:rounded-lg font-bold transition-all text-sm sm:text-base ${calcTarget === 'total' ? 'bg-white text-blue-600 shadow' : 'text-slate-500'}`}
+                      >
+                        求總價
+                      </button>
+                      <button 
+                        onClick={() => setCalcTarget('unit')}
+                        className={`flex-1 sm:flex-none px-3 sm:px-6 py-1.5 sm:py-2 rounded-md sm:rounded-lg font-bold transition-all text-sm sm:text-base ${calcTarget === 'unit' ? 'bg-white text-blue-600 shadow' : 'text-slate-500'}`}
+                      >
+                        求單價
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+                    <div className="space-y-3 sm:space-y-6">
+                      <NumberInput 
+                        label="建物面積" icon={Building} 
+                        value={basicArea} onChange={setBasicArea} unit="坪" 
+                      />
+                      <NumberInput 
+                        label="房屋單價" icon={CircleDollarSign} 
+                        value={basicUnitPrice} onChange={setBasicUnitPrice} unit="萬/坪"
+                        disabled={calcTarget === 'unit'}
+                        highlight={calcTarget === 'unit'}
+                      />
+                    </div>
+                    <div className="space-y-3 sm:space-y-6">
+                      <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
+                        <NumberInput 
+                          label="車位數" icon={CarFront} 
+                          value={basicParkCount} onChange={setBasicParkCount} unit="個" 
+                        />
+                        <NumberInput 
+                          label="車位單價" icon={CircleDollarSign} 
+                          value={basicParkPrice} onChange={setBasicParkPrice} unit="萬/個" 
+                        />
+                      </div>
+                      <NumberInput 
+                        label="總價 (含車位)" icon={Landmark} 
+                        value={basicTotal} onChange={setBasicTotal} unit="萬"
+                        disabled={calcTarget === 'total'}
+                        highlight={calcTarget === 'total'}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 sm:mt-8 p-3 bg-blue-50 text-blue-800 rounded-xl flex items-start gap-2 sm:gap-3">
+                    <Calculator className="shrink-0 mt-0.5" size={16} />
+                    <div className="text-xs sm:text-sm leading-relaxed">
+                      <strong className="block sm:inline">公式：</strong> 總價 = (面積 × 單價) + (車位數 × 車價) <br className="hidden sm:block"/>
+                      <span className="opacity-80">{calcTarget === 'total' ? '目前為自動計算「總價」模式' : '目前為自動反推「房屋單價」模式'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 進階計算機 */}
+              {activeTab === 'advanced' && (
+                <div className="flex flex-col gap-6 sm:gap-8">
+                  
+                  {/* 輸入區塊：單欄上下排列 */}
+                  <div className="space-y-3 sm:space-y-6">
+                    <NumberInput 
+                      label="基準單價 (均價或4F)" icon={CircleDollarSign} 
+                      value={advBaseUnitPrice} onChange={setAdvBaseUnitPrice} unit="萬/坪" 
+                      highlight={true}
+                    />
+
+                    {/* 標準層 */}
+                    <div className="bg-slate-50 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 space-y-2.5 sm:space-y-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-800 font-bold text-sm sm:text-base px-1">
+                        <Building2 size={16} className="text-blue-500 shrink-0"/>
+                        標準樓層 (2F以上)
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <NumberInput label="總面積" value={advNormalArea} onChange={setAdvNormalArea} unit="坪" />
+                        <NumberInput label="效用比" value={advNormalRatio} onChange={setAdvNormalRatio} unit="倍" step="0.1" />
+                      </div>
+                      <div className="text-right text-slate-500 font-medium text-xs sm:text-sm px-1">
+                        樓層價值：<span className="font-mono font-bold text-slate-700">{fmtNum(Math.round(advNormalTotal))}</span> 萬
+                        <span className="hidden sm:inline"> (均價 <span className="font-mono font-bold text-slate-700">{fmtNum(Math.round(advBaseUnitPrice * advNormalRatio))}</span> 萬/坪)</span>
+                      </div>
+                    </div>
+                    
+                    {/* 店面層 */}
+                    <div className="bg-slate-50 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 space-y-2.5 sm:space-y-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-800 font-bold text-sm sm:text-base px-1">
+                        <Store size={16} className="text-orange-500 shrink-0"/>
+                        店面樓層 (通常 1F)
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <NumberInput label="面積" value={advStoreArea} onChange={setAdvStoreArea} unit="坪" />
+                        <NumberInput label="效用比" value={advStoreRatio} onChange={setAdvStoreRatio} unit="倍" step="0.1" />
+                      </div>
+                      <div className="text-right text-slate-500 font-medium text-xs sm:text-sm px-1">
+                        單層價值：<span className="font-mono font-bold text-slate-700">{fmtNum(Math.round(advStoreTotal))}</span> 萬 
+                        <span className="hidden sm:inline"> (單價 <span className="font-mono font-bold text-slate-700">{fmtNum(Math.round(advBaseUnitPrice * advStoreRatio))}</span> 萬/坪)</span>
+                      </div>
+                    </div>
+
+                    {/* 地下層 */}
+                    <div className="bg-slate-50 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 space-y-2.5 sm:space-y-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-800 font-bold text-sm sm:text-base px-1">
+                        <ArrowDownCircle size={16} className="text-purple-500 shrink-0"/>
+                        地下層 (B1等)
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <NumberInput label="面積" value={advBasementArea} onChange={setAdvBasementArea} unit="坪" />
+                        <NumberInput label="效用比" value={advBasementRatio} onChange={setAdvBasementRatio} unit="倍" step="0.1" />
+                      </div>
+                      <div className="text-right text-slate-500 font-medium text-xs sm:text-sm px-1">
+                        樓層價值：<span className="font-mono font-bold text-slate-700">{fmtNum(Math.round(advBasementTotal))}</span> 萬
+                        <span className="hidden sm:inline"> (均價 <span className="font-mono font-bold text-slate-700">{fmtNum(Math.round(advBaseUnitPrice * advBasementRatio))}</span> 萬/坪)</span>
+                      </div>
+                    </div>
+
+                    {/* 動態新增的空間 (如：頂樓加蓋、露台) */}
+                    {extraFloors.map((f) => (
+                      <div key={f.id} className="bg-teal-50/40 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-teal-100 space-y-2.5 sm:space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center w-full">
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-teal-800 font-bold text-sm sm:text-base px-1 flex-1">
+                            <Layers size={16} className="text-teal-600 shrink-0"/>
+                            <input 
+                              type="text" 
+                              value={f.name} 
+                              onChange={e => updateExtraFloor(f.id, 'name', e.target.value)}
+                              className="bg-transparent border-b-2 border-dashed border-teal-300 focus:border-teal-500 outline-none w-32 sm:w-48 px-1 text-teal-900 placeholder-teal-400"
+                              placeholder="空間名稱..."
+                            />
+                          </div>
+                          <button onClick={() => removeExtraFloor(f.id)} className="text-teal-400 hover:text-red-500 p-1 transition-colors" title="移除此空間">
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                          <NumberInput label="面積" value={f.area} onChange={(v) => updateExtraFloor(f.id, 'area', v)} unit="坪" />
+                          <NumberInput label="效用比" value={f.ratio} onChange={(v) => updateExtraFloor(f.id, 'ratio', v)} unit="倍" step="0.1" />
+                        </div>
+                        <div className="text-right text-teal-600 font-medium text-xs sm:text-sm px-1">
+                          此空間價值：<span className="font-mono font-bold text-teal-700">{fmtNum(Math.round((parseFloat(f.area)||0) * advBaseUnitPrice * (parseFloat(f.ratio)||0)))}</span> 萬
+                          <span className="hidden sm:inline"> (均價 <span className="font-mono font-bold text-teal-700">{fmtNum(Math.round(advBaseUnitPrice * (parseFloat(f.ratio)||0)))}</span> 萬/坪)</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* 新增樓層空間按鈕 */}
+                    <button 
+                      onClick={addExtraFloor}
+                      className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all font-bold text-sm sm:text-base mt-2"
+                    >
+                      <PlusCircle size={20} />
+                      新增其他樓層/空間 (例如: 頂樓加蓋、露台)
+                    </button>
+
+                    {/* 基礎車位 */}
+                    <div className="bg-slate-50 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 space-y-2.5 sm:space-y-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-800 font-bold text-sm sm:text-base px-1">
+                        <CarFront size={16} className="text-slate-500 shrink-0"/>
+                        車位
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <NumberInput label="車位數" value={advParkCount} onChange={setAdvParkCount} unit="個" />
+                        <NumberInput label="平均單價" value={advParkPrice} onChange={setAdvParkPrice} unit="萬/個" />
+                      </div>
+                      <div className="text-right text-slate-500 font-medium text-xs sm:text-sm px-1">
+                        車位總值：<span className="font-mono font-bold text-slate-700">{fmtNum(Math.round(advParkTotal))}</span> 萬
+                      </div>
+                    </div>
+
+                    {/* 動態新增的車位類型 */}
+                    {extraParks.map((p) => (
+                      <div key={p.id} className="bg-slate-100/80 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200 space-y-2.5 sm:space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center w-full">
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-slate-800 font-bold text-sm sm:text-base px-1 flex-1">
+                            <CarFront size={16} className="text-slate-500 shrink-0"/>
+                            <input 
+                              type="text" 
+                              value={p.name} 
+                              onChange={e => updateExtraPark(p.id, 'name', e.target.value)}
+                              className="bg-transparent border-b-2 border-dashed border-slate-300 focus:border-slate-500 outline-none w-32 sm:w-48 px-1 text-slate-900 placeholder-slate-400"
+                              placeholder="車位類型..."
+                            />
+                          </div>
+                          <button onClick={() => removeExtraPark(p.id)} className="text-slate-400 hover:text-red-500 p-1 transition-colors" title="移除此車位">
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                          <NumberInput label="數量" value={p.count} onChange={(v) => updateExtraPark(p.id, 'count', v)} unit="個" />
+                          <NumberInput label="單價" value={p.price} onChange={(v) => updateExtraPark(p.id, 'price', v)} unit="萬/個" />
+                        </div>
+                        <div className="text-right text-slate-600 font-medium text-xs sm:text-sm px-1">
+                          此車位總值：<span className="font-mono font-bold text-slate-700">{fmtNum(Math.round((parseFloat(p.count)||0) * (parseFloat(p.price)||0)))}</span> 萬
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* 新增車位類型按鈕 */}
+                    <button 
+                      onClick={addExtraPark}
+                      className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all font-bold text-sm sm:text-base mt-2"
+                    >
+                      <PlusCircle size={20} />
+                      新增其他車位類型 (例如: 機械車位)
+                    </button>
+                  </div>
+
+                  {/* 總結區塊：單欄放置於最下方 */}
+                  <div className="relative mt-2 md:mt-0">
+                    <div className="bg-blue-600 text-white p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col justify-center">
+                      <h3 className="text-blue-100 font-bold text-sm sm:text-lg mb-1 sm:mb-2">整棟/物件 預估總價值</h3>
+                      <div className="flex items-end gap-1.5 mb-4 sm:mb-6">
+                        <span className="text-4xl sm:text-5xl md:text-6xl font-mono font-black shadow-sm drop-shadow-md truncate leading-none">
+                          {fmtNum(Math.round(advGrandTotal))}
+                        </span>
+                        <span className="text-blue-200 font-bold text-base sm:text-xl pb-1 leading-none whitespace-nowrap">萬元</span>
+                      </div>
+                      
+                      {/* 明細：在大螢幕時為雙欄，小螢幕單欄 */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 sm:gap-y-4 text-blue-50 border-t border-blue-400/50 pt-4 sm:pt-6 text-xs sm:text-base">
+                        <div className="flex justify-between items-center">
+                          <span>標準層價值</span>
+                          <span className="font-bold"><span className="font-mono font-bold text-lg">{fmtNum(Math.round(advNormalTotal))}</span> 萬</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>店面價值</span>
+                          <span className="font-bold"><span className="font-mono font-bold text-lg">{fmtNum(Math.round(advStoreTotal))}</span> 萬</span>
+                        </div>
+                        <div className="flex justify-between items-center text-purple-100">
+                          <span>地下層價值</span>
+                          <span className="font-bold"><span className="font-mono font-bold text-lg">{fmtNum(Math.round(advBasementTotal))}</span> 萬</span>
+                        </div>
+                        {extraFloors.map(f => (
+                          <div key={`summary-floor-${f.id}`} className="flex justify-between items-center text-teal-100">
+                            <span>{f.name || '未命名空間'}價值</span>
+                            <span className="font-bold"><span className="font-mono font-bold text-lg">{fmtNum(Math.round((parseFloat(f.area)||0) * advBaseUnitPrice * (parseFloat(f.ratio)||0)))}</span> 萬</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between items-center text-slate-200">
+                          <span>車位總值</span>
+                          <span className="font-bold"><span className="font-mono font-bold text-lg">{fmtNum(Math.round(advParkTotal))}</span> 萬</span>
+                        </div>
+                        {extraParks.map(p => (
+                          <div key={`summary-park-${p.id}`} className="flex justify-between items-center text-slate-300">
+                            <span>{p.name || '未命名車位'}總值</span>
+                            <span className="font-bold"><span className="font-mono font-bold text-lg">{fmtNum(Math.round((parseFloat(p.count)||0) * (parseFloat(p.price)||0)))}</span> 萬</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            {/* --- 下方區塊：共用的財務與投報試算 --- */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg border border-slate-200/60 p-3 sm:p-6 md:p-8 animate-in fade-in slide-in-from-bottom-6 mt-4">
+              
+              {/* 總價連動與自訂輸入區 */}
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 sm:mb-8 pb-4 sm:pb-6 border-b border-slate-200 gap-3 sm:gap-6">
+                <div className="space-y-1 sm:space-y-2 w-full md:w-auto px-1">
+                  <h2 className="text-lg sm:text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                    <PiggyBank className="text-emerald-500 shrink-0" size={22} />
+                    <span>財務與投報試算</span>
+                  </h2>
+                  <p className="text-slate-500 flex items-start sm:items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                    <ArrowRightLeft size={14} className="shrink-0 mt-0.5 sm:mt-0" />
+                    <span className="leading-tight">自動連動上方總價與面積，也可直接修改。</span>
+                  </p>
+                </div>
+                <div className="w-full md:w-[280px] shrink-0 bg-emerald-50/50 p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-emerald-100">
+                  <NumberInput 
+                    label="試算應用總價" 
+                    value={extTotalPrice} 
+                    onChange={(val) => setExtTotalPrice(val)} 
+                    unit="萬" 
+                    icon={Landmark}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-6 sm:gap-10">
+                
+                {/* 投報率試算 */}
+                <div className="space-y-3 sm:space-y-6">
+                  <h3 className="text-base sm:text-xl font-bold text-slate-800 flex items-center gap-2 px-1">
+                    <TrendingUp className="text-emerald-500 shrink-0" size={18} />
+                    租金投報率試算
+                  </h3>
+                  
+                  {/* 基本拆算：單一租金輸入 */}
+                  {activeTab === 'basic' && (
+                    <div className="bg-emerald-50/50 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-emerald-100 space-y-3 sm:space-y-4">
+                      <div className="flex justify-between items-center bg-white p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-sm border border-emerald-50">
+                         <span className="font-bold text-emerald-800 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base"><Building size={14}/> 連動建物面積</span>
+                         <span className="text-base sm:text-xl font-black text-emerald-600 font-mono">{fmtNum(basicArea)} <span className="text-xs sm:text-sm font-bold text-emerald-500 font-sans">坪</span></span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <NumberInput label="租金單價" value={basicRentUnit} onChange={handleBasicRentUnitChange} unit="元/坪" />
+                        <NumberInput label="月租總計" value={basicRentTotal} onChange={handleBasicRentTotalChange} unit="元/月" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 整棟拆算：分層租金輸入 */}
+                  {activeTab === 'advanced' && (
+                    <div className="space-y-3 sm:space-y-4">
+                      
+                      {/* 標準層 */}
+                      <div className="bg-blue-50/40 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-blue-100 space-y-2.5 sm:space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="font-bold text-blue-800 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base"><Building2 size={14}/> 標準層</span>
+                          <span className="text-[10px] sm:text-sm font-bold text-blue-700 bg-blue-100 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">面積: <span className="font-mono font-bold">{fmtNum(advNormalArea)}</span> 坪</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                          <NumberInput label="租金單價" value={advNormalRentUnit} onChange={handleAdvNormalRentUnitChange} unit="元/坪" />
+                          <NumberInput label="月租總計" value={advNormalRentTotal} onChange={handleAdvNormalRentTotalChange} unit="元/月" />
+                        </div>
+                      </div>
+
+                      {/* 店面 */}
+                      <div className="bg-orange-50/40 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-orange-100 space-y-2.5 sm:space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="font-bold text-orange-800 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base"><Store size={14}/> 店面 (1F)</span>
+                          <span className="text-[10px] sm:text-sm font-bold text-orange-700 bg-orange-100 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">面積: <span className="font-mono font-bold">{fmtNum(advStoreArea)}</span> 坪</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                          <NumberInput label="租金單價" value={advStoreRentUnit} onChange={handleAdvStoreRentUnitChange} unit="元/坪" />
+                          <NumberInput label="月租總計" value={advStoreRentTotal} onChange={handleAdvStoreRentTotalChange} unit="元/月" />
+                        </div>
+                      </div>
+                      
+                      {/* 地下層 */}
+                      <div className="bg-purple-50/40 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-purple-100 space-y-2.5 sm:space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="font-bold text-purple-800 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base"><ArrowDownCircle size={14}/> 地下層</span>
+                          <span className="text-[10px] sm:text-sm font-bold text-purple-700 bg-purple-100 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">面積: <span className="font-mono font-bold">{fmtNum(advBasementArea)}</span> 坪</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                          <NumberInput label="租金單價" value={advBasementRentUnit} onChange={handleAdvBasementRentUnitChange} unit="元/坪" />
+                          <NumberInput label="月租總計" value={advBasementRentTotal} onChange={handleAdvBasementRentTotalChange} unit="元/月" />
+                        </div>
+                      </div>
+
+                      {/* 動態新增樓層 租金設定 */}
+                      {extraFloors.map(f => (
+                        <div key={`rent-floor-${f.id}`} className="bg-teal-50/40 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-teal-100 space-y-2.5 sm:space-y-3 animate-in fade-in">
+                          <div className="flex justify-between items-center px-1">
+                            <span className="font-bold text-teal-800 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base"><Layers size={14}/> {f.name || '未命名空間'}</span>
+                            <span className="text-[10px] sm:text-sm font-bold text-teal-700 bg-teal-100 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">面積: <span className="font-mono font-bold">{fmtNum(f.area)}</span> 坪</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                            <NumberInput label="租金單價" value={f.rentUnit} onChange={(v) => updateExtraFloor(f.id, 'rentUnit', v)} unit="元/坪" />
+                            <NumberInput label="月租總計" value={f.rentTotal} onChange={(v) => updateExtraFloor(f.id, 'rentTotal', v)} unit="元/月" />
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* 基礎車位 */}
+                      <div className="bg-slate-100 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 space-y-2.5 sm:space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="font-bold text-slate-800 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base"><CarFront size={14}/> 車位</span>
+                          <span className="text-[10px] sm:text-sm font-bold text-slate-600 bg-slate-200 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">數量: <span className="font-mono font-bold">{fmtNum(advParkCount)}</span> 個</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                          <NumberInput label="租金單價" value={advParkRentUnit} onChange={handleAdvParkRentUnitChange} unit="元/個" />
+                          <NumberInput label="月租總計" value={advParkRentTotal} onChange={handleAdvParkRentTotalChange} unit="元/月" />
+                        </div>
+                      </div>
+
+                      {/* 動態新增車位 租金設定 */}
+                      {extraParks.map(p => (
+                        <div key={`rent-park-${p.id}`} className="bg-slate-100/80 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 space-y-2.5 sm:space-y-3 animate-in fade-in">
+                          <div className="flex justify-between items-center px-1">
+                            <span className="font-bold text-slate-800 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base"><CarFront size={14}/> {p.name || '未命名車位'}</span>
+                            <span className="text-[10px] sm:text-sm font-bold text-slate-600 bg-slate-200 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">數量: <span className="font-mono font-bold">{fmtNum(p.count)}</span> 個</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                            <NumberInput label="租金單價" value={p.rentUnit} onChange={(v) => updateExtraPark(p.id, 'rentUnit', v)} unit="元/個" />
+                            <NumberInput label="月租總計" value={p.rentTotal} onChange={(v) => updateExtraPark(p.id, 'rentTotal', v)} unit="元/月" />
+                          </div>
+                        </div>
+                      ))}
+
+                    </div>
+                  )}
+                  
+                  {/* 投報率結果 */}
+                  <div className="bg-emerald-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-emerald-100 mt-2 sm:mt-4 text-center flex flex-col justify-center">
+                    <div className="text-emerald-700 font-bold mb-1 text-xs sm:text-base">預估年化投資報酬率 (Gross Yield)</div>
+                    <div className="text-4xl sm:text-5xl font-black text-emerald-600 truncate my-1 sm:my-2 tracking-tight">
+                      <span className="font-mono">{fmtNum(getRentalYield(), 2, 2)}</span> <span className="text-xl sm:text-2xl font-sans">%</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 mt-2 sm:mt-4">
+                        <div className="text-xs sm:text-sm text-emerald-700 font-medium bg-emerald-100/70 px-3 sm:px-4 py-1 sm:py-2 rounded-lg sm:rounded-xl">
+                          總月收租：<span className="font-mono font-bold text-base">{fmtNum(Math.round(getActiveMonthlyRentTotal()))}</span> 元
+                        </div>
+                        <div className="text-xs sm:text-sm text-emerald-800 font-bold bg-emerald-200/60 px-3 sm:px-4 py-1 sm:py-2 rounded-lg sm:rounded-xl shadow-sm">
+                          年收租金：<span className="font-mono font-bold text-base">{fmtNum((getActiveMonthlyRentTotal() * 12) / 10000, 2, 2)}</span> 萬元
+                        </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 房貸試算 */}
+                <div className="space-y-3 sm:space-y-6 pt-4 sm:pt-0 border-t border-slate-100 sm:border-0 mt-2 sm:mt-0">
+                  <h3 className="text-base sm:text-xl font-bold text-slate-800 flex items-center gap-2 px-1">
+                    <Landmark className="text-indigo-500 shrink-0" size={18} />
+                    房貸負擔試算
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <NumberInput label="貸款成數" value={extLoanRatio} onChange={setExtLoanRatio} unit="%" step="1" />
+                    <NumberInput label="貸款年限" value={extYears} onChange={setExtYears} unit="年" step="1" />
+                  </div>
+                  <NumberInput label="房貸利率" value={extRate} onChange={setExtRate} unit="%" icon={Percent} step="0.01" />
+                  
+                  <div className="bg-indigo-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-indigo-100 mt-2 sm:mt-4 text-center">
+                    <div className="text-indigo-600 font-bold mb-1 text-xs sm:text-base">每月還款金額 (本息攤還)</div>
+                    <div className="text-4xl sm:text-4xl font-black text-indigo-900 truncate tracking-tight">
+                      <span className="font-mono">{fmtNum(Math.round(getMonthlyPayment()))}</span> <span className="text-sm sm:text-lg font-bold font-sans">元/月</span>
+                    </div>
+                    <div className="text-xs sm:text-sm text-indigo-500 mt-2 sm:mt-3 font-medium bg-indigo-100/50 inline-block px-3 sm:px-4 py-1 sm:py-1.5 rounded-full">
+                      貸款總額：<span className="font-mono font-bold text-sm">{fmtNum(Math.round(extTotalPrice * (extLoanRatio/100)))}</span> 萬
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
+    // 渲染應用程式
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

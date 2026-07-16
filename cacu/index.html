@@ -74,6 +74,8 @@
     const PlusCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></IconWrapper>;
     const Trash2 = (props) => <IconWrapper {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconWrapper>;
     const Layers = (props) => <IconWrapper {...props}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></IconWrapper>;
+    // 新增：明顯的刪除倒退圖示
+    const DeleteIcon = (props) => <IconWrapper {...props}><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"/><line x1="18" x2="12" y1="9" y2="15"/><line x1="12" x2="18" y1="9" y2="15"/></IconWrapper>;
 
     // 全域數字格式化輔助函式
     const fmtNum = (num, minDecimals = 0, maxDecimals = 4) => {
@@ -85,7 +87,8 @@
     };
 
     // UI 共用元件：智慧型千分位 + 浮動計算機輸入框
-    const NumberInput = ({ label, icon: Icon, value, onChange, unit, disabled, highlight, step = "any" }) => {
+    // 加入 smallMobileText 屬性，用來針對特定長數字(如總租金)做縮小處理
+    const NumberInput = ({ label, icon: Icon, value, onChange, unit, disabled, highlight, step = "any", smallMobileText = false }) => {
       const [showCalc, setShowCalc] = useState(false);
       const [calcStr, setCalcStr] = useState("");
       const containerRef = useRef(null);
@@ -97,7 +100,6 @@
       // 核心：安全解析數學算式
       const evaluateExpr = (expr) => {
         try {
-          // 清除所有非數字、算數符號的內容以防出錯
           let safeExpr = String(expr).replace(/[^0-9+\-*/.()]/g, '');
           if (!safeExpr) return 0;
           const result = new Function('return ' + safeExpr)();
@@ -106,7 +108,7 @@
           }
           return 0;
         } catch (e) {
-          return value; // 解析失敗則保留原值
+          return value; 
         }
       };
 
@@ -115,15 +117,20 @@
         setCalcStr(value === 0 ? '' : String(value));
         setShowCalc(true);
         
-        // 讓輸入框滾動到可視範圍中心，避免被下方滿版的鍵盤擋住（特別是手機版）
+        // 智慧滾動：將輸入框定位到畫面上方，避免被底部的浮動鍵盤擋住
         setTimeout(() => {
           if (containerRef.current && window.innerWidth < 640) {
-            containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const rect = containerRef.current.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            window.scrollTo({
+              top: scrollTop + rect.top - 80, // 距離螢幕上方留白 80px
+              behavior: 'smooth'
+            });
           }
         }, 150);
       };
 
-      // 利用 relatedTarget 來判斷點擊是否在組件外部，在外部才關閉計算機並結算
+      // 判斷點擊是否在組件外部
       const handleBlur = (e) => {
         if (containerRef.current && !containerRef.current.contains(e.relatedTarget)) {
           const res = evaluateExpr(calcStr);
@@ -157,26 +164,32 @@
       // 防止點擊虛擬鍵盤時讓 input 失去焦點
       const preventFocusLoss = (e) => e.preventDefault();
 
+      // 判斷字體大小邏輯
+      let textClass = highlight || showCalc ? 'text-4xl sm:text-5xl text-blue-600' : 'text-3xl sm:text-4xl text-slate-800';
+      if (smallMobileText) {
+        textClass = highlight || showCalc ? 'text-2xl sm:text-5xl text-blue-600' : 'text-xl sm:text-4xl text-slate-800';
+      }
+
       return (
         <div 
           ref={containerRef}
           tabIndex="-1" 
           onBlur={handleBlur}
-          // 縮小手機版的 padding 與 gap，節省空間避免截斷
-          className={`relative flex flex-col gap-0.5 sm:gap-2 px-2 py-1.5 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 outline-none ${showCalc ? 'border-blue-500 bg-blue-50 shadow-lg z-40' : highlight ? 'border-blue-500 bg-blue-50/50 shadow-md sm:transform sm:scale-[1.02] z-10' : 'border-slate-100 bg-white hover:border-blue-200 z-10'}`}
+          // 還原到較為寬裕的 Padding 讓畫面不擁擠
+          className={`relative flex flex-col gap-1 sm:gap-2 px-3 py-2 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 outline-none ${showCalc ? 'border-blue-500 bg-blue-50 shadow-lg z-40' : highlight ? 'border-blue-500 bg-blue-50/50 shadow-md sm:transform sm:scale-[1.02] z-10' : 'border-slate-100 bg-white hover:border-blue-200 z-10'}`}
         >
           {/* 標題與圖示 */}
-          <div className="flex items-center text-slate-500 gap-1 sm:gap-2 text-[11px] sm:text-base font-medium">
-            {Icon && <Icon size={14} className={`shrink-0 sm:w-5 sm:h-5 ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`} />}
-            <span className="truncate leading-none mt-0.5 sm:mt-0">{label}</span>
+          <div className="flex items-center text-slate-500 gap-1 sm:gap-2 text-xs sm:text-base font-medium">
+            {Icon && <Icon size={16} className={`shrink-0 ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`} />}
+            <span className="truncate">{label}</span>
           </div>
 
           {/* 輸入區 */}
-          <div className="flex items-end gap-1 sm:gap-2">
+          <div className="flex items-end gap-1.5 sm:gap-2">
             <input
               ref={inputRef}
               type="text" 
-              inputMode="none" // ★ 核心修改：徹底阻擋手機內建鍵盤跳出 ★
+              inputMode="none" // 阻擋手機內建鍵盤跳出
               disabled={disabled}
               value={displayValue}
               onChange={(e) => {
@@ -192,37 +205,41 @@
                   handleCalcBtn('=');
                 }
               }}
-              // 縮小手機版字體 (text-xl)，確保百萬千萬數值不會被截斷
-              className={`w-full min-w-0 bg-transparent outline-none font-mono font-black tracking-tight text-right ${highlight || showCalc ? 'text-2xl sm:text-5xl text-blue-600' : 'text-xl sm:text-4xl text-slate-800'} ${disabled ? 'opacity-70' : ''}`}
+              className={`w-full min-w-0 bg-transparent outline-none font-mono font-black tracking-tight text-right ${textClass} ${disabled ? 'opacity-70' : ''}`}
               placeholder="0"
             />
-            <span className={`pb-0.5 sm:pb-1 font-bold whitespace-nowrap text-[10px] sm:text-base leading-none ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`}>{unit}</span>
+            <span className={`pb-0.5 sm:pb-1 font-bold whitespace-nowrap text-xs sm:text-base ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`}>{unit}</span>
           </div>
 
-          {/* 浮動小算盤 - 手機版改為固定於底部 (fixed inset-x-0 bottom-0) */}
+          {/* 浮動小算盤 - 縮小 Padding/Gap 節省高度 */}
           {showCalc && (
-            <div className="fixed inset-x-0 bottom-0 pb-6 p-4 sm:absolute sm:inset-auto sm:top-[100%] sm:right-0 sm:mt-3 bg-slate-800 sm:p-3 sm:pb-3 rounded-t-3xl sm:rounded-2xl shadow-[0_-15px_40px_rgba(0,0,0,0.3)] sm:shadow-2xl z-[100] sm:z-50 w-full sm:w-[260px] animate-in slide-in-from-bottom-8 sm:slide-in-from-top-2 border-t border-slate-700 sm:border">
-              <div className="grid grid-cols-4 gap-2">
+            <div className="fixed inset-x-0 bottom-0 pb-4 p-2 sm:absolute sm:inset-auto sm:top-[100%] sm:right-0 sm:mt-3 bg-slate-800 sm:p-3 sm:pb-3 rounded-t-2xl sm:rounded-2xl shadow-[0_-15px_40px_rgba(0,0,0,0.3)] sm:shadow-2xl z-[100] sm:z-50 w-full sm:w-[260px] animate-in slide-in-from-bottom-8 sm:slide-in-from-top-2 border-t border-slate-700 sm:border">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                 {['C', '(', ')', '/'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className="bg-slate-700 text-slate-300 hover:bg-slate-600 p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors">{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className="bg-slate-700 text-slate-300 hover:bg-slate-600 p-2 sm:p-2.5 rounded-xl font-mono text-lg font-bold transition-colors">{b}</button>
                 ))}
                 {['7', '8', '9', '*'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors ${b==='*'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-lg font-bold transition-colors ${b==='*'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
                 ))}
                 {['4', '5', '6', '-'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors ${b==='-'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-lg font-bold transition-colors ${b==='-'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
                 ))}
                 {['1', '2', '3', '+'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors ${b==='+'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-lg font-bold transition-colors ${b==='+'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
                 ))}
                 {['0', '.', 'BACK', '='].map(b => {
                   let display = b;
-                  if (b === 'BACK') display = '⌫';
                   let btnClass = 'bg-slate-600 text-white hover:bg-slate-500';
-                  if (b === 'BACK') btnClass = 'bg-slate-700 text-red-400 hover:bg-slate-600 hover:text-red-300';
-                  if (b === '=') btnClass = 'bg-blue-600 text-white hover:bg-blue-500';
+                  
+                  if (b === 'BACK') {
+                    display = <DeleteIcon size={20} />;
+                    btnClass = 'bg-slate-700 text-red-400 hover:bg-slate-600 hover:text-red-300 flex items-center justify-center';
+                  } else if (b === '=') {
+                    btnClass = 'bg-blue-600 text-white hover:bg-blue-500';
+                  }
+
                   return (
-                    <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`${btnClass} p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors`}>{display}</button>
+                    <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`${btnClass} p-2 sm:p-2.5 rounded-xl font-mono text-lg font-bold transition-colors`}>{display}</button>
                   );
                 })}
               </div>
@@ -232,7 +249,7 @@
                 onMouseDown={preventFocusLoss} 
                 onTouchStart={preventFocusLoss} 
                 onClick={() => handleCalcBtn('OK')} 
-                className="mt-3 sm:mt-2 w-full bg-emerald-600 text-white hover:bg-emerald-500 p-3.5 sm:p-2.5 rounded-xl font-bold tracking-widest transition-colors shadow-sm text-lg sm:text-base"
+                className="mt-2.5 sm:mt-2 w-full bg-emerald-600 text-white hover:bg-emerald-500 p-2.5 rounded-xl font-bold tracking-widest transition-colors shadow-sm text-base"
               >
                 確認輸入
               </button>
@@ -487,7 +504,7 @@
       };
 
       return (
-        <div className="min-h-screen p-2 sm:p-4 md:p-8 pb-32 sm:pb-20 overflow-x-hidden">
+        <div className="min-h-screen p-2 sm:p-4 md:p-8 pb-40 sm:pb-20 overflow-x-hidden">
           <div className="max-w-4xl mx-auto space-y-3 sm:space-y-6">
             
             {/* 標題與選單 */}
@@ -517,8 +534,7 @@
               </div>
             </div>
 
-            {/* --- 上方區塊：總價計算模組 --- 
-                移除了祖先層的動畫 transform，避免 fixed position 在手機上失效 */}
+            {/* --- 上方區塊：總價計算模組 --- */}
             <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-slate-100 p-3 sm:p-6 md:p-8 animate-in fade-in relative z-10">
               
               {/* 基本計算機 */}
@@ -589,7 +605,7 @@
               {activeTab === 'advanced' && (
                 <div className="flex flex-col gap-6 sm:gap-8">
                   
-                  {/* 輸入區塊：單欄上下排列 */}
+                  {/* 輸入區塊 */}
                   <div className="space-y-3 sm:space-y-6">
                     <NumberInput 
                       label="基準單價 (均價或4F)" icon={CircleDollarSign} 
@@ -824,7 +840,7 @@
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:gap-4">
                         <NumberInput label="租金單價" value={basicRentUnit} onChange={handleBasicRentUnitChange} unit="元/坪" />
-                        <NumberInput label="月租總計" value={basicRentTotal} onChange={handleBasicRentTotalChange} unit="元/月" />
+                        <NumberInput label="月租總計" value={basicRentTotal} onChange={handleBasicRentTotalChange} unit="元/月" smallMobileText={true} />
                       </div>
                     </div>
                   )}
@@ -839,7 +855,7 @@
                         </div>
                         <div className="grid grid-cols-2 gap-2 sm:gap-4">
                           <NumberInput label="租金單價" value={advNormalRentUnit} onChange={handleAdvNormalRentUnitChange} unit="元/坪" />
-                          <NumberInput label="月租總計" value={advNormalRentTotal} onChange={handleAdvNormalRentTotalChange} unit="元/月" />
+                          <NumberInput label="月租總計" value={advNormalRentTotal} onChange={handleAdvNormalRentTotalChange} unit="元/月" smallMobileText={true} />
                         </div>
                       </div>
 
@@ -851,7 +867,7 @@
                         </div>
                         <div className="grid grid-cols-2 gap-2 sm:gap-4">
                           <NumberInput label="租金單價" value={advStoreRentUnit} onChange={handleAdvStoreRentUnitChange} unit="元/坪" />
-                          <NumberInput label="月租總計" value={advStoreRentTotal} onChange={handleAdvStoreRentTotalChange} unit="元/月" />
+                          <NumberInput label="月租總計" value={advStoreRentTotal} onChange={handleAdvStoreRentTotalChange} unit="元/月" smallMobileText={true} />
                         </div>
                       </div>
                       
@@ -863,7 +879,7 @@
                         </div>
                         <div className="grid grid-cols-2 gap-2 sm:gap-4">
                           <NumberInput label="租金單價" value={advBasementRentUnit} onChange={handleAdvBasementRentUnitChange} unit="元/坪" />
-                          <NumberInput label="月租總計" value={advBasementRentTotal} onChange={handleAdvBasementRentTotalChange} unit="元/月" />
+                          <NumberInput label="月租總計" value={advBasementRentTotal} onChange={handleAdvBasementRentTotalChange} unit="元/月" smallMobileText={true} />
                         </div>
                       </div>
 
@@ -876,7 +892,7 @@
                           </div>
                           <div className="grid grid-cols-2 gap-2 sm:gap-4">
                             <NumberInput label="租金單價" value={f.rentUnit} onChange={(v) => updateExtraFloor(f.id, 'rentUnit', v)} unit="元/坪" />
-                            <NumberInput label="月租總計" value={f.rentTotal} onChange={(v) => updateExtraFloor(f.id, 'rentTotal', v)} unit="元/月" />
+                            <NumberInput label="月租總計" value={f.rentTotal} onChange={(v) => updateExtraFloor(f.id, 'rentTotal', v)} unit="元/月" smallMobileText={true} />
                           </div>
                         </div>
                       ))}
@@ -889,7 +905,7 @@
                         </div>
                         <div className="grid grid-cols-2 gap-2 sm:gap-4">
                           <NumberInput label="租金單價" value={advParkRentUnit} onChange={handleAdvParkRentUnitChange} unit="元/個" />
-                          <NumberInput label="月租總計" value={advParkRentTotal} onChange={handleAdvParkRentTotalChange} unit="元/月" />
+                          <NumberInput label="月租總計" value={advParkRentTotal} onChange={handleAdvParkRentTotalChange} unit="元/月" smallMobileText={true} />
                         </div>
                       </div>
 
@@ -902,7 +918,7 @@
                           </div>
                           <div className="grid grid-cols-2 gap-2 sm:gap-4">
                             <NumberInput label="租金單價" value={p.rentUnit} onChange={(v) => updateExtraPark(p.id, 'rentUnit', v)} unit="元/個" />
-                            <NumberInput label="月租總計" value={p.rentTotal} onChange={(v) => updateExtraPark(p.id, 'rentTotal', v)} unit="元/月" />
+                            <NumberInput label="月租總計" value={p.rentTotal} onChange={(v) => updateExtraPark(p.id, 'rentTotal', v)} unit="元/月" smallMobileText={true} />
                           </div>
                         </div>
                       ))}

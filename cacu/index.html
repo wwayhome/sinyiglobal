@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>房地產綜合計算機</title>
   
   <!-- GA4 Tracking Code -->
@@ -39,8 +39,15 @@
   
   <!-- Babel for in-browser JSX compilation -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <style>
+    /* 防止在部分 iOS 裝置上出現點擊高光 */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-800">
+<body class="bg-slate-50 text-slate-800 selection:bg-blue-200">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -64,9 +71,6 @@
     const ArrowRightLeft = (props) => <IconWrapper {...props}><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></IconWrapper>;
     const ArrowDownCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></IconWrapper>;
     const TrendingUp = (props) => <IconWrapper {...props}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></IconWrapper>;
-    const Equal = (props) => <IconWrapper {...props}><line x1="5" x2="19" y1="9" y2="9"/><line x1="5" x2="19" y1="15" y2="15"/></IconWrapper>;
-    
-    // 新增：加號、垃圾桶、圖層 (用於動態空間)
     const PlusCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></IconWrapper>;
     const Trash2 = (props) => <IconWrapper {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconWrapper>;
     const Layers = (props) => <IconWrapper {...props}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></IconWrapper>;
@@ -110,6 +114,13 @@
         if (disabled) return;
         setCalcStr(value === 0 ? '' : String(value));
         setShowCalc(true);
+        
+        // 讓輸入框滾動到可視範圍中心，避免被下方滿版的鍵盤擋住（特別是手機版）
+        setTimeout(() => {
+          if (containerRef.current && window.innerWidth < 640) {
+            containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 150);
       };
 
       // 利用 relatedTarget 來判斷點擊是否在組件外部，在外部才關閉計算機並結算
@@ -143,25 +154,29 @@
         }
       };
 
+      // 防止點擊虛擬鍵盤時讓 input 失去焦點
+      const preventFocusLoss = (e) => e.preventDefault();
+
       return (
         <div 
           ref={containerRef}
           tabIndex="-1" 
           onBlur={handleBlur}
-          className={`relative flex flex-col gap-1 sm:gap-2 px-3 py-2 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 outline-none ${showCalc ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-[1.02] z-40' : highlight ? 'border-blue-500 bg-blue-50/50 shadow-md transform scale-[1.02] z-10' : 'border-slate-100 bg-white hover:border-blue-200 z-10'}`}
+          // 縮小手機版的 padding 與 gap，節省空間避免截斷
+          className={`relative flex flex-col gap-0.5 sm:gap-2 px-2 py-1.5 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 outline-none ${showCalc ? 'border-blue-500 bg-blue-50 shadow-lg z-40' : highlight ? 'border-blue-500 bg-blue-50/50 shadow-md sm:transform sm:scale-[1.02] z-10' : 'border-slate-100 bg-white hover:border-blue-200 z-10'}`}
         >
           {/* 標題與圖示 */}
-          <div className="flex items-center text-slate-500 gap-1.5 sm:gap-2 text-xs sm:text-base font-medium">
-            {Icon && <Icon size={16} className={`shrink-0 ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`} />}
-            <span className="truncate">{label}</span>
+          <div className="flex items-center text-slate-500 gap-1 sm:gap-2 text-[11px] sm:text-base font-medium">
+            {Icon && <Icon size={14} className={`shrink-0 sm:w-5 sm:h-5 ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`} />}
+            <span className="truncate leading-none mt-0.5 sm:mt-0">{label}</span>
           </div>
 
           {/* 輸入區 */}
-          <div className="flex items-end gap-1.5 sm:gap-2">
+          <div className="flex items-end gap-1 sm:gap-2">
             <input
               ref={inputRef}
               type="text" 
-              inputMode="decimal"
+              inputMode="none" // ★ 核心修改：徹底阻擋手機內建鍵盤跳出 ★
               disabled={disabled}
               value={displayValue}
               onChange={(e) => {
@@ -177,27 +192,28 @@
                   handleCalcBtn('=');
                 }
               }}
-              className={`w-full min-w-0 bg-transparent outline-none font-mono font-black tracking-tight text-right ${highlight || showCalc ? 'text-4xl sm:text-5xl text-blue-600' : 'text-3xl sm:text-4xl text-slate-800'} ${disabled ? 'opacity-70' : ''}`}
+              // 縮小手機版字體 (text-xl)，確保百萬千萬數值不會被截斷
+              className={`w-full min-w-0 bg-transparent outline-none font-mono font-black tracking-tight text-right ${highlight || showCalc ? 'text-2xl sm:text-5xl text-blue-600' : 'text-xl sm:text-4xl text-slate-800'} ${disabled ? 'opacity-70' : ''}`}
               placeholder="0"
             />
-            <span className={`pb-0.5 sm:pb-1 font-bold whitespace-nowrap text-sm sm:text-base ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`}>{unit}</span>
+            <span className={`pb-0.5 sm:pb-1 font-bold whitespace-nowrap text-[10px] sm:text-base leading-none ${highlight || showCalc ? 'text-blue-500' : 'text-slate-400'}`}>{unit}</span>
           </div>
 
-          {/* 浮動小算盤 */}
+          {/* 浮動小算盤 - 手機版改為固定於底部 (fixed inset-x-0 bottom-0) */}
           {showCalc && (
-            <div className="absolute top-[100%] right-0 mt-3 bg-slate-800 p-2.5 sm:p-3 rounded-2xl shadow-2xl z-50 w-full sm:w-[260px] animate-in fade-in slide-in-from-top-2 border border-slate-700">
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            <div className="fixed inset-x-0 bottom-0 pb-6 p-4 sm:absolute sm:inset-auto sm:top-[100%] sm:right-0 sm:mt-3 bg-slate-800 sm:p-3 sm:pb-3 rounded-t-3xl sm:rounded-2xl shadow-[0_-15px_40px_rgba(0,0,0,0.3)] sm:shadow-2xl z-[100] sm:z-50 w-full sm:w-[260px] animate-in slide-in-from-bottom-8 sm:slide-in-from-top-2 border-t border-slate-700 sm:border">
+              <div className="grid grid-cols-4 gap-2">
                 {['C', '(', ')', '/'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className="bg-slate-700 text-slate-300 hover:bg-slate-600 p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors">{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className="bg-slate-700 text-slate-300 hover:bg-slate-600 p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors">{b}</button>
                 ))}
                 {['7', '8', '9', '*'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors ${b==='*'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors ${b==='*'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
                 ))}
                 {['4', '5', '6', '-'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors ${b==='-'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors ${b==='-'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
                 ))}
                 {['1', '2', '3', '+'].map(b => (
-                  <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors ${b==='+'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
+                  <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors ${b==='+'?'bg-slate-700 text-slate-300 hover:bg-slate-600':'bg-slate-600 text-white hover:bg-slate-500'}`}>{b}</button>
                 ))}
                 {['0', '.', 'BACK', '='].map(b => {
                   let display = b;
@@ -206,16 +222,17 @@
                   if (b === 'BACK') btnClass = 'bg-slate-700 text-red-400 hover:bg-slate-600 hover:text-red-300';
                   if (b === '=') btnClass = 'bg-blue-600 text-white hover:bg-blue-500';
                   return (
-                    <button key={b} type="button" tabIndex="-1" onMouseDown={e => e.preventDefault()} onClick={() => handleCalcBtn(b)} className={`${btnClass} p-2 sm:p-2.5 rounded-xl font-mono text-base sm:text-lg font-bold transition-colors`}>{display}</button>
+                    <button key={b} type="button" tabIndex="-1" onMouseDown={preventFocusLoss} onTouchStart={preventFocusLoss} onClick={() => handleCalcBtn(b)} className={`${btnClass} p-3 sm:p-2.5 rounded-xl font-mono text-xl sm:text-lg font-bold transition-colors`}>{display}</button>
                   );
                 })}
               </div>
               <button 
                 type="button"
                 tabIndex="-1"
-                onMouseDown={e => e.preventDefault()} 
+                onMouseDown={preventFocusLoss} 
+                onTouchStart={preventFocusLoss} 
                 onClick={() => handleCalcBtn('OK')} 
-                className="mt-2 w-full bg-emerald-600 text-white hover:bg-emerald-500 p-2.5 rounded-xl font-bold tracking-widest transition-colors shadow-sm"
+                className="mt-3 sm:mt-2 w-full bg-emerald-600 text-white hover:bg-emerald-500 p-3.5 sm:p-2.5 rounded-xl font-bold tracking-widest transition-colors shadow-sm text-lg sm:text-base"
               >
                 確認輸入
               </button>
@@ -303,7 +320,6 @@
           if (floor.id !== id) return floor;
           const updated = { ...floor, [field]: value };
           
-          // 面積與租金的連動計算 (與固定樓層邏輯一致)
           if (field === 'area') {
             updated.rentTotal = Math.round(updated.rentUnit * (parseFloat(value) || 0));
           } else if (field === 'rentUnit') {
@@ -337,7 +353,6 @@
           if (park.id !== id) return park;
           const updated = { ...park, [field]: value };
           
-          // 數量與租金的連動計算 (邏輯: 數量 * 單價)
           if (field === 'count') {
             updated.rentTotal = Math.round(updated.rentUnit * (parseFloat(value) || 0));
           } else if (field === 'rentUnit') {
@@ -431,9 +446,7 @@
       const advBasementTotal = (parseFloat(advBasementArea) || 0) * (parseFloat(advBaseUnitPrice) || 0) * (parseFloat(advBasementRatio) || 0);
       const advParkTotal = (parseFloat(advParkCount) || 0) * (parseFloat(advParkPrice) || 0);
       
-      // 動態空間的總價加總
       const extraFloorsTotalValue = extraFloors.reduce((sum, f) => sum + (parseFloat(f.area) || 0) * (parseFloat(advBaseUnitPrice) || 0) * (parseFloat(f.ratio) || 0), 0);
-      // 動態車位的總價加總 (數量 * 單價)
       const extraParksTotalValue = extraParks.reduce((sum, p) => sum + (parseFloat(p.count) || 0) * (parseFloat(p.price) || 0), 0);
       
       const advGrandTotal = advStoreTotal + advNormalTotal + advBasementTotal + advParkTotal + extraFloorsTotalValue + extraParksTotalValue;
@@ -459,9 +472,7 @@
       const getActiveMonthlyRentTotal = () => {
         if (activeTab === 'basic') return basicRentTotal; 
         
-        // 加入動態空間的總租金
         const extraFloorsRentSum = extraFloors.reduce((sum, f) => sum + (parseFloat(f.rentTotal) || 0), 0);
-        // 加入動態車位的總租金
         const extraParksRentSum = extraParks.reduce((sum, p) => sum + (parseFloat(p.rentTotal) || 0), 0);
         
         return (advStoreRentTotal || 0) + (advNormalRentTotal || 0) + (advBasementRentTotal || 0) + (advParkRentTotal || 0) + extraFloorsRentSum + extraParksRentSum; 
@@ -476,7 +487,7 @@
       };
 
       return (
-        <div className="min-h-screen p-2 sm:p-4 md:p-8 pb-20 overflow-x-hidden">
+        <div className="min-h-screen p-2 sm:p-4 md:p-8 pb-32 sm:pb-20 overflow-x-hidden">
           <div className="max-w-4xl mx-auto space-y-3 sm:space-y-6">
             
             {/* 標題與選單 */}
@@ -506,8 +517,9 @@
               </div>
             </div>
 
-            {/* --- 上方區塊：總價計算模組 --- */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-slate-100 p-3 sm:p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 relative z-10">
+            {/* --- 上方區塊：總價計算模組 --- 
+                移除了祖先層的動畫 transform，避免 fixed position 在手機上失效 */}
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-slate-100 p-3 sm:p-6 md:p-8 animate-in fade-in relative z-10">
               
               {/* 基本計算機 */}
               {activeTab === 'basic' && (
@@ -633,9 +645,9 @@
                       </div>
                     </div>
 
-                    {/* 動態新增的空間 (如：頂樓加蓋、露台) */}
+                    {/* 動態新增的空間 */}
                     {extraFloors.map((f) => (
-                      <div key={f.id} className="bg-teal-50/40 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-teal-100 space-y-2.5 sm:space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+                      <div key={f.id} className="bg-teal-50/40 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-teal-100 space-y-2.5 sm:space-y-4 relative animate-in fade-in duration-200">
                         <div className="flex justify-between items-center w-full">
                           <div className="flex items-center gap-1.5 sm:gap-2 text-teal-800 font-bold text-sm sm:text-base px-1 flex-1">
                             <Layers size={16} className="text-teal-600 shrink-0"/>
@@ -662,7 +674,6 @@
                       </div>
                     ))}
 
-                    {/* 新增樓層空間按鈕 */}
                     <button 
                       onClick={addExtraFloor}
                       className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all font-bold text-sm sm:text-base mt-2"
@@ -688,7 +699,7 @@
 
                     {/* 動態新增的車位類型 */}
                     {extraParks.map((p) => (
-                      <div key={p.id} className="bg-slate-100/80 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200 space-y-2.5 sm:space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+                      <div key={p.id} className="bg-slate-100/80 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200 space-y-2.5 sm:space-y-4 relative animate-in fade-in duration-200">
                         <div className="flex justify-between items-center w-full">
                           <div className="flex items-center gap-1.5 sm:gap-2 text-slate-800 font-bold text-sm sm:text-base px-1 flex-1">
                             <CarFront size={16} className="text-slate-500 shrink-0"/>
@@ -714,7 +725,6 @@
                       </div>
                     ))}
 
-                    {/* 新增車位類型按鈕 */}
                     <button 
                       onClick={addExtraPark}
                       className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all font-bold text-sm sm:text-base mt-2"
@@ -724,7 +734,7 @@
                     </button>
                   </div>
 
-                  {/* 總結區塊：單欄放置於最下方 */}
+                  {/* 總結區塊 */}
                   <div className="relative mt-2 md:mt-0">
                     <div className="bg-blue-600 text-white p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col justify-center">
                       <h3 className="text-blue-100 font-bold text-sm sm:text-lg mb-1 sm:mb-2">整棟/物件 預估總價值</h3>
@@ -735,7 +745,6 @@
                         <span className="text-blue-200 font-bold text-base sm:text-xl pb-1 leading-none whitespace-nowrap">萬元</span>
                       </div>
                       
-                      {/* 明細：在大螢幕時為雙欄，小螢幕單欄 */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 sm:gap-y-4 text-blue-50 border-t border-blue-400/50 pt-4 sm:pt-6 text-xs sm:text-base">
                         <div className="flex justify-between items-center">
                           <span>標準層價值</span>
@@ -774,9 +783,8 @@
             </div>
 
             {/* --- 下方區塊：共用的財務與投報試算 --- */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg border border-slate-200/60 p-3 sm:p-6 md:p-8 animate-in fade-in slide-in-from-bottom-6 mt-4">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg border border-slate-200/60 p-3 sm:p-6 md:p-8 animate-in fade-in slide-in-from-bottom-6 mt-4 relative z-0">
               
-              {/* 總價連動與自訂輸入區 */}
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 sm:mb-8 pb-4 sm:pb-6 border-b border-slate-200 gap-3 sm:gap-6">
                 <div className="space-y-1 sm:space-y-2 w-full md:w-auto px-1">
                   <h2 className="text-lg sm:text-2xl font-extrabold text-slate-800 flex items-center gap-2">
@@ -808,7 +816,6 @@
                     租金投報率試算
                   </h3>
                   
-                  {/* 基本拆算：單一租金輸入 */}
                   {activeTab === 'basic' && (
                     <div className="bg-emerald-50/50 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-emerald-100 space-y-3 sm:space-y-4">
                       <div className="flex justify-between items-center bg-white p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-sm border border-emerald-50">
@@ -822,10 +829,8 @@
                     </div>
                   )}
 
-                  {/* 整棟拆算：分層租金輸入 */}
                   {activeTab === 'advanced' && (
                     <div className="space-y-3 sm:space-y-4">
-                      
                       {/* 標準層 */}
                       <div className="bg-blue-50/40 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-blue-100 space-y-2.5 sm:space-y-3">
                         <div className="flex justify-between items-center px-1">

@@ -113,7 +113,6 @@
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, []);
 
-
             const fetchJsonData = async (type) => {
                 if (!GAS_URL) return [];
                 const response = await fetch(`${GAS_URL}?type=${type}`);
@@ -271,12 +270,14 @@
                 let allZones = new Set();
                 if (rulesData.length > 0) {
                     Object.keys(rulesData[0]).forEach((k, i) => {
-                        if (i > 0) allZones.add(k);
+                        // 修正：排除名稱與項目欄位，避免誤判為分區
+                        if (i > 0 && !k.includes('使用項目') && !k.includes('項目') && !k.includes('名稱')) allZones.add(k);
                     });
                 }
                 if (extraData.length > 0) {
                     Object.keys(extraData[0]).forEach((k, i) => {
-                        if (i > 0) allZones.add(k);
+                        // 修正：排除名稱與項目欄位，避免誤判為分區
+                        if (i > 0 && !k.includes('使用項目') && !k.includes('項目') && !k.includes('名稱')) allZones.add(k);
                     });
                 }
                 const uniqueZones = Array.from(allZones).filter(v => v);
@@ -729,24 +730,48 @@
                                     let allowedGroups = [];
                                     
                                     if (rulesData.length > 0) {
-                                        const rKeyName = Object.keys(rulesData[0])[0];
+                                        const keys = Object.keys(rulesData[0]);
+                                        const rKeyName = keys[0];
+                                        // 判斷第二欄是否為細項名稱欄位 (排除分區欄位)
+                                        let itemKeyName = null;
+                                        if (keys.length > 1 && (keys[1].includes('項目') || keys[1].includes('名稱') || !['住', '商', '工', '農', '風', '保', '特', '科', '行', '文', '河'].some(p => keys[1].startsWith(p)))) {
+                                            itemKeyName = keys[1];
+                                        }
+
                                         rulesData.forEach(rule => {
                                             const groupNum = rule[rKeyName];
                                             const val = rule[selectedZoneParams];
                                             if (val && /[○△□＃※]/.test(val)) {
-                                                allowedGroups.push({ source: 'rules', group: groupNum, value: val });
+                                                allowedGroups.push({ 
+                                                    source: 'rules', 
+                                                    group: groupNum, 
+                                                    itemName: itemKeyName ? rule[itemKeyName] : null,
+                                                    value: val 
+                                                });
                                             }
                                         });
                                     }
                                     
                                     if (extraData.length > 0) {
-                                        const rKeyName = Object.keys(extraData[0])[0];
+                                        const keys = Object.keys(extraData[0]);
+                                        const rKeyName = keys[0];
+                                        // 判斷第二欄是否為細項名稱欄位 (排除分區欄位)
+                                        let itemKeyName = null;
+                                        if (keys.length > 1 && (keys[1].includes('項目') || keys[1].includes('名稱') || !['住', '商', '工', '農', '風', '保', '特', '科', '行', '文', '河'].some(p => keys[1].startsWith(p)))) {
+                                            itemKeyName = keys[1];
+                                        }
+
                                         extraData.forEach(rule => {
                                             if (selectedZoneParams in rule) {
                                                 const groupNum = rule[rKeyName];
                                                 const val = rule[selectedZoneParams];
                                                 if (val && /[○△□＃※]/.test(val)) {
-                                                    allowedGroups.push({ source: 'extra', group: groupNum, value: val });
+                                                    allowedGroups.push({ 
+                                                        source: 'extra', 
+                                                        group: groupNum, 
+                                                        itemName: itemKeyName ? rule[itemKeyName] : null,
+                                                        value: val 
+                                                    });
                                                 }
                                             }
                                         });
@@ -796,14 +821,15 @@
                                                     <thead className="bg-orange-200/50 text-orange-800">
                                                         <tr>
                                                             <th className="px-4 py-4 border-b border-orange-200 min-w-[80px]">組別</th>
-                                                            <th className="px-4 py-4 border-b border-orange-200 min-w-[200px]">組別名稱</th>
+                                                            <th className="px-4 py-4 border-b border-orange-200 min-w-[120px]">組別名稱</th>
+                                                            <th className="px-4 py-4 border-b border-orange-200 min-w-[200px]">使用項目 (細項)</th>
                                                             <th className="px-4 py-4 border-b border-orange-200 w-32 text-center text-nowrap">允許規定</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-orange-100 bg-white">
                                                         {allowedGroups.map((item, idx) => {
                                                             const isSpecial = item.group === '策略' || item.group === '其他';
-                                                            const groupName = isSpecial 
+                                                            const baseGroupName = isSpecial 
                                                                 ? item.group 
                                                                 : groupInfoMap.get(String(item.group)) || '-';
                                                             
@@ -814,8 +840,11 @@
                                                                     <td className="px-4 py-3 font-bold text-orange-700 whitespace-nowrap align-middle">
                                                                         {isSpecial ? item.group : `第 ${item.group} 組`}
                                                                     </td>
+                                                                    <td className="px-4 py-3 text-gray-700 font-bold align-middle whitespace-nowrap">
+                                                                        {isSpecial ? item.group : baseGroupName}
+                                                                    </td>
                                                                     <td className="px-4 py-3 text-gray-700 font-medium align-middle">
-                                                                        {groupName}
+                                                                        {item.itemName || '-'}
                                                                     </td>
                                                                     <td className="px-4 py-3 text-center text-lg whitespace-pre-wrap leading-relaxed align-middle">
                                                                         {renderTextWithClick(formattedText, selectedZoneParams, item.group, item.source === 'extra' ? 'text-teal-600' : 'text-orange-600')}

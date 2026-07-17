@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>台灣工業區立體化容積獎勵試算系統｜測試版</title>
+  
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-5YQY4RT9H2');
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    /* ====== 基礎與視覺層級設定 ====== */
+    :root {
+      --page-bg: #f4f7fb;
+      --surface: #ffffff;
+      --text-main: #172033;
+      --text-muted: #64748b;
+      --line-soft: #dbe5f1;
+      --brand: #2563eb;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --purple: #7c3aed;
+      --shadow-card: 0 10px 28px rgba(15, 23, 42, 0.07);
+      --radius-lg: 18px;
+    }
+    body {
+      background: linear-gradient(180deg, #f8fbff 0%, var(--page-bg) 100%);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      /* [修正1] 加大底部的預留空間，確保任何尺寸的手機或電腦都不會遮擋左側最後一個欄位 */
+      padding-bottom: 10rem;
+    }
+    .max-w-\[1600px\] { max-width: 1680px; }
+    header { background: rgba(255,255,255,.9); border: 1px solid var(--line-soft); border-radius: 22px; padding: 1.25rem; box-shadow: var(--shadow-card); }
+    section { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 1.5rem; margin-bottom: 1.25rem; }
+    h2 { font-size: 1.15rem; font-weight: 800; border-bottom: 2px solid var(--line-soft); padding-bottom: 0.5rem; margin-bottom: 1rem; color: #0f172a; }
+    
+    /* ====== 表單元素 ====== */
+    label { font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 0.25rem; display: block; }
+    input[type="number"], select {
+      width: 100%; min-height: 2.5rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem 0.75rem;
+      font-size: 0.875rem; transition: all 0.2s; background: #fff;
+    }
+    input[type="number"]:focus, select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); outline: none; }
+    .required-edit { background-color: #fffbeb !important; border-color: #f59e0b !important; }
+    
+    /* ====== 提示框 ====== */
+    .notice { padding: 0.75rem 1rem; border-radius: 12px; font-size: 0.85rem; line-height: 1.5; font-weight: 600; margin-bottom: 1rem; }
+    .notice-warn { background: #fffbeb; border: 1px solid #fde68a; border-left: 5px solid #f59e0b; color: #92400e; }
+    .notice-info { background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #3b82f6; color: #1e3a8a; }
+    .notice-danger { background: #fef2f2; border: 1px solid #fecaca; border-left: 5px solid #ef4444; color: #991b1b; }
+
+    /* ====== 動態欄位區塊 ====== */
+    .dynamic-field-group {
+      background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 12px; padding: 1rem; margin-top: 1rem;
+    }
+    
+    /* ====== 結果卡片 ====== */
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .result-card { border-radius: 16px; padding: 1.25rem; background: #fff; border: 1px solid var(--line-soft); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+    .card-primary { border-color: #93c5fd; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); }
+    .card-feedback { border-color: #fca5a5; background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); }
+    .card-deposit { border-color: #fcd34d; background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%); }
+    .card-f3 { border-color: #d8b4fe; background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%); }
+    .card-f2 { border-color: #6ee7b7; background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
+    .res-label { font-size: 0.8rem; font-weight: 800; color: #475569; }
+    .res-val { font-size: 1.75rem; font-weight: 900; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .res-sub { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
+
+    /* ====== 堆疊圖 ====== */
+    .chart-container { width: 100%; height: 32px; background: #e2e8f0; border-radius: 999px; display: flex; overflow: hidden; margin: 1rem 0; }
+    .chart-bar { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.75rem; transition: width 0.3s ease; }
+    
+    /* ====== 程式碼/運算日誌 ====== */
+    .log-box { background: #1e293b; color: #f8fafc; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.8rem; padding: 1rem; border-radius: 12px; overflow-x: auto; line-height: 1.6; }
+    .log-sec { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #334155; }
+    .log-sec:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .log-hl { color: #38bdf8; font-weight: bold; }
+    .log-ok { color: #4ade80; font-weight: bold; }
+    .log-warn { color: #fbbf24; font-weight: bold; }
+    .log-err { color: #f87171; font-weight: bold; }
+
+    /* ====== V16 操作流程與狀態 ====== */
+    .validation-list { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+    @media (max-width: 640px) { .validation-list { grid-template-columns: 1fr; } }
+    .validation-item { display: flex; align-items: flex-start; gap: 0.55rem; padding: 0.55rem 0.7rem; border-radius: 10px; border: 1px solid var(--line-soft); background: #fff; font-size: 0.82rem; line-height: 1.35; }
+    .validation-icon { width: 1.25rem; height: 1.25rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 0.72rem; font-weight: 900; }
+    .validation-ok .validation-icon { background: #d1fae5; color: #047857; }
+    .validation-error { border-color: #fecaca; background: #fff7f7; }
+    .validation-error .validation-icon { background: #fee2e2; color: #b91c1c; }
+    .validation-skip { color: #64748b; background: #f8fafc; }
+    .validation-skip .validation-icon { background: #e2e8f0; color: #64748b; }
+    
+    .btn-primary-action { min-height: 2.8rem; border-radius: 10px; padding: 0.65rem 1.1rem; background: #2563eb; color: #fff; font-weight: 800; transition: .2s; }
+    .btn-primary-action:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-primary-action:disabled { background: #94a3b8; cursor: not-allowed; opacity: .72; }
+    .btn-secondary-action { min-height: 2.8rem; border-radius: 10px; padding: 0.65rem 1rem; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 800; transition: .2s; }
+    .btn-secondary-action:hover { background: #f8fafc; }
+    
+    #resultBody.results-pending > :not(#resultStatusBanner) { opacity: .25; filter: grayscale(.45); pointer-events: none; }
+    #resultBody.results-stale > :not(#resultStatusBanner) { opacity: .48; filter: grayscale(.2); pointer-events: none; }
+    #resultStatusBanner { transition: .2s; }
+    .helper-status { display: inline-flex; align-items: center; gap: .25rem; padding: .15rem .45rem; border-radius: 999px; font-size: .65rem; font-weight: 800; }
+    .helper-auto { background: #dbeafe; color: #1d4ed8; }
+    .helper-manual { background: #ede9fe; color: #6d28d9; }
+  </style>
+</head>
+<body class="p-4 md:p-8 relative">
+
+  <div id="disclaimerModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900 bg-opacity-70 backdrop-blur-sm transition-opacity duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 mx-4 transform scale-100 transition-transform duration-300">
+      <div class="flex items-center space-x-3 border-b border-gray-100 pb-4 mb-4">
+        <div class="bg-blue-100 text-blue-600 p-2 rounded-full">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-gray-900">系統使用聲明</h3>
+      </div>
+      <p class="text-gray-700 text-base leading-relaxed font-medium mb-6">
+        是否可申請工業區立體化，仍以產業主管機關及地方政府依都市計畫及相關法令認定為準。請向工業區所在地主管機關確認（例如經濟部產業園區管理局、經濟部產業發展署或縣市政府產業主管機關）。
+      </p>
+      <div class="flex justify-end">
+        <button id="closeModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg transition-colors shadow-md">
+          我已了解並關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-[1600px] mx-auto">
+    <header class="mb-6">
+      <h1 class="text-3xl font-black text-gray-900 border-l-8 border-blue-600 pl-4 mb-2">工業區立體化容積獎勵試算系統｜測試版</h1>
+      <p class="text-gray-600 pl-4 font-medium">先依都市／非都市土地分流適用方案，再套用各縣市回饋與保證金公式。黃色底欄位為必填／請確認項目。</p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- ================= 左欄：資料輸入區 ================= -->
+      <div class="lg:col-span-5 space-y-4">
+        
+        <section class="border-2 border-blue-300 bg-blue-50/30">
+          <h2 class="text-blue-800 border-blue-200">📍 土地使用分區與情境設定</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="md:col-span-3">
+              <label class="text-blue-800 text-sm">評估所在縣市</label>
+              <select id="citySelect" class="border-blue-400 bg-white text-blue-900 font-bold mt-1">
+                <option value="new_taipei" selected>新北市</option>
+                <option value="taoyuan">桃園市</option>
+                <option value="taichung">臺中市</option>
+                <option value="tainan">臺南市</option>
+                <option value="kaohsiung">高雄市</option>
+                <option value="keelung">基隆市</option>
+                <option value="central">中央方案／其他縣市</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="text-blue-800 text-sm">土地使用分區</label>
+              <select id="landZone" class="border-blue-400 bg-white text-blue-900 font-bold mt-1">
+                <option value="urban" selected>都市計畫工業區／產業專用區</option>
+                <option value="non_urban">非都市土地工業區／產業園區</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-blue-800 text-sm">產業使用情境</label>
+              <select id="useType" class="font-bold text-indigo-700 bg-white border-blue-400 mt-1">
+                <option value="self" selected>產業自用</option>
+                <option value="non_self">非自用／出租</option>
+              </select>
+            </div>
+          </div>
+          <div id="schemePathNotice" class="notice notice-info mt-4 mb-0"></div>
+          <p class="text-[11px] text-blue-700 mt-2 leading-relaxed">本系統僅依都市／非都市土地及縣市別提供初步試算路徑，不自動判斷是否屬整體開發園區、個案主管機關或實際申請資格。</p>
+        </section>
+
+        <section>
+          <h2>1｜基地與建築基本資料</h2>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label>基地面積（坪）<span class="text-red-500">*</span></label>
+              <input type="number" id="baseAreaPing" value="1000" min="1" class="required-edit font-bold">
+            </div>
+            <div>
+              <label>法定建蔽率（%）<span class="text-red-500">*</span></label>
+              <input type="number" id="baseCoverage" value="60" min="0" max="100" class="required-edit font-bold">
+            </div>
+            <div>
+              <label>法定容積率（%）<span class="text-red-500">*</span></label>
+              <input type="number" id="baseFAR" value="210" min="0" class="required-edit font-bold">
+            </div>
+            <div class="md:col-span-3">
+              <label>公告土地現值（元/㎡）<span class="text-red-500">*</span></label>
+              <input type="number" id="landValueSqM" value="90000" step="1000" min="0" class="required-edit font-bold">
+            </div>
+          </div>
+
+          <div class="bg-slate-100 p-3 rounded-lg border border-slate-200">
+            <h3 class="font-bold text-sm text-slate-700 mb-2 border-b border-slate-300 pb-1">🏢 營建工程造價自動查表 (參照新北市基準)</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label>建物構造別</label>
+                <select id="uiStructure">
+                  <option value="RC" selected>鋼筋混凝土 (RC)</option>
+                  <option value="SRC">鋼骨鋼筋混凝土 (SRC)</option>
+                  <option value="SC">鋼骨造 (SC)</option>
+                </select>
+              </div>
+              <div>
+                <label>預計地上樓層數</label>
+                <select id="uiFloors">
+                  <option value="6-10" selected>6 至 10 層</option>
+                  <option value="11-15">11 至 15 層</option>
+                  <option value="16-20">16 至 20 層</option>
+                  <option value="21-25">21 至 25 層</option>
+                  <option value="26-30">26 至 30 層</option>
+                  <option value="31-35">31 至 35 層</option>
+                  <option value="36+">36 層以上</option>
+                </select>
+              </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between">
+              <div class="text-xs text-slate-500">
+                推算面積級距：<span id="autoAreaBucket" class="font-bold text-slate-700">計算中...</span><br>
+                查表單價：<span id="autoCostPing" class="font-bold text-slate-700">0</span> 元/坪
+              </div>
+              <div class="w-1/2">
+                <label class="text-blue-700 flex items-center justify-between"><span>最終營建單價 (元/坪)</span><span class="helper-status helper-auto">系統帶入／可覆寫</span></label>
+                <input type="number" id="uiFinalCostPing" class="font-bold text-blue-700 bg-blue-50 border-blue-300" title="可依個案特殊工法手動覆寫">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>2｜選擇申請的容積獎勵</h2>
+          
+          <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-blue-800">投資獎勵（原 F1，上限 15%）</label>
+              <span id="resF1" class="font-bold text-blue-700 bg-white px-2 py-1 rounded border border-blue-200">+0%</span>
+            </div>
+            <label class="text-xs text-slate-600">預估總投資額 (不含土地，億元)</label>
+            <div class="flex gap-2">
+              <input type="number" id="uiInvestment" value="2.0" step="0.1" min="0" class="required-edit w-full">
+              <button id="btnF1Max" class="shrink-0 bg-blue-600 text-white px-3 text-sm rounded-md hover:bg-blue-700">帶入取得15%所需投資額</button>
+            </div>
+          </div>
+
+          <div id="hqBlock" class="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200 hidden">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-purple-800" id="hqLabel">營運總部／根留獎勵</label>
+              <span id="resHQ" class="font-bold text-purple-700 bg-white px-2 py-1 rounded border border-purple-200">+0%</span>
+            </div>
+            <div id="hqInputWrapper"></div>
+          </div>
+
+          <div id="f2Block" class="mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-emerald-800">永續及能源獎勵（原 F2，上限 5%）</label>
+              <div class="text-right flex items-center gap-2">
+                <span class="text-[11px] text-emerald-700 font-bold bg-emerald-100 px-2 py-1 rounded">成本預估: <span id="f2CostDisplay">0</span> 萬元</span>
+                <span id="resF2" class="font-bold text-emerald-700 bg-white px-2 py-1 rounded border border-emerald-200">+0%</span>
+              </div>
+            </div>
+            <div class="space-y-2 text-sm text-slate-700">
+              <label class="flex items-center"><input type="checkbox" id="f2Iso" class="mr-2 w-4 h-4 text-emerald-600"> ISO 50001 能源管理系統 (+2%)</label>
+              <label class="flex items-center" id="f2SolarStdWrap"><input type="checkbox" id="f2SolarStd" class="mr-2 w-4 h-4 text-emerald-600"> 屋頂太陽光電達規 (+3%)</label>
+              
+              <div id="f2SolarTnWrap" class="hidden mt-2 border-t border-emerald-200 pt-2">
+                <label class="text-xs text-slate-600">臺南太陽能覆蓋率</label>
+                <select id="f2SolarTn" class="text-sm p-1">
+                  <option value="0">未達標 (0%)</option>
+                  <option value="1">50%以上 (+1%)</option>
+                  <option value="2">60%以上 (+2%)</option>
+                  <option value="3">70%以上 (+3%)</option>
+                </select>
+              </div>
+              
+              <div id="f2TyWrap" class="hidden mt-2 border-t border-emerald-200 pt-2 space-y-2">
+                <label class="flex items-center"><input type="checkbox" id="f2TyStorage" class="mr-2 w-4 h-4 text-emerald-600"> 儲能設備 (+3%)</label>
+                <label class="flex items-center"><input type="checkbox" id="f2TySmart" class="mr-2 w-4 h-4 text-emerald-600"> 智慧製造 (+3%)</label>
+              </div>
+
+              <div id="f2KhWrap" class="hidden mt-2 border-t border-emerald-200 pt-2 space-y-2">
+                <div>
+                  <label class="text-xs text-slate-600">高雄綠建築</label>
+                  <select id="f2KhGreen" class="text-sm p-1">
+                    <option value="0">無 (0%)</option>
+                    <option value="1">銀級 (+1%)</option>
+                    <option value="2">黃金級 (+2%)</option>
+                    <option value="3">鑽石級 (+3%)</option>
+                  </select>
+                </div>
+                <label class="flex items-center"><input type="checkbox" id="f2KhClean" class="mr-2 w-4 h-4 text-emerald-600"> 清潔生產合格 (+1%)</label>
+                <div>
+                  <label class="text-xs text-slate-600">高雄太陽光電</label>
+                  <select id="f2KhSolar" class="text-sm p-1">
+                    <option value="0">無 (0%)</option>
+                    <option value="1">70%以上 (+1%)</option>
+                    <option value="2">80%以上 (+2%)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 p-2 bg-emerald-100/50 rounded border border-emerald-200 text-[10px] text-emerald-700 leading-tight">
+              *註：ISO 預估 2600 萬；太陽能依(基地面積×建蔽率×50%) 乘以 2.22萬/坪 粗估。<br>
+              (設備市場成本波動大，本數值僅供建置可行性與敏感度評估參考)
+            </div>
+          </div>
+
+          <div id="f3Block" class="p-3 bg-amber-50 rounded-lg border border-amber-200">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-amber-800" id="f3MainLabel">回饋取得容積（上限依適用方案）</label>
+              <span id="resF3_left" class="font-bold text-amber-700 bg-white px-2 py-1 rounded border border-amber-200">+0%</span>
+            </div>
+            <div id="f3InputWrapper">
+              <label class="text-xs text-slate-600 flex justify-between">
+                <span id="extraPctLabel">申請比例（占基準容積）</span>
+                <span class="text-purple-600 font-bold"><span id="f3MaxCaption">試算剩餘上限</span>：<span id="outF3Max_left">0</span>%</span>
+              </label>
+              <div class="flex gap-2 mt-1">
+                <input type="number" id="uiF3Pct" value="0" min="0" step="1" class="border-amber-300 bg-white font-bold text-amber-900 w-full">
+                <button id="btnF3Max" class="shrink-0 bg-amber-600 text-white px-3 text-sm rounded-md hover:bg-amber-700">帶入目前可申請上限</button>
+              </div>
+            </div>
+            <div id="f3TaoyuanNotice" class="hidden text-xs text-amber-700 font-bold mt-1">
+              *桃園市都市土地地方版，本試算不提供另以回饋金取得額外容積的計算。
+            </div>
+          </div>
+        </section>
+
+        <section id="dynamicFieldsSection" class="border-2 border-amber-300 bg-amber-50/20">
+          <h2 class="text-amber-800 border-amber-200">3｜回饋金與保證金必要參數</h2>
+          
+          <div id="dynParking" class="hidden dynamic-field-group">
+            <label class="text-amber-900 mb-1">🚗 依比例留設之法定停車位數量</label>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-slate-600">汽車車位 (席) *依F1面積自動推算</label>
+                <input type="number" id="uiCarSpots" min="0" class="border-amber-300">
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">機車車位 (席) *依F1面積自動推算</label>
+                <input type="number" id="uiScooterSpots" min="0" class="border-amber-300">
+              </div>
+            </div>
+            <p class="text-[10px] text-amber-700 mt-1">*註：系統預設參照建築技術規則，以「F1獎勵面積」每 250㎡ 留設一汽車位、每 100㎡ 留設一機車位進行基礎推算。可手動覆寫。</p>
+          </div>
+
+          <div id="dynTaoyuan" class="hidden dynamic-field-group">
+            <label class="text-amber-900 mb-1">🌳 桃園市回饋地區承諾方式</label>
+            <select id="uiTaoyuanCommit">
+              <option value="" selected>請選擇承諾方式</option>
+              <option value="adopt">公共設施認養 (按投資額 10‰)</option>
+              <option value="build">公共設施興建 (按投資額 8‰)</option>
+            </select>
+          </div>
+
+          <div id="dynTaoyuanDeposit" class="hidden dynamic-field-group">
+            <label class="text-amber-900 mb-2">🏗️ 桃園市非產業自用履約保證金參數</label>
+            <div class="notice notice-warn mb-3">
+              桃園保證金依「15%新增投資容積獎勵額度」相對應之土地持分、興建成本及新增法定停車位價值計算。附件第23頁為110年4月1日舊表；本版改採115年1月1日生效之現行「桃園市建築物工程造價標準表」。
+              <a href="https://law.tycg.gov.tw/LawContent.aspx?id=GL001457" target="_blank" rel="noopener" class="underline font-bold">查詢現行標準</a>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <div>
+                <label class="text-xs text-slate-600">桃園法定工程造價－構造別</label>
+                <select id="uiTyStructure" class="required-edit">
+                  <option value="RC" selected>鋼筋混凝土造（RC）</option>
+                  <option value="SRC">鋼骨鋼筋混凝土造（SRC）</option>
+                  <option value="SC">鋼骨構造（SC）</option>
+                  <option value="STEEL_NO_WALL">鋼鐵無牆造</option>
+                  <option value="LIGHT_STEEL">輕型鋼架構造</option>
+                  <option value="REINFORCED_BRICK">加強磚造</option>
+                  <option value="BRICK_WOOD">磚造、木造</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">地上樓層數</label>
+                <input type="number" id="uiTyFloors" min="1" step="1" class="required-edit" placeholder="請輸入實際樓層">
+              </div>
+              <div class="md:col-span-2">
+                <label class="text-xs text-slate-600 flex items-center justify-between"><span>建築法定工程造價 e（元／㎡）</span><span class="helper-status helper-auto">系統查表／可覆寫</span></label>
+                <div class="flex gap-2">
+                  <input type="number" id="uiTyLegalCostSqM" min="0" class="required-edit font-bold text-blue-700" placeholder="依構造及樓層自動帶入，可手動覆寫">
+                  <button type="button" id="btnTyReloadCost" class="shrink-0 bg-blue-600 text-white px-3 text-sm rounded-md hover:bg-blue-700">依構造與樓層重新查表</button>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-1">換算每坪約 <span id="outTyLegalCostPing" class="font-bold">0</span> 元／坪；資料基準：115年1月1日。</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 p-3 bg-white rounded-lg border border-amber-200">
+              <div>
+                <label class="text-xs text-slate-600">保證金計算用新增投資獎勵面積 a</label>
+                <div class="font-bold text-slate-800"><span id="outTyDepositArea">0</span> ㎡</div>
+                <p class="text-[10px] text-slate-500">固定按基準容積樓地板面積 × 15%計算。</p>
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">建物總容積樓地板面積 b</label>
+                <div class="font-bold text-slate-800"><span id="outTyTotalFARFloor">0</span> ㎡</div>
+                <p class="text-[10px] text-slate-500">基準容積樓地板＋本方案核給獎勵容積。</p>
+              </div>
+              <div class="md:col-span-2">
+                <label class="text-xs text-slate-600">建築物總樓地板面積 f（㎡）</label>
+                <div class="flex gap-2">
+                  <input type="number" id="uiTyTotalGrossFloorSqM" min="0" class="required-edit" placeholder="含不計容積部分；預設暫以 b 估算">
+                  <button type="button" id="btnTyUseFARAsGross" class="shrink-0 bg-slate-600 text-white px-3 text-sm rounded-md hover:bg-slate-700">使用系統估算值</button>
+                </div>
+                <p class="text-[10px] text-amber-700 mt-1">f 與 b 法規定義不同；未有建築設計資料時，系統暫以 b 估算，正式申請應改填建築物總樓地板面積。</p>
+              </div>
+            </div>
+
+            <div class="p-3 bg-white rounded-lg border border-amber-200">
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-amber-900 mb-0">新增法定停車位價值</label>
+                <span class="text-[10px] text-slate-500">每席價值最低20萬元、最高100萬元</span>
+              </div>
+              <div class="grid grid-cols-12 gap-2 text-[11px] font-bold text-slate-500 mb-1">
+                <div class="col-span-3">類型</div><div class="col-span-3">新增席數</div><div class="col-span-3">面積㎡／席</div><div class="col-span-3">試算價值／席</div>
+              </div>
+              <div class="grid grid-cols-12 gap-2 items-center mb-2">
+                <div class="col-span-3 text-sm font-bold">汽車</div>
+                <input type="number" id="uiTyCarSpots" min="0" step="1" class="col-span-3" value="0">
+                <input type="number" id="uiTyCarAreaPerSpot" min="0" step="0.1" class="col-span-3 required-edit" value="25">
+                <div class="col-span-3 text-sm font-bold"><span id="outTyCarUnitValue">0</span> 元</div>
+              </div>
+              <div class="grid grid-cols-12 gap-2 items-center mb-2">
+                <div class="col-span-3 text-sm font-bold">機車</div>
+                <input type="number" id="uiTyScooterSpots" min="0" step="1" class="col-span-3" value="0">
+                <input type="number" id="uiTyScooterAreaPerSpot" min="0" step="0.1" class="col-span-3 required-edit" placeholder="依核准圖說">
+                <div class="col-span-3 text-sm font-bold"><span id="outTyScooterUnitValue">0</span> 元</div>
+              </div>
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <div class="col-span-3 text-sm font-bold">自行車</div>
+                <input type="number" id="uiTyBicycleSpots" min="0" step="1" class="col-span-3" value="0">
+                <input type="number" id="uiTyBicycleAreaPerSpot" min="0" step="0.1" class="col-span-3 required-edit" placeholder="依核准圖說">
+                <div class="col-span-3 text-sm font-bold"><span id="outTyBicycleUnitValue">0</span> 元</div>
+              </div>
+              <p class="text-[10px] text-amber-700 mt-2 leading-relaxed">
+                汽車及機車新增席數暫比照本系統新北試算邏輯，以 a 每250㎡增設1席汽車位、每100㎡增設1席機車位（無條件進位）；這只是初估，不是桃園個案法定停車位認定。汽車面積預設25㎡／席係參考桃園停車空間代金規定；機車及自行車面積請依核准圖說填寫。
+              </p>
+            </div>
+          </div>
+
+          <div id="dynDiff" class="hidden dynamic-field-group">
+            <label class="text-amber-900 mb-1">⚖️ 估價差額回饋金參數 (需專業估價師查估)</label>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="text-xs text-slate-600">廠房更新興建部分查估市價（元／坪）</label>
+                <input type="number" id="uiTcMarketValue" class="required-edit" placeholder="請輸入預估坪市價">
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">廠房更新興建部分成本之查估市價（元／坪）</label>
+                <input type="number" id="uiTcCost" class="required-edit">
+                <button id="btnLoadCost" class="mt-1 text-[10px] bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded text-slate-700 w-full">帶入查表成本參考</button>
+              </div>
+            </div>
+            <label class="text-xs text-slate-600">繳納方式選擇</label>
+            <select id="uiTcPayment" class="required-edit">
+              <option value="" selected>請選擇繳納方式</option>
+              <option value="once">一次繳清（回饋金 ÷ 1.2）</option>
+              <option value="installment">分期繳納（原價計算）</option>
+            </select>
+          </div>
+
+          <div id="dynTainan" class="hidden dynamic-field-group">
+            <label class="text-amber-900 mb-1">🏭 臺南非自用30%中繼廠房代金估價</label>
+            <div class="notice notice-warn mb-2">依法需3家估價師查估平均，請自行填入預估市價。若留空則代金顯示為0。</div>
+            <label class="text-xs text-slate-600">中繼廠房查估市價 (元/㎡)</label>
+            <input type="number" id="uiTnMarketValue" class="required-edit" placeholder="必填：請輸入預估市價">
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ================= 右欄：結果與檢核區 ================= -->
+      <div class="lg:col-span-7 space-y-4">
+        
+        <section id="validationSection" class="border-2 border-indigo-300 bg-indigo-50/20 transition-all duration-300">
+          <h2 class="text-indigo-900 border-indigo-200 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            試算前資料檢核清單
+          </h2>
+          <div id="validationSummary" class="notice notice-info mb-3">系統正在檢查必要欄位。</div>
+          <div id="validationList" class="validation-list"></div>
+        </section>
+
+        <section class="bg-gradient-to-br from-slate-50 to-slate-100 p-0 overflow-hidden" id="resultTopAnchor">
+          <div class="p-5 border-b border-line-soft">
+            <h2 class="!mb-0 !pb-0 !border-none text-xl">試算結果總覽</h2>
+          </div>
+          
+          <div class="p-5 results-pending" id="resultBody">
+            <div id="resultStatusBanner" class="notice notice-info mb-5">尚未試算。完成左側資料後，按下方「執行正式試算」產出結果。</div>
+            <div class="flex gap-4 mb-6 flex-wrap md:flex-nowrap">
+              <div class="flex-1 min-w-[140px] bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                <p class="res-label text-emerald-800">新增投資金額</p>
+                <p class="res-val text-emerald-700 mt-1"><span id="outInvestmentAmount">0</span><span class="text-lg text-slate-500 ml-1">億元</span></p>
+              </div>
+              <div class="flex-1 min-w-[140px] bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                <p class="res-label">獎勵容積比例</p>
+                <p class="res-val text-indigo-700 mt-1"><span id="outTotalBonus">0</span><span class="text-lg text-slate-500 ml-1">%</span></p>
+                <p id="outBonusWarning" class="text-xs text-red-500 mt-1 hidden font-bold">已達 20% 上限管制</p>
+              </div>
+              <div class="flex-1 min-w-[140px] bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                <p class="res-label">試算後總容積率</p>
+                <p class="res-val text-slate-700 mt-1"><span id="outTotalFAR">0</span><span class="text-lg text-slate-500 ml-1">%</span></p>
+              </div>
+            </div>
+
+            <div class="chart-container shadow-inner">
+              <div id="barF1" class="chart-bar bg-blue-500" style="width: 0%;"></div>
+              <div id="barHQ" class="chart-bar bg-purple-500" style="width: 0%;"></div>
+              <div id="barF2" class="chart-bar bg-emerald-500" style="width: 0%;"></div>
+              <div id="barF3" class="chart-bar bg-amber-500" style="width: 0%;"></div>
+            </div>
+            <div class="flex justify-center flex-wrap gap-4 text-xs font-bold text-slate-600 mb-6">
+              <span class="flex items-center"><span class="w-3 h-3 bg-blue-500 rounded-sm mr-1"></span>投資獎勵</span>
+              <span class="flex items-center"><span class="w-3 h-3 bg-purple-500 rounded-sm mr-1"></span>總部／根留</span>
+              <span class="flex items-center"><span class="w-3 h-3 bg-emerald-500 rounded-sm mr-1"></span>永續／能源</span>
+              <span class="flex items-center"><span class="w-3 h-3 bg-amber-500 rounded-sm mr-1"></span><span id="extraLegendLabel">回饋取得容積</span></span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="result-card card-feedback">
+                <p class="res-label text-red-900 text-base">法定基礎回饋負擔</p>
+                <p class="res-val text-red-600 mt-2"><span id="outFeedbackMoney">0</span><span class="text-lg font-bold ml-1">萬元</span></p>
+                <p id="outFeedbackRule" class="res-sub font-bold text-red-800 mt-2">公式或說明</p>
+              </div>
+
+              <div class="result-card card-deposit">
+                <p class="res-label text-amber-900 text-base">履約保證金負擔</p>
+                <p class="res-val text-amber-600 mt-2"><span id="outDepositMoney">0</span><span class="text-lg font-bold ml-1">萬元</span></p>
+                <p id="outDepositRule" class="res-sub font-bold text-amber-800 mt-2">完成履約後退還</p>
+              </div>
+
+              <div class="result-card card-f3">
+                <p class="res-label text-purple-900 text-base" id="outExtraCardLabel">回饋取得容積價金估算</p>
+                <p class="res-val text-purple-700 mt-2"><span id="outF3Money">0</span><span id="outF3Unit" class="text-lg font-bold ml-1">萬元</span></p>
+                <p id="outF3Rule" class="res-sub font-bold text-purple-600 mt-2">依各縣市公式計算</p>
+              </div>
+
+              <div class="result-card card-f2">
+                <p class="res-label text-emerald-900 text-base">永續及能源建置成本預估</p>
+                <p class="res-val text-emerald-700 mt-2"><span id="outF2CostMoney">0</span><span class="text-lg font-bold ml-1">萬元</span></p>
+                <p class="res-sub font-bold text-emerald-800 mt-2">*含ISO及太陽能等設備成本 (供參考)</p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <section class="!bg-slate-900 !border-slate-800">
+          <h2 class="text-slate-100 border-slate-700 flex justify-between items-end">
+            <span>💻 試算邏輯與計算過程</span>
+            <span class="text-xs font-normal text-slate-400">Strategy Engine V16</span>
+          </h2>
+          <div id="calcLog" class="log-box">
+            </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 底部懸浮操作列 ================= -->
+  <div class="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur shadow-[0_-10px_30px_rgba(15,23,42,0.08)] border-t border-slate-200 px-4 py-3 md:py-4 transition-transform duration-300">
+    <div class="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex-1 w-full flex items-center gap-3">
+         <div id="fixedBarIcon" class="shrink-0">
+           <!-- Icon 會由 JS 填入 -->
+         </div>
+         <div class="flex flex-col w-full">
+           <div id="validationProgress" class="font-black text-slate-800 text-sm md:text-base">已完成必要欄位：0／0</div>
+           <div id="validationMissing" class="text-xs text-slate-500 mt-0.5 truncate w-[90%] md:max-w-xl">請依上方檢核結果補齊資料。</div>
+         </div>
+      </div>
+      <div class="flex gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
+         <button type="button" id="btnResetForm" class="btn-secondary-action flex-1 sm:flex-none">清除重填</button>
+         <button type="button" id="btnCalculate" class="btn-primary-action flex-1 sm:flex-none shadow-lg shadow-blue-500/30" disabled>尚缺必要資料</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 0. 免責聲明彈窗邏輯
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', () => {
+      const modal = document.getElementById('disclaimerModal');
+      const btnClose = document.getElementById('closeModalBtn');
+
+      // 鎖定背景無法滾動
+      document.body.style.overflow = 'hidden';
+
+      btnClose.addEventListener('click', () => {
+        // 添加漸隱動畫
+        modal.classList.add('opacity-0');
+        
+        // 延遲隱藏元素並恢復背景滾動
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          document.body.style.overflow = '';
+        }, 300);
+      });
+    });
+
+    // ==========================================
+    // 1. 常數與造價查表字典
+    // ==========================================
+    const CONST = {
+      PING_TO_SQM: 3.305785,
+      SQM_TO_HA: 0.0001,
+      F1_BASE_THRES: 4.5,
+      F1_STEP: 0.1,
+      NTPC_MAINT_COST: 7500,
+      CAR_VAL: 1500000,
+      SCOOTER_VAL: 300000
+    };
+
+    // 新北市既有參考表；其他縣市不得直接作為法定工程造價。
+    const COST_TABLE = {
+      'SC': {
+        '6-10': [173405, 165119, 160245], '11-15': [187785, 178889, 173527], '16-20': [220809, 210329, 203992],
+        '21-25': [237615, 230801, 223855], '26-30': [257976, 245790, 238356], '31-35': [270649, 257854, 250055], '36+': [281738, 268334, 260291]
+      },
+      'SRC': {
+        '6-10': [166216, 158295, 153542], '11-15': [180229, 171577, 166459], '16-20': [199605, 190100, 184495],
+        '21-25': [219103, 208623, 202408], '26-30': [233482, 222393, 215690], '31-35': [245302, 233604, 226658], '36+': [256757, 244571, 237138]
+      },
+      'RC': {
+        '6-10': [138797, 132095, 128196], '11-15': [155248, 147815, 143428], '16-20': [170481, 162316, 157442],
+        '21-25': [186932, 178036, 172674], '26-30': [205698, 195827, 189978], '31-35': [226170, 215447, 208988], '36+': [226170, 215447, 208988]
+      }
+    };
+
+    // 桃園市建築物工程造價標準表（115年1月1日生效），單位：元／㎡。
+    const TY_LEGAL_COST_115 = {
+      STEEL_NO_WALL: 3040,
+      LIGHT_STEEL: 4940,
+      REINFORCED_BRICK: 6210,
+      BRICK_WOOD: 4430,
+      RC: [
+        [1, 5, 8770], [6, 8, 10410], [9, 12, 12830], [13, 15, 15030],
+        [16, 20, 17710], [21, 25, 18520], [26, 30, 19330], [31, Infinity, 20490]
+      ],
+      SRC: [
+        [1, 10, 12760], [11, 15, 16360], [16, 20, 17860], [21, 25, 19370],
+        [26, 30, 20180], [31, 35, 21440], [36, Infinity, 22260]
+      ],
+      SC: [
+        [1, 1, 8000], [2, 10, 12830], [11, 15, 16780], [16, 20, 18430],
+        [21, 25, 20210], [26, 30, 21100], [31, 35, 22120], [36, Infinity, 23010]
+      ]
+    };
+
+    // ==========================================
+    // 2. DOM 與共用工具
+    // ==========================================
+    const $ = id => document.getElementById(id);
+    const num = id => {
+      const el = $(id);
+      const value = el ? parseFloat(el.value) : NaN;
+      return Number.isFinite(value) ? value : 0;
+    };
+    const setV = (id, value) => { const el = $(id); if (el) el.value = value; };
+    const fmt = (value, digits = 0) => Number(value || 0).toLocaleString('en-US', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+
+    const uiCity = $('citySelect');
+    const uiLandZone = $('landZone');
+    const uiUse = $('useType');
+    const uiStruct = $('uiStructure');
+    const uiFloor = $('uiFloors');
+    const uiFinalCost = $('uiFinalCostPing');
+    const uiInv = $('uiInvestment');
+    const uiExtraPct = $('uiF3Pct');
+    const uiF2Iso = $('f2Iso');
+    const uiF2SolarStd = $('f2SolarStd');
+    const uiTcPay = $('uiTcPayment');
+    const uiTyCommit = $('uiTaoyuanCommit');
+    const uiTyStructure = $('uiTyStructure');
+    const uiTyFloors = $('uiTyFloors');
+    const uiTyLegalCostSqM = $('uiTyLegalCostSqM');
+
+    const dynFields = {
+      parking: $('dynParking'),
+      taoyuan: $('dynTaoyuan'),
+      taoyuanDeposit: $('dynTaoyuanDeposit'),
+      diff: $('dynDiff'),
+      tainan: $('dynTainan')
+    };
+
+    const hqBlock = $('hqBlock');
+    const hqInputWrap = $('hqInputWrapper');
+    const f2SolarTnWrap = $('f2SolarTnWrap');
+    const f2TyWrap = $('f2TyWrap');
+    const f2KhWrap = $('f2KhWrap');
+    const autoAreaBucket = $('autoAreaBucket');
+    const autoCostPing = $('autoCostPing');
+    const schemePathNotice = $('schemePathNotice');
+
+    const SCHEME_META = {
+      new_taipei_urban: { name: '新北市都市土地地方版', authority: '地方版', extraType: 'paid' },
+      taoyuan_urban: { name: '桃園市都市土地地方版', authority: '地方版', extraType: 'none' },
+      taichung_urban: { name: '臺中市都市土地地方版', authority: '地方版', extraType: 'paid' },
+      tainan_urban: { name: '臺南市都市土地地方版', authority: '地方版', extraType: 'donated' },
+      kaohsiung_urban: { name: '高雄市都市土地地方版', authority: '地方版', extraType: 'donated' },
+      keelung_urban: { name: '基隆市都市土地地方版', authority: '地方版', extraType: 'paid' },
+      central_urban: { name: '中央都市土地方案', authority: '中央版', extraType: 'paid' },
+      central_non_urban: { name: '中央非都市土地方案', authority: '中央版', extraType: 'paid' }
+    };
+
+    function resolveScheme({ city, landZone }) {
+      if (landZone === 'non_urban') return 'central_non_urban';
+      const urbanMap = {
+        new_taipei: 'new_taipei_urban',
+        taoyuan: 'taoyuan_urban',
+        taichung: 'taichung_urban',
+        tainan: 'tainan_urban',
+        kaohsiung: 'kaohsiung_urban',
+        keelung: 'keelung_urban',
+        central: 'central_urban'
+      };
+      return urbanMap[city] || 'central_urban';
+    }
+
+    const FORM_STATE = { INITIAL: 'initial', EDITING: 'editing', READY: 'ready', CALCULATED: 'calculated', STALE: 'stale' };
+    let formState = FORM_STATE.INITIAL;
+    let lastCalculationCompleted = false;
+    let lastCalculatedAt = null;
+    let currentValidation = { valid: false, items: [], missing: [] };
+
+    let activeSchemeKey = null;
+    let parkingEdited = false;
+    let tyCarSpotsEdited = false;
+    let tyScooterSpotsEdited = false;
+    let tyGrossFloorEdited = false;
+    $('uiCarSpots').addEventListener('input', () => { parkingEdited = true; });
+    $('uiScooterSpots').addEventListener('input', () => { parkingEdited = true; });
+    $('uiTyCarSpots').addEventListener('input', () => { tyCarSpotsEdited = true; });
+    $('uiTyScooterSpots').addEventListener('input', () => { tyScooterSpotsEdited = true; });
+    $('uiTyTotalGrossFloorSqM').addEventListener('input', () => { tyGrossFloorEdited = true; });
+
+    function resetSchemeSpecificValues() {
+      ['f2TyStorage', 'f2TySmart', 'f2KhClean'].forEach(id => { if ($(id)) $(id).checked = false; });
+      ['f2SolarTn', 'f2KhGreen', 'f2KhSolar', 'uiTaoyuanCommit', 'uiTnMarketValue',
+       'uiTyFloors', 'uiTyLegalCostSqM', 'uiTyTotalGrossFloorSqM',
+       'uiTyScooterAreaPerSpot', 'uiTyBicycleAreaPerSpot'].forEach(id => setV(id, ''));
+      setV('uiTyStructure', 'RC');
+      setV('uiTyCarAreaPerSpot', 25);
+      ['uiTyCarSpots', 'uiTyScooterSpots', 'uiTyBicycleSpots'].forEach(id => setV(id, 0));
+      setV('uiF3Pct', 0);
+      setV('uiTcMarketValue', '');
+      setV('uiTcCost', '');
+      setV('uiTcPayment', '');
+      parkingEdited = false;
+      tyCarSpotsEdited = false;
+      tyScooterSpotsEdited = false;
+      tyGrossFloorEdited = false;
+    }
+
+    function updateSchemeNotice(schemeKey) {
+      const meta = SCHEME_META[schemeKey];
+      const isNonUrban = schemeKey === 'central_non_urban';
+      const extraText = meta.extraType === 'paid'
+        ? '本路徑以查估市價與查估成本差額計算回饋取得容積價金。'
+        : meta.extraType === 'donated'
+          ? '本路徑以捐贈實體建築空間取得額外容積為主。'
+          : '本路徑不提供另以回饋金取得額外容積的試算。';
+      schemePathNotice.innerHTML = `<strong>目前試算路徑：${meta.name}</strong><br>${extraText}${isNonUrban ? '<br>非都市土地不套用所在地縣市的都市土地地方版回饋、總部獎勵或履約保證金。' : ''}`;
+    }
+
+    function clearFinalResults() {
+      ['outInvestmentAmount', 'outTotalBonus', 'outTotalFAR', 'outFeedbackMoney',
+       'outDepositMoney', 'outF3Money', 'outF2CostMoney'].forEach(id => { if ($(id)) $(id).innerText = '—'; });
+      $('outFeedbackRule').innerText = '尚未執行正式試算';
+      $('outDepositRule').innerText = '尚未執行正式試算';
+      $('outF3Rule').innerText = '尚未執行正式試算';
+      $('outF3Unit').innerText = '';
+      $('calcLog').innerHTML = '<div class="text-slate-400">完成左側資料並執行正式試算後，這裡會列出完整公式與計算過程。</div>';
+      ['barF1', 'barHQ', 'barF2', 'barF3'].forEach(id => {
+        $(id).style.width = '0%';
+        $(id).innerText = '';
+      });
+      $('outBonusWarning').classList.add('hidden');
+    }
+
+    function setResultState(state, message = '') {
+      formState = state;
+      const body = $('resultBody');
+      const banner = $('resultStatusBanner');
+      body.classList.remove('results-pending', 'results-stale');
+      banner.className = 'notice mb-5';
+
+      if (state === FORM_STATE.CALCULATED) {
+        banner.classList.add('notice-info');
+        banner.innerHTML = message || `<strong>試算完成</strong><br>完成時間：${lastCalculatedAt || '—'}｜適用路徑：${SCHEME_META[activeSchemeKey]?.name || '—'}`;
+      } else if (state === FORM_STATE.STALE) {
+        body.classList.add('results-stale');
+        banner.classList.add('notice-warn');
+        banner.innerHTML = '<strong>輸入資料已變更</strong><br>以下保留上一次試算結果供對照，尚未反映目前輸入內容。請按「重新試算」。';
+      } else if (state === FORM_STATE.READY) {
+        body.classList.add('results-pending');
+        banner.classList.add('notice-info');
+        banner.innerHTML = '<strong>必要資料已完整</strong><br>按下方「執行正式試算」後，才會更新回饋金、保證金及最終容積結果。';
+      } else if (state === FORM_STATE.EDITING) {
+        body.classList.add('results-pending');
+        banner.classList.add('notice-warn');
+        banner.innerHTML = '<strong>資料尚未完整</strong><br>請依上方「試算前檢核清單」補齊必要欄位。';
+      } else {
+        body.classList.add('results-pending');
+        banner.classList.add('notice-info');
+        banner.innerHTML = '<strong>尚未試算</strong><br>完成左側資料後，按下方「執行正式試算」產出結果。';
+      }
+    }
+
+    function validateCalculation(data) {
+      const items = [];
+      const add = (label, ok, detail = '', required = true) => items.push({ label, ok: Boolean(ok), detail, required });
+
+      add('適用試算路徑已確認', Boolean(data.schemeKey), SCHEME_META[data.schemeKey]?.name || '');
+      add('基地面積已輸入', data.baseAreaPing > 0, '應大於0坪');
+      add('法定建蔽率已輸入', data.baseCoverage > 0 && data.baseCoverage <= 100, '應大於0且不超過100%');
+      add('法定容積率已輸入', data.baseFAR > 0, '請依都市計畫或核定開發計畫輸入');
+      add('公告土地現值已輸入', data.landValueSqM > 0, '多筆土地請使用申請當期面積加權平均單價');
+      add('投資額已確認', $('uiInvestment').value !== '' && data.investmentAmountE100M >= 0, '可輸入0，代表不申請投資獎勵');
+
+      if (data.schemeKey === 'new_taipei_urban') {
+        add('新北營建單價已確認', data.referenceConstructionCostPing > 0, '可採系統查表值或手動覆寫');
+      }
+
+      if (data.schemeKey === 'taoyuan_urban') {
+        add('桃園回饋地區承諾方式已選擇', ['adopt', 'build'].includes(data.taoyuanCommit), '請選擇公共設施認養或興建');
+        if (!data.isSelf) {
+          add('桃園法定工程造價已取得', data.taoyuanLegalCostSqM > 0, '須先輸入構造別與實際樓層');
+          add('桃園地上樓層數已輸入', num('uiTyFloors') > 0, '用於法定工程造價查表');
+          add('建築物總樓地板面積 f 已確認', data.taoyuanTotalGrossFloorSqM > 0, '可先使用系統估算值，正式申請應改填設計值');
+          if (data.taoyuanCarSpots > 0) add('汽車位面積已輸入', data.taoyuanCarAreaPerSpot > 0, '新增汽車位大於0席');
+          else add('汽車位面積', true, '新增席數為0，不需輸入', false);
+          if (data.taoyuanScooterSpots > 0) add('機車位面積已輸入', data.taoyuanScooterAreaPerSpot > 0, '新增機車位大於0席');
+          else add('機車位面積', true, '新增席數為0，不需輸入', false);
+          if (data.taoyuanBicycleSpots > 0) add('自行車位面積已輸入', data.taoyuanBicycleAreaPerSpot > 0, '新增自行車位大於0席');
+          else add('自行車位面積', true, '新增席數為0，不需輸入', false);
+        }
+      }
+
+      if (SCHEME_META[data.schemeKey]?.extraType === 'paid' && data.extraPct > 0) {
+        add('查估市價已輸入', data.appraisedMarketValue > 0, '申請回饋取得容積時必填');
+        add('查估成本已輸入', data.appraisedCostValue > 0, '申請回饋取得容積時必填');
+        add('查估市價高於查估成本', data.appraisedMarketValue > data.appraisedCostValue, '價差須大於0');
+        add('回饋金繳納方式已選擇', ['once', 'installment'].includes(data.paymentMethod), '請選擇一次或分期繳納');
+      } else if (SCHEME_META[data.schemeKey]?.extraType === 'paid') {
+        add('估價差額資料', true, '未申請回饋取得容積，暫不需輸入', false);
+      }
+
+      if (data.schemeKey === 'tainan_urban' && !data.isSelf) {
+        add('臺南中繼廠房查估市價已輸入', data.tainanMarketValueSqM > 0, '非產業自用案件必填');
+      }
+
+      const requiredItems = items.filter(item => item.required);
+      const missing = requiredItems.filter(item => !item.ok);
+      return { valid: missing.length === 0, items, missing, complete: requiredItems.length - missing.length, total: requiredItems.length };
+    }
+
+    function renderValidation(validation) {
+      currentValidation = validation;
+      
+      // 更新右側頂部的清單
+      $('validationList').innerHTML = validation.items.map(item => {
+        const cls = !item.required ? 'validation-skip' : item.ok ? 'validation-ok' : 'validation-error';
+        const icon = !item.required ? '—' : item.ok ? '✓' : '✕';
+        return `<div class="validation-item ${cls}"><span class="validation-icon">${icon}</span><div><div class="font-bold">${item.label}</div>${item.detail ? `<div class="text-[11px] opacity-75 mt-0.5">${item.detail}</div>` : ''}</div></div>`;
+      }).join('');
+
+      // 更新底部懸浮列狀態
+      $('validationProgress').innerText = `已完成必要欄位：${validation.complete}／${validation.total}`;
+      const button = $('btnCalculate');
+      button.disabled = !validation.valid;
+      
+      const fixedBarIcon = $('fixedBarIcon');
+
+      if (validation.valid) {
+        $('validationSummary').className = 'notice notice-info mb-3';
+        $('validationSummary').innerHTML = '<strong>資料完整。</strong> 輔助數值已即時更新；正式金額須按下方按鈕計算。';
+        $('validationMissing').innerText = lastCalculationCompleted ? '輸入變更後請重新試算。' : '可以執行正式試算。';
+        $('validationMissing').className = 'text-xs text-emerald-600 mt-0.5 font-bold truncate w-[90%] md:max-w-xl';
+        button.innerText = lastCalculationCompleted ? '重新試算' : '執行正式試算';
+        
+        fixedBarIcon.innerHTML = `<span class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 text-xl md:text-2xl font-black">✓</span>`;
+      } else {
+        $('validationSummary').className = 'notice notice-warn mb-3';
+        $('validationSummary').innerHTML = `<strong>尚缺 ${validation.missing.length} 項必要資料。</strong> 補齊前不產出正式結果。`;
+        $('validationMissing').innerText = '缺少：' + validation.missing.map(item => item.label).join('、');
+        $('validationMissing').className = 'text-xs text-red-500 mt-0.5 font-bold truncate w-[90%] md:max-w-xl';
+        button.innerText = `尚缺 ${validation.missing.length} 項資料`;
+        
+        fixedBarIcon.innerHTML = `<span class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-red-100 text-red-600 text-xl md:text-2xl font-black">!</span>`;
+      }
+    }
+
+    function handleInputChange() {
+      runEngine(false);
+    }
+
+    function resetAllInputs() {
+      document.querySelectorAll('input, select').forEach(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          el.checked = el.defaultChecked;
+        } else if (el.tagName === 'SELECT') {
+          const defaultOption = Array.from(el.options).find(option => option.defaultSelected);
+          el.value = defaultOption ? defaultOption.value : (el.options[0]?.value || '');
+        } else {
+          el.value = el.defaultValue;
+        }
+      });
+      activeSchemeKey = null;
+      parkingEdited = false;
+      tyCarSpotsEdited = false;
+      tyScooterSpotsEdited = false;
+      tyGrossFloorEdited = false;
+      lastCalculationCompleted = false;
+      lastCalculatedAt = null;
+      clearFinalResults();
+      setResultState(FORM_STATE.INITIAL);
+      updateUI();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ==========================================
+    // 3. UI 顯示與方案分流
+    // ==========================================
+    function updateUI() {
+      const city = uiCity.value;
+      const landZone = uiLandZone.value;
+      const isSelf = uiUse.value === 'self';
+      const schemeKey = resolveScheme({ city, landZone });
+
+      if (activeSchemeKey !== null && activeSchemeKey !== schemeKey) resetSchemeSpecificValues();
+      activeSchemeKey = schemeKey;
+      updateSchemeNotice(schemeKey);
+
+      Object.values(dynFields).forEach(el => el.classList.add('hidden'));
+      hqBlock.classList.add('hidden');
+      hqInputWrap.innerHTML = '';
+      $('f2SolarStdWrap').classList.remove('hidden');
+      f2SolarTnWrap.classList.add('hidden');
+      f2TyWrap.classList.add('hidden');
+      f2KhWrap.classList.add('hidden');
+      $('f3InputWrapper').classList.remove('hidden');
+      $('f3TaoyuanNotice').classList.add('hidden');
+
+      const meta = SCHEME_META[schemeKey];
+      const isDonated = meta.extraType === 'donated';
+      $('f3MainLabel').innerText = isDonated ? '捐贈取得容積（上限依適用方案）' : '回饋取得容積（上限依適用方案）';
+      $('extraPctLabel').innerText = isDonated ? '申請捐贈取得容積比例' : '申請回饋取得容積比例';
+      $('extraLegendLabel').innerText = isDonated ? '捐贈取得容積' : '回饋取得容積';
+      $('outExtraCardLabel').innerText = isDonated ? '捐贈取得容積面積' : '回饋取得容積價金估算';
+      $('f3MaxCaption').innerText = landZone === 'non_urban' ? '距400%之數學剩餘額度' : '試算剩餘上限';
+
+      if (schemeKey === 'new_taipei_urban') {
+        dynFields.parking.classList.remove('hidden');
+        dynFields.diff.classList.remove('hidden');
+        hqBlock.classList.remove('hidden');
+        hqInputWrap.innerHTML = `<label class="flex items-center text-sm"><input type="checkbox" id="hqCheck" class="mr-2"> 設立營運總部（+5%）</label>`;
+      } else if (schemeKey === 'taoyuan_urban') {
+        dynFields.taoyuan.classList.remove('hidden');
+        f2TyWrap.classList.remove('hidden');
+        hqBlock.classList.remove('hidden');
+        if (isSelf) {
+          hqInputWrap.innerHTML = `<select id="hqSelect" class="text-sm p-1"><option value="0">無</option><option value="3">根留桃園（+3%）</option><option value="5">營運總部（+5%）</option></select>`;
+        } else {
+          hqInputWrap.innerHTML = `<div class="notice notice-warn mb-0">根留桃園及營運總部獎勵限產業自用案件，本情境不適用。</div>`;
+          dynFields.taoyuanDeposit.classList.remove('hidden');
+          updateTaoyuanLegalCost(false);
+        }
+        $('f3InputWrapper').classList.add('hidden');
+        $('f3TaoyuanNotice').classList.remove('hidden');
+      } else if (schemeKey === 'taichung_urban' || schemeKey === 'keelung_urban' || schemeKey === 'central_urban' || schemeKey === 'central_non_urban') {
+        dynFields.diff.classList.remove('hidden');
+      } else if (schemeKey === 'tainan_urban') {
+        if (!isSelf) dynFields.tainan.classList.remove('hidden');
+        $('f2SolarStdWrap').classList.add('hidden');
+        f2SolarTnWrap.classList.remove('hidden');
+      } else if (schemeKey === 'kaohsiung_urban') {
+        hqBlock.classList.remove('hidden');
+        hqInputWrap.innerHTML = `<label class="flex items-center text-sm"><input type="checkbox" id="hqCheck" class="mr-2"> 營運總部（併入永續獎勵，+5%）</label>`;
+        $('f2SolarStdWrap').classList.add('hidden');
+        f2KhWrap.classList.remove('hidden');
+      }
+
+      const hqCheck = $('hqCheck');
+      const hqSelect = $('hqSelect');
+      if (hqCheck) hqCheck.addEventListener('change', handleInputChange);
+      if (hqSelect) hqSelect.addEventListener('change', handleInputChange);
+
+      lastCalculationCompleted = false;
+      lastCalculatedAt = null;
+      clearFinalResults();
+      runEngine(false);
+    }
+
+    // ==========================================
+    // 4. 查表與快捷按鈕
+    // ==========================================
+
+    function lookupTaoyuanLegalCost(structure, floors) {
+      const entry = TY_LEGAL_COST_115[structure];
+      if (typeof entry === 'number') return entry;
+      const floorCount = Number(floors);
+      if (!Array.isArray(entry) || !Number.isFinite(floorCount) || floorCount < 1) return 0;
+      const matched = entry.find(([min, max]) => floorCount >= min && floorCount <= max);
+      return matched ? matched[2] : 0;
+    }
+
+    function updateTaoyuanLegalCost(force = true) {
+      const costSqM = lookupTaoyuanLegalCost(uiTyStructure.value, num('uiTyFloors'));
+      if (force || num('uiTyLegalCostSqM') <= 0) setV('uiTyLegalCostSqM', costSqM || '');
+      $('outTyLegalCostPing').innerText = fmt((num('uiTyLegalCostSqM') || costSqM) * CONST.PING_TO_SQM);
+    }
+
+    function cappedParkingUnitValue(baseUnitValuePerSqM, areaPerSpot) {
+      if (baseUnitValuePerSqM <= 0 || areaPerSpot <= 0) return 0;
+      const raw = baseUnitValuePerSqM * areaPerSpot;
+      return Math.min(1000000, Math.max(200000, raw));
+    }
+
+    function updateCostTable(totalNewAreaPing) {
+      const structure = uiStruct.value;
+      const floors = uiFloor.value;
+      let bucketIdx = 0;
+      let bucketName = '未滿 2500 坪';
+      if (totalNewAreaPing >= 7500) {
+        bucketIdx = 2;
+        bucketName = '7500 坪以上';
+      } else if (totalNewAreaPing >= 2500) {
+        bucketIdx = 1;
+        bucketName = '2500～7500 坪';
+      }
+      autoAreaBucket.innerText = `${fmt(totalNewAreaPing)}坪（${bucketName}）`;
+      const costPing = COST_TABLE[structure][floors][bucketIdx];
+      autoCostPing.innerText = fmt(costPing);
+      if (document.activeElement !== uiFinalCost) setV('uiFinalCostPing', costPing);
+    }
+
+    $('btnLoadCost').addEventListener('click', () => {
+      setV('uiTcCost', Math.round(num('uiFinalCostPing')));
+      handleInputChange();
+    });
+
+    $('btnTyReloadCost').addEventListener('click', () => {
+      updateTaoyuanLegalCost(true);
+      handleInputChange();
+    });
+
+    $('btnTyUseFARAsGross').addEventListener('click', () => {
+      tyGrossFloorEdited = false;
+      handleInputChange();
+    });
+
+    uiTyStructure.addEventListener('change', () => {
+      updateTaoyuanLegalCost(true);
+      handleInputChange();
+    });
+    uiTyFloors.addEventListener('input', () => {
+      updateTaoyuanLegalCost(true);
+      handleInputChange();
+    });
+    uiTyLegalCostSqM.addEventListener('input', () => {
+      $('outTyLegalCostPing').innerText = fmt(num('uiTyLegalCostSqM') * CONST.PING_TO_SQM);
+    });
+
+    $('btnF1Max').addEventListener('click', () => {
+      const ha = num('baseAreaPing') * CONST.PING_TO_SQM * CONST.SQM_TO_HA;
+      const maxInvestment = ha * (CONST.F1_BASE_THRES + CONST.F1_STEP * 15);
+      setV('uiInvestment', (Math.ceil(maxInvestment * 100) / 100).toFixed(2));
+      handleInputChange();
+    });
+
+    $('btnF3Max').addEventListener('click', () => {
+      setV('uiF3Pct', parseFloat(uiExtraPct.getAttribute('max')) || 0);
+      handleInputChange();
+    });
+
+    function calculateAppraisalPaidBonus(ctx, title) {
+      const paidAreaPing = ctx.extraAreaSqM / CONST.PING_TO_SQM;
+      let log = `<div class="log-sec"><span class="log-hl">[${title}]</span><br>`;
+      if (ctx.extraPct <= 0) {
+        return { money: 0, rule: '未申請回饋取得容積', log: log + '未申請回饋取得容積。</div>' };
+      }
+      if (ctx.appraisedMarketValue <= 0 || ctx.appraisedCostValue <= 0 || !ctx.paymentMethod) {
+        return {
+          money: 0,
+          rule: '資料不足：請輸入查估市價、查估成本及繳納方式',
+          log: log + '<span class="log-err">⚠ 尚缺查估市價、查估成本或繳納方式，暫不提供價金結果。</span></div>'
+        };
+      }
+      const difference = ctx.appraisedMarketValue - ctx.appraisedCostValue;
+      if (difference <= 0) {
+        return {
+          money: 0,
+          rule: '查估價差須大於0，請確認輸入資料',
+          log: log + `<span class="log-err">⚠ 查估市價 ${fmt(ctx.appraisedMarketValue)} 元／坪未高於查估成本 ${fmt(ctx.appraisedCostValue)} 元／坪，暫停計算。</span></div>`
+        };
+      }
+      const gross = paidAreaPing * difference;
+      const money = ctx.paymentMethod === 'once' ? gross / 1.2 : gross;
+      const paymentText = ctx.paymentMethod === 'once' ? '一次繳納，除以1.2' : '分期繳納，不折減';
+      log += `回饋取得容積 ${fmt(paidAreaPing, 1)} 坪 × 查估價差 ${fmt(difference)} 元／坪；${paymentText}<br><span class="log-ok">▶ 回饋取得容積價金 = ${fmt(money)} 元</span></div>`;
+      return {
+        money,
+        rule: ctx.paymentMethod === 'once'
+          ? '回饋取得容積坪數 ×（查估市價－查估成本）÷1.2'
+          : '回饋取得容積坪數 ×（查估市價－查估成本）',
+        log
+      };
+    }
+
+    // ==========================================
+    // 5. 適用方案策略
+    // ==========================================
+    const SchemeStrategies = {
+      new_taipei_urban: ctx => {
+        const f1SqM = ctx.f1AreaSqM;
+        const totalNewSqM = ctx.baseFloorAreaSqM * (1 + (ctx.phase1BonusPct + ctx.extraPct) / 100);
+        const landShareValue = totalNewSqM > 0 ? (f1SqM / totalNewSqM) * ctx.baseAreaSqM * ctx.landValueSqM * 1.4 : 0;
+        const constructionValue = f1SqM * ctx.referenceConstructionCostSqM;
+        const maintenanceValue = f1SqM * CONST.NTPC_MAINT_COST;
+        const parkingValue = ctx.ntpcCarSpots * CONST.CAR_VAL + ctx.ntpcScooterSpots * CONST.SCOOTER_VAL;
+        const totalValue = landShareValue + constructionValue + maintenanceValue + parkingValue;
+        const fbRatio = ctx.isSelf ? 0.1 : 0.3;
+        const depRatio = ctx.isSelf ? 0.5 : 0.7;
+        const paid = calculateAppraisalPaidBonus(ctx, '新北市回饋取得容積估價差額');
+        const log = `<div class="log-sec"><span class="log-hl">[新北市都市土地地方版]</span><br>總對應價值＝土地持分＋興建成本＋30年維護經費＋車位價值。<br>土地持分 ${fmt(landShareValue)} 元；興建成本 ${fmt(constructionValue)} 元；維護經費 ${fmt(maintenanceValue)} 元；車位價值 ${fmt(parkingValue)} 元。<br><span class="log-ok">▶ 總對應價值 ${fmt(totalValue)} 元</span></div>` + paid.log;
+        return {
+          baseFeedbackMoney: totalValue * fbRatio,
+          baseFeedbackRule: ctx.isSelf ? '產業自用：總對應價值10%' : '非產業自用：總對應價值30%',
+          depositMoney: totalValue * depRatio,
+          depositRule: ctx.isSelf ? '產業自用：總對應價值50%' : '非產業自用：總對應價值70%',
+          extraValue: paid.money / 10000,
+          extraUnit: '萬元',
+          extraRule: paid.rule,
+          log
+        };
+      },
+
+      taoyuan_urban: ctx => {
+        let log = `<div class="log-sec"><span class="log-hl">[桃園市都市土地地方版]</span><br>`;
+        let baseFeedbackMoney = 0;
+        let baseFeedbackRule = '尚未選擇回饋地區承諾方式';
+        if (ctx.taoyuanCommit === 'adopt' || ctx.taoyuanCommit === 'build') {
+          const ratio = ctx.taoyuanCommit === 'adopt' ? 0.010 : 0.008;
+          baseFeedbackMoney = ctx.investmentAmountE100M * 100000000 * ratio;
+          baseFeedbackRule = ctx.taoyuanCommit === 'adopt' ? '公共設施認養：投資額10‰' : '公共設施興建：投資額8‰';
+          log += `回饋地區承諾：投資額 ${fmt(ctx.investmentAmountE100M * 100000000)} 元 × ${ctx.taoyuanCommit === 'adopt' ? '10‰' : '8‰'}＝${fmt(baseFeedbackMoney)} 元。<br>`;
+        } else {
+          log += '<span class="log-warn">⚠ 尚未選擇回饋地區承諾方式。</span><br>';
+        }
+
+        let depositMoney = 0;
+        let depositRule = '產業自用：本方案不收取履約保證金';
+        if (!ctx.isSelf) {
+          const a = ctx.taoyuanDepositAreaSqM;
+          const b = ctx.taoyuanTotalFARFloorSqM;
+          const c = ctx.baseAreaSqM;
+          const d = ctx.landValueSqM;
+          const e = ctx.taoyuanLegalCostSqM;
+          const f = ctx.taoyuanTotalGrossFloorSqM;
+
+          const landShareValue = b > 0 ? (a / b) * c * d * 1.4 : 0;
+          const constructionValue = a * e;
+          const landAllocationPerSqM = f > 0 ? (d * c) / f : 0;
+          const parkingBasePerSqM = e + landAllocationPerSqM;
+
+          const parkingBaseReady = e > 0 && f > 0;
+          const carUnitValue = parkingBaseReady ? cappedParkingUnitValue(parkingBasePerSqM, ctx.taoyuanCarAreaPerSpot) : 0;
+          const scooterUnitValue = parkingBaseReady ? cappedParkingUnitValue(parkingBasePerSqM, ctx.taoyuanScooterAreaPerSpot) : 0;
+          const bicycleUnitValue = parkingBaseReady ? cappedParkingUnitValue(parkingBasePerSqM, ctx.taoyuanBicycleAreaPerSpot) : 0;
+          const parkingValue =
+            ctx.taoyuanCarSpots * carUnitValue +
+            ctx.taoyuanScooterSpots * scooterUnitValue +
+            ctx.taoyuanBicycleSpots * bicycleUnitValue;
+
+          const depositBase = landShareValue + constructionValue + parkingValue;
+          depositMoney = depositBase * 0.4;
+          depositRule = '40% ×〔土地持分價值（含公告現值×1.4）＋興建成本＋新增法定停車位價值〕';
+
+          $('outTyCarUnitValue').innerText = parkingBaseReady && ctx.taoyuanCarAreaPerSpot > 0 ? fmt(carUnitValue) : '待補資料';
+          $('outTyScooterUnitValue').innerText = parkingBaseReady && ctx.taoyuanScooterAreaPerSpot > 0 ? fmt(scooterUnitValue) : '待補資料';
+          $('outTyBicycleUnitValue').innerText = ctx.taoyuanBicycleSpots <= 0 ? '不適用' : (parkingBaseReady && ctx.taoyuanBicycleAreaPerSpot > 0 ? fmt(bicycleUnitValue) : '待補資料');
+
+          log += `<br><span class="log-hl">[非產業自用履約保證金]</span><br>
+            a 新增投資15%獎勵面積：${fmt(a, 2)} ㎡<br>
+            b 建物總容積樓地板面積：${fmt(b, 2)} ㎡<br>
+            (1) 土地持分＝(${fmt(a, 2)} ÷ ${fmt(b, 2)}) × ${fmt(c, 2)} × ${fmt(d)} × 1.4＝${fmt(landShareValue)} 元<br>
+            (2) 興建成本＝${fmt(a, 2)} × ${fmt(e)}＝${fmt(constructionValue)} 元<br>
+            f 建築物總樓地板面積：${fmt(f, 2)} ㎡；每㎡土地分攤價值：${fmt(landAllocationPerSqM)} 元<br>
+            停車位每㎡計價基礎＝法定工程造價 ${fmt(e)}＋土地分攤 ${fmt(landAllocationPerSqM)}＝${fmt(parkingBasePerSqM)} 元／㎡<br>
+            汽車 ${fmt(ctx.taoyuanCarSpots)} 席 × ${fmt(carUnitValue)} 元；機車 ${fmt(ctx.taoyuanScooterSpots)} 席 × ${fmt(scooterUnitValue)} 元；自行車 ${fmt(ctx.taoyuanBicycleSpots)} 席 × ${fmt(bicycleUnitValue)} 元<br>
+            (3) 新增法定停車位價值＝${fmt(parkingValue)} 元<br>
+            <span class="log-ok">▶ 保證金＝40% ×（${fmt(landShareValue)}＋${fmt(constructionValue)}＋${fmt(parkingValue)}）＝${fmt(depositMoney)} 元</span>`;
+
+          if (e <= 0) log += '<br><span class="log-err">⚠ 尚未完成桃園法定工程造價查表，保證金結果不完整。</span>';
+          if (f <= 0) log += '<br><span class="log-err">⚠ 尚未輸入建築物總樓地板面積 f，停車位價值無法完整計算。</span>';
+          if (ctx.taoyuanCarSpots > 0 && ctx.taoyuanCarAreaPerSpot <= 0) log += '<br><span class="log-err">⚠ 尚未輸入汽車停車空間面積。</span>';
+          if (ctx.taoyuanScooterSpots > 0 && ctx.taoyuanScooterAreaPerSpot <= 0) log += '<br><span class="log-err">⚠ 尚未輸入機車停車空間面積。</span>';
+          if (ctx.taoyuanBicycleSpots > 0 && ctx.taoyuanBicycleAreaPerSpot <= 0) log += '<br><span class="log-err">⚠ 尚未輸入自行車停車空間面積。</span>';
+        } else {
+          $('outTyCarUnitValue').innerText = '0';
+          $('outTyScooterUnitValue').innerText = '0';
+          $('outTyBicycleUnitValue').innerText = '0';
+        }
+        log += '</div>';
+        return {
+          baseFeedbackMoney,
+          baseFeedbackRule,
+          depositMoney,
+          depositRule,
+          extraValue: 0,
+          extraUnit: '萬元',
+          extraRule: '桃園市都市土地地方版不提供另以回饋金取得額外容積的試算',
+          log
+        };
+      },
+
+      taichung_urban: ctx => {
+        const paid = calculateAppraisalPaidBonus(ctx, '臺中市回饋取得容積估價差額');
+        return {
+          baseFeedbackMoney: 0,
+          baseFeedbackRule: '投資及永續獎勵面積不納入估價差額回饋金',
+          depositMoney: 0,
+          depositRule: '本版本未設定一般化保證金公式',
+          extraValue: paid.money / 10000,
+          extraUnit: '萬元',
+          extraRule: paid.rule,
+          log: paid.log
+        };
+      },
+
+      keelung_urban: ctx => {
+        const paid = calculateAppraisalPaidBonus(ctx, '基隆市回饋取得容積估價差額');
+        return {
+          baseFeedbackMoney: 0,
+          baseFeedbackRule: '投資及永續獎勵面積不納入估價差額回饋金',
+          depositMoney: 0,
+          depositRule: '本版本未設定一般化保證金公式',
+          extraValue: paid.money / 10000,
+          extraUnit: '萬元',
+          extraRule: paid.rule,
+          log: paid.log
+        };
+      },
+
+      tainan_urban: ctx => {
+        let baseFeedbackMoney = 0;
+        let baseFeedbackRule = '產業自用：無中繼廠房代金';
+        let log = `<div class="log-sec"><span class="log-hl">[臺南市都市土地地方版]</span><br>`;
+        if (!ctx.isSelf) {
+          baseFeedbackMoney = ctx.f1AreaSqM * 0.3 * ctx.tainanMarketValueSqM;
+          baseFeedbackRule = '非產業自用：投資獎勵樓地板30% × 中繼廠房查估市價';
+          log += `中繼廠房代金：${fmt(ctx.f1AreaSqM)} ㎡ × 30% × ${fmt(ctx.tainanMarketValueSqM)} 元／㎡＝${fmt(baseFeedbackMoney)} 元。<br>`;
+          if (ctx.tainanMarketValueSqM <= 0) log += '<span class="log-err">⚠ 尚未輸入中繼廠房查估市價。</span><br>';
+        }
+        const depositRatio = ctx.isSelf ? 0.5 : 0.7;
+        const totalBonusAreaSqM = ctx.baseFloorAreaSqM * ((ctx.phase1BonusPct + ctx.extraPct) / 100);
+        const depositMoney = ctx.landValueSqM * depositRatio * totalBonusAreaSqM;
+        log += `履約保證金：公告土地現值 ${fmt(ctx.landValueSqM)} × ${depositRatio} × 總獎勵面積 ${fmt(totalBonusAreaSqM)} ㎡＝${fmt(depositMoney)} 元。</div>`;
+        return {
+          baseFeedbackMoney,
+          baseFeedbackRule,
+          depositMoney,
+          depositRule: `公告土地現值 × ${depositRatio} × 總獎勵樓地板面積`,
+          extraValue: ctx.extraAreaSqM,
+          extraUnit: '㎡',
+          extraRule: '捐贈取得容積之實際捐贈比例及土地持分仍依核准內容確認',
+          log
+        };
+      },
+
+      kaohsiung_urban: ctx => {
+        const depositAreaSqM = ctx.baseFloorAreaSqM * ((ctx.sustainabilityBonusPct + ctx.headquartersBonusPct) / 100);
+        const depositMoney = ctx.landValueSqM * 0.7 * depositAreaSqM;
+        const log = `<div class="log-sec"><span class="log-hl">[高雄市都市土地地方版]</span><br>永續、能源及總部相關保證金：公告土地現值 ${fmt(ctx.landValueSqM)} × 0.7 × 獎勵面積 ${fmt(depositAreaSqM)} ㎡＝<span class="log-ok">${fmt(depositMoney)} 元</span>。</div>`;
+        return {
+          baseFeedbackMoney: 0,
+          baseFeedbackRule: '捐贈實體建築空間為主',
+          depositMoney,
+          depositRule: '公告土地現值 × 0.7 × 永續／能源及總部獎勵面積',
+          extraValue: ctx.extraAreaSqM,
+          extraUnit: '㎡',
+          extraRule: '捐贈取得容積之實際捐贈比例及土地持分仍依核准內容確認',
+          log
+        };
+      },
+
+      central_urban: ctx => {
+        const paid = calculateAppraisalPaidBonus(ctx, '中央都市土地回饋取得容積');
+        return {
+          baseFeedbackMoney: 0,
+          baseFeedbackRule: '依中央及個案核准內容確認',
+          depositMoney: 0,
+          depositRule: '無通案履約保證金公式',
+          extraValue: paid.money / 10000,
+          extraUnit: '萬元',
+          extraRule: paid.rule,
+          log: `<div class="log-sec"><span class="log-hl">[中央都市土地方案]</span><br>不以公告土地現值加營造造價替代回饋取得容積價金。</div>` + paid.log
+        };
+      },
+
+      central_non_urban: ctx => {
+        const paid = calculateAppraisalPaidBonus(ctx, '中央非都市土地回饋取得容積');
+        return {
+          baseFeedbackMoney: 0,
+          baseFeedbackRule: '不套用所在地縣市之都市土地地方版回饋義務',
+          depositMoney: 0,
+          depositRule: '不套用所在地縣市之都市土地地方版履約保證金',
+          extraValue: paid.money / 10000,
+          extraUnit: '萬元',
+          extraRule: paid.rule,
+          log: `<div class="log-sec"><span class="log-hl">[中央非都市土地方案]</span><br>本簡化路徑不自動判斷是否屬整體開發園區或實際主管機關；非都市土地不疊加桃園、新北、臺南或高雄都市土地地方版義務。</div>` + paid.log
+        };
+      }
+    };
+
+    // ==========================================
+    // 6. 主運算函數
+    // ==========================================
+    function runEngine(commitFinal = false) {
+      const city = uiCity.value;
+      const landZone = uiLandZone.value;
+      const isUrban = landZone === 'urban';
+      const isSelf = uiUse.value === 'self';
+      const schemeKey = resolveScheme({ city, landZone });
+
+      const baseAreaPing = num('baseAreaPing');
+      const baseCoverage = num('baseCoverage') || 60;
+      const baseAreaSqM = baseAreaPing * CONST.PING_TO_SQM;
+      const baseAreaHa = baseAreaSqM * CONST.SQM_TO_HA;
+      const baseFAR = num('baseFAR');
+      const baseFloorAreaSqM = baseAreaSqM * baseFAR / 100;
+      const landValueSqM = num('landValueSqM');
+      const investmentAmountE100M = num('uiInvestment');
+
+      let logHtml = `<div class="log-sec"><span class="log-hl">[1. 適用路徑與基礎資料]</span><br>試算方案：${SCHEME_META[schemeKey].name}<br>土地制度：${isUrban ? '都市土地' : '非都市土地'}<br>基地面積：${fmt(baseAreaPing)} 坪＝${fmt(baseAreaSqM, 2)} ㎡（${fmt(baseAreaHa, 4)} 公頃）<br>基準容積樓地板：${fmt(baseAreaSqM, 2)} ㎡ × ${fmt(baseFAR)}%＝${fmt(baseFloorAreaSqM, 2)} ㎡</div>`;
+
+      const investmentThreshold = baseAreaHa * CONST.F1_BASE_THRES;
+      const rawInvestmentBonus = investmentAmountE100M > investmentThreshold
+        ? (investmentAmountE100M - investmentThreshold) / (baseAreaHa * CONST.F1_STEP)
+        : 0;
+      let investmentBonusPct = Math.min(Math.max(rawInvestmentBonus, 0), 15);
+
+      let sustainabilityRaw = 0;
+      let headquartersRaw = 0;
+      let f2CostMoney = 0;
+      const solarPing = baseAreaPing * (baseCoverage / 100) * 0.5;
+      const solarCost10k = solarPing * 2.22;
+
+      if (investmentBonusPct > 0) {
+        if (uiF2Iso.checked) {
+          sustainabilityRaw += 2;
+          f2CostMoney += 2600;
+        }
+        if (schemeKey === 'new_taipei_urban') {
+          if (uiF2SolarStd.checked) { sustainabilityRaw += 3; f2CostMoney += solarCost10k; }
+          if ($('hqCheck') && $('hqCheck').checked) headquartersRaw = 5;
+        } else if (schemeKey === 'taoyuan_urban') {
+          if (uiF2SolarStd.checked) { sustainabilityRaw += 3; f2CostMoney += solarCost10k; }
+          if ($('f2TyStorage').checked) sustainabilityRaw += 3;
+          if ($('f2TySmart').checked) sustainabilityRaw += 3;
+          headquartersRaw = isSelf && $('hqSelect') ? num('hqSelect') : 0;
+        } else if (schemeKey === 'tainan_urban') {
+          sustainabilityRaw += num('f2SolarTn');
+          if (num('f2SolarTn') > 0) f2CostMoney += solarCost10k;
+        } else if (schemeKey === 'kaohsiung_urban') {
+          sustainabilityRaw += num('f2KhGreen');
+          if ($('f2KhClean').checked) sustainabilityRaw += 1;
+          sustainabilityRaw += num('f2KhSolar');
+          if (num('f2KhSolar') > 0) f2CostMoney += solarCost10k;
+          if ($('hqCheck') && $('hqCheck').checked) headquartersRaw = 5;
+        } else {
+          if (uiF2SolarStd.checked) { sustainabilityRaw += 3; f2CostMoney += solarCost10k; }
+        }
+      } else {
+        logHtml += `<div class="log-sec"><span class="log-warn">⚠ 未達投資獎勵門檻，永續、能源及總部獎勵暫不認列。</span></div>`;
+      }
+
+      let sustainabilityBonusPct = 0;
+      let headquartersBonusPct = 0;
+      if (schemeKey === 'taoyuan_urban') {
+        headquartersBonusPct = isSelf ? Math.min(headquartersRaw, 5) : 0;
+        sustainabilityBonusPct = Math.min(sustainabilityRaw, Math.max(0, 5 - headquartersBonusPct));
+      } else if (schemeKey === 'kaohsiung_urban') {
+        headquartersBonusPct = Math.min(headquartersRaw, 5);
+        sustainabilityBonusPct = Math.min(sustainabilityRaw, Math.max(0, 5 - headquartersBonusPct));
+      } else {
+        headquartersBonusPct = Math.min(headquartersRaw, 5);
+        sustainabilityBonusPct = Math.min(sustainabilityRaw, 5);
+      }
+
+      let phase1BonusPct = investmentBonusPct + sustainabilityBonusPct + headquartersBonusPct;
+      let overflow = false;
+      if (phase1BonusPct > 20) {
+        overflow = true;
+        sustainabilityBonusPct = Math.max(0, 20 - investmentBonusPct - headquartersBonusPct);
+        phase1BonusPct = investmentBonusPct + sustainabilityBonusPct + headquartersBonusPct;
+      }
+
+      logHtml += `<div class="log-sec"><span class="log-hl">[2. 基礎獎勵]</span><br>投資獎勵：${fmt(investmentBonusPct, 1)}%<br>永續及能源獎勵：${fmt(sustainabilityBonusPct, 1)}%<br>總部／根留獎勵：${fmt(headquartersBonusPct, 1)}%<br><span class="log-ok">▶ 基礎獎勵合計：${fmt(phase1BonusPct, 1)}%</span></div>`;
+
+      let maxExtraPct = 0;
+      if (isUrban) {
+        maxExtraPct = Math.max(0, Math.min(30, 50 - phase1BonusPct));
+        if (schemeKey === 'taoyuan_urban') maxExtraPct = 0;
+      } else if (baseFAR > 0) {
+        const mathematicalBonusTo400 = ((400 - baseFAR) / baseFAR) * 100;
+        maxExtraPct = Math.max(0, mathematicalBonusTo400 - phase1BonusPct);
+      }
+      uiExtraPct.setAttribute('max', maxExtraPct);
+      $('outF3Max_left').innerText = maxExtraPct.toFixed(1);
+      let extraPct = Math.min(num('uiF3Pct'), maxExtraPct);
+      if (num('uiF3Pct') !== extraPct) setV('uiF3Pct', extraPct);
+      const extraAreaSqM = baseFloorAreaSqM * extraPct / 100;
+
+      const f1AreaSqM = baseFloorAreaSqM * investmentBonusPct / 100;
+      const taoyuanDepositAreaSqM = baseFloorAreaSqM * 0.15;
+      const taoyuanTotalFARFloorSqM = baseFloorAreaSqM * (1 + phase1BonusPct / 100);
+      if (schemeKey === 'taoyuan_urban' && !isSelf) {
+        $('outTyDepositArea').innerText = fmt(taoyuanDepositAreaSqM, 2);
+        $('outTyTotalFARFloor').innerText = fmt(taoyuanTotalFARFloorSqM, 2);
+        if (!tyCarSpotsEdited) setV('uiTyCarSpots', taoyuanDepositAreaSqM > 0 ? Math.ceil(taoyuanDepositAreaSqM / 250) : 0);
+        if (!tyScooterSpotsEdited) setV('uiTyScooterSpots', taoyuanDepositAreaSqM > 0 ? Math.ceil(taoyuanDepositAreaSqM / 100) : 0);
+        if (!tyGrossFloorEdited) setV('uiTyTotalGrossFloorSqM', taoyuanTotalFARFloorSqM.toFixed(2));
+        updateTaoyuanLegalCost(false);
+      } else {
+        $('outTyDepositArea').innerText = '0';
+        $('outTyTotalFARFloor').innerText = '0';
+      }
+      if (schemeKey === 'new_taipei_urban' && !parkingEdited) {
+        setV('uiCarSpots', f1AreaSqM > 0 ? Math.ceil(f1AreaSqM / 250) : 0);
+        setV('uiScooterSpots', f1AreaSqM > 0 ? Math.ceil(f1AreaSqM / 100) : 0);
+      }
+
+      const totalBonusPct = phase1BonusPct + extraPct;
+      const estimatedTotalFloorPing = baseAreaPing * (baseFAR / 100) * (1 + totalBonusPct / 100);
+      updateCostTable(estimatedTotalFloorPing);
+      const referenceConstructionCostPing = num('uiFinalCostPing');
+      const referenceConstructionCostSqM = referenceConstructionCostPing / CONST.PING_TO_SQM;
+
+      const ctx = {
+        schemeKey,
+        isSelf,
+        baseAreaSqM,
+        baseFloorAreaSqM,
+        landValueSqM,
+        investmentAmountE100M,
+        investmentBonusPct,
+        sustainabilityBonusPct,
+        headquartersBonusPct,
+        phase1BonusPct,
+        extraPct,
+        extraAreaSqM,
+        f1AreaSqM,
+        referenceConstructionCostPing,
+        referenceConstructionCostSqM,
+        ntpcCarSpots: num('uiCarSpots'),
+        ntpcScooterSpots: num('uiScooterSpots'),
+        taoyuanCommit: uiTyCommit.value,
+        taoyuanDepositAreaSqM,
+        taoyuanTotalFARFloorSqM,
+        taoyuanLegalCostSqM: num('uiTyLegalCostSqM'),
+        taoyuanTotalGrossFloorSqM: num('uiTyTotalGrossFloorSqM'),
+        taoyuanCarSpots: num('uiTyCarSpots'),
+        taoyuanCarAreaPerSpot: num('uiTyCarAreaPerSpot'),
+        taoyuanScooterSpots: num('uiTyScooterSpots'),
+        taoyuanScooterAreaPerSpot: num('uiTyScooterAreaPerSpot'),
+        taoyuanBicycleSpots: num('uiTyBicycleSpots'),
+        taoyuanBicycleAreaPerSpot: num('uiTyBicycleAreaPerSpot'),
+        appraisedMarketValue: num('uiTcMarketValue'),
+        appraisedCostValue: num('uiTcCost'),
+        paymentMethod: uiTcPay.value,
+        tainanMarketValueSqM: num('uiTnMarketValue')
+      };
+
+      const strategy = SchemeStrategies[schemeKey];
+      if (!strategy) throw new Error(`找不到適用方案：${schemeKey}`);
+      const result = strategy(ctx);
+      logHtml += result.log;
+
+      const validation = validateCalculation({
+        ...ctx,
+        schemeKey,
+        isSelf,
+        baseAreaPing,
+        baseCoverage,
+        baseFAR,
+        landValueSqM,
+        referenceConstructionCostPing
+      });
+      renderValidation(validation);
+
+      $('resF1').innerText = `+${investmentBonusPct.toFixed(1)}%`;
+      $('resF2').innerText = `+${sustainabilityBonusPct.toFixed(1)}%`;
+      $('resHQ').innerText = `+${headquartersBonusPct.toFixed(1)}%`;
+      $('resF3_left').innerText = `+${extraPct.toFixed(1)}%`;
+      $('f2CostDisplay').innerText = fmt(f2CostMoney);
+
+      if (!commitFinal) {
+        if (lastCalculationCompleted) setResultState(FORM_STATE.STALE);
+        else setResultState(validation.valid ? FORM_STATE.READY : FORM_STATE.EDITING);
+        return { validation, ctx, result };
+      }
+
+      if (!validation.valid) {
+        setResultState(FORM_STATE.EDITING);
+        // 如果按下了試算但還是有錯，會平滑捲動到右側頂部的錯誤清單
+        $('validationSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return { validation, ctx, result };
+      }
+
+      $('outInvestmentAmount').innerText = investmentAmountE100M.toFixed(1);
+      $('outBonusWarning').classList.toggle('hidden', !overflow);
+
+      const scale = totalBonusPct > 50 ? 50 / totalBonusPct : 1;
+      $('barF1').style.width = `${investmentBonusPct * 2 * scale}%`;
+      $('barHQ').style.width = `${headquartersBonusPct * 2 * scale}%`;
+      $('barF2').style.width = `${sustainabilityBonusPct * 2 * scale}%`;
+      $('barF3').style.width = `${extraPct * 2 * scale}%`;
+      $('barF1').innerText = investmentBonusPct > 0 ? `${investmentBonusPct.toFixed(1)}%` : '';
+      $('barHQ').innerText = headquartersBonusPct > 0 ? `${headquartersBonusPct.toFixed(1)}%` : '';
+      $('barF2').innerText = sustainabilityBonusPct > 0 ? `${sustainabilityBonusPct.toFixed(1)}%` : '';
+      $('barF3').innerText = extraPct > 0 ? `${extraPct.toFixed(1)}%` : '';
+
+      $('outFeedbackMoney').innerText = fmt(result.baseFeedbackMoney / 10000);
+      $('outFeedbackRule').innerText = result.baseFeedbackRule;
+      $('outDepositMoney').innerText = fmt(result.depositMoney / 10000);
+      $('outDepositRule').innerText = result.depositRule;
+      $('outF3Money').innerText = fmt(result.extraValue, result.extraUnit === '㎡' ? 1 : 0);
+      $('outF3Unit').innerText = result.extraUnit;
+      $('outF3Rule').innerText = result.extraRule;
+      $('outF2CostMoney').innerText = fmt(f2CostMoney);
+
+      const finalFAR = baseFAR * (1 + totalBonusPct / 100);
+      const addedFloorPing = baseFloorAreaSqM / CONST.PING_TO_SQM * totalBonusPct / 100;
+      $('outTotalBonus').innerText = totalBonusPct.toFixed(1);
+      $('outTotalFAR').innerText = finalFAR.toFixed(1);
+
+      logHtml += `<div class="log-sec"><span class="log-hl">[結語]</span><br>總容積獎勵＝${fmt(totalBonusPct, 1)}%，其中回饋／捐贈取得容積為 ${fmt(extraPct, 1)}%。試算後總容積率 ${fmt(finalFAR, 1)}%，新增樓地板約 ${fmt(addedFloorPing, 1)} 坪。${!isUrban ? '<br><span class="log-warn">非都市土地距400%之額度僅為數學上限，實際核准額度及資格仍須由主管機關確認。</span>' : ''}</div>`;
+      $('calcLog').innerHTML = logHtml;
+      lastCalculationCompleted = true;
+      lastCalculatedAt = new Date().toLocaleString('zh-TW', { hour12: false });
+      setResultState(FORM_STATE.CALCULATED);
+      renderValidation(validation);
+      return { validation, ctx, result };
+    }
+
+    // ==========================================
+    // 7. 事件監聽
+    // ==========================================
+    const dedicatedListenerIds = ['uiTyStructure', 'uiTyFloors'];
+    document.querySelectorAll('input, select').forEach(el => {
+      if (['citySelect', 'useType', 'landZone'].includes(el.id)) {
+        el.addEventListener('change', updateUI);
+      } else if (!dedicatedListenerIds.includes(el.id)) {
+        const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
+        el.addEventListener(eventName, handleInputChange);
+      }
+    });
+
+    $('btnCalculate').addEventListener('click', () => {
+        const res = runEngine(true);
+        // [修正2] 試算成功後，滾動到「試算結果總覽」區塊並微調頂部間距
+        if (res.validation.valid) {
+            const target = $('resultTopAnchor');
+            if (target) {
+                // 微調偏移量(Y軸往上提20px)避免區塊邊緣過度緊貼瀏覽器頂部
+                const yOffset = -20; 
+                const y = target.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
+        }
+    });
+    
+    $('btnResetForm').addEventListener('click', resetAllInputs);
+
+    clearFinalResults();
+    setResultState(FORM_STATE.INITIAL);
+    updateUI();
+  </script>
+</body>
+</html>

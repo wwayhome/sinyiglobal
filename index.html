@@ -51,10 +51,11 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-x-hidden">
+<!-- 移除 body 的 justify-center，改讓子元素透過 my-auto 彈性置中，解決手機版頂部被切掉的問題 -->
+<body class="min-h-screen flex flex-col items-center p-4 md:p-6 relative overflow-x-hidden">
 
     <!-- ==================== 登入驗證畫面 ==================== -->
-    <div id="login-screen" class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center transition-all duration-500 z-10">
+    <div id="login-screen" class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center transition-all duration-500 z-10 my-auto">
         <div class="mb-6 flex justify-center">
             <div class="p-4 bg-blue-100 text-blue-600 rounded-full">
                 <i data-lucide="lock" class="w-12 h-12"></i>
@@ -87,10 +88,11 @@
     </div>
 
     <!-- ==================== 系統主畫面 (預設隱藏) ==================== -->
-    <div id="main-content" class="hidden w-full max-w-7xl flex-col items-center justify-center opacity-0 transition-opacity duration-700 h-full max-h-screen my-auto">
+    <!-- 移除 h-full max-h-screen，讓內容在手機版可以完整展開並自然捲動 -->
+    <div id="main-content" class="hidden w-full max-w-7xl flex-col items-center opacity-0 transition-opacity duration-700 my-auto">
         
         <!-- 縮小的頭部資訊，節省垂直空間 -->
-        <header class="mb-6 text-center w-full relative">
+        <header class="mb-6 text-center w-full relative pt-4 md:pt-0">
             <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 tracking-wider">信義全球資產小工具</h1>
             <p class="text-gray-500 mt-1 text-sm md:text-base">請選擇您要前往的服務模組</p>
             
@@ -294,7 +296,7 @@
                 </div>
             </div>
 
-            <!-- 2026/6/25 (已變更為一般樣式) -->
+            <!-- 2026/6/25 -->
             <div class="relative pl-6 border-l-2 border-gray-200">
                 <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
                 <details class="group history-detail" open>

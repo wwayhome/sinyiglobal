@@ -185,6 +185,10 @@
             const [lastError, setLastError] = useState('');
             const [dialog, setDialog] = useState(null);
             
+            // 壓縮與進度相關狀態
+            const [compressionLevel, setCompressionLevel] = useState('none');
+            const [exportProgress, setExportProgress] = useState('');
+
             // 放大預覽相關狀態
             const [previewPage, setPreviewPage] = useState(null);
             const [highResPreviewUrl, setHighResPreviewUrl] = useState(null);
@@ -614,6 +618,68 @@
                 setDropIndicator(null);
             };
 
+            const buildExtremeCompressedPdf = async (pagesToExport) => {
+                assertExportPagesAreValid(pagesToExport, sourceFiles);
+
+                let mergedPdf;
+                try {
+                    mergedPdf = await PDFDocument.create();
+                } catch (createError) {
+                    throw new Error(`建立新 PDF 文件失敗：${getReadableError(createError)}`);
+                }
+
+                for (let i = 0; i < pagesToExport.length; i++) {
+                    setExportProgress(`正在壓縮第 ${i + 1} / ${pagesToExport.length} 頁 (轉為圖片)...`);
+                    // 讓出主執行緒，讓 React 有時間更新 UI 顯示進度
+                    await new Promise(resolve => setTimeout(resolve, 15)); 
+
+                    const pageState = pagesToExport[i];
+                    const { fileId, originalPageNum, rotation, filename } = pageState;
+                    const sourceRecord = sourceFiles[fileId];
+
+                    try {
+                        const loadingTask = pdfjsLib.getDocument({ data: toUint8ArrayCopy(sourceRecord.bytes) });
+                        const pdf = await loadingTask.promise;
+                        const pdfPage = await pdf.getPage(originalPageNum + 1);
+
+                        // 渲染為畫布 (scale 2.0 原始尺寸)
+                        const viewport = pdfPage.getViewport({ scale: 2.0 });
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+
+                        context.fillStyle = 'white';
+                        context.fillRect(0, 0, canvas.width, canvas.height);
+
+                        await pdfPage.render({ canvasContext: context, viewport }).promise;
+
+                        // 轉換為 JPEG 以達到壓縮效果 (0.9 壓縮品質)
+                        const base64Jpg = canvas.toDataURL('image/jpeg', 0.9);
+                        
+                        const jpgImage = await mergedPdf.embedJpg(base64Jpg);
+                        const page = mergedPdf.addPage([jpgImage.width, jpgImage.height]);
+                        
+                        page.drawImage(jpgImage, {
+                            x: 0,
+                            y: 0,
+                            width: jpgImage.width,
+                            height: jpgImage.height,
+                        });
+                        
+                        // 套用使用者在介面上設定的旋轉
+                        page.setRotation(degrees(normalizeRotation(rotation)));
+
+                        await pdf.destroy();
+                    } catch (pageError) {
+                        console.error('極致壓縮單頁失敗:', { exportIndex: i, pageState, pageError });
+                        throw new Error(`壓縮第 ${i + 1} 頁時失敗：${getReadableError(pageError)}`);
+                    }
+                }
+
+                return mergedPdf;
+            };
+
             const buildMergedPdf = async (pagesToExport) => {
                 assertExportPagesAreValid(pagesToExport, sourceFiles);
 
@@ -674,15 +740,27 @@
 
             const processAndDownloadPDF = async (pagesToExport, filenamePrefix) => {
                 setIsLoading(true);
+                setExportProgress('準備處理...');
                 setLastError('');
 
                 try {
-                    const mergedPdf = await buildMergedPdf(pagesToExport);
-                    let pdfBytes;
+                    let mergedPdf;
+                    
+                    // 根據選項決定使用哪種打包方式
+                    if (compressionLevel === 'extreme') {
+                        mergedPdf = await buildExtremeCompressedPdf(pagesToExport);
+                    } else {
+                        mergedPdf = await buildMergedPdf(pagesToExport);
+                    }
 
+                    setExportProgress('正在打包產生檔案...');
+                    await new Promise(resolve => setTimeout(resolve, 20));
+
+                    let pdfBytes;
                     try {
                         pdfBytes = await mergedPdf.save({
-                            useObjectStreams: false,
+                            // 當選擇 light 或 extreme 時，皆開啟物件串流壓縮以縮小檔案結構
+                            useObjectStreams: compressionLevel === 'light' || compressionLevel === 'extreme',
                             addDefaultPage: false
                         });
                     } catch (saveError) {
@@ -701,6 +779,7 @@
                     setDialog({ type: 'alert', message });
                 } finally {
                     setIsLoading(false);
+                    setExportProgress('');
                 }
             };
 
@@ -761,6 +840,7 @@
             return (
                 <div className="min-h-screen p-8 font-sans relative">
                     <div className="max-w-6xl mx-auto">
+                        {}
                         <header className="mb-8 text-center">
                             <h1 className="text-3xl font-bold text-gray-800 mb-2">📄 地端 PDF 處理工具</h1>
                             <p className="text-gray-500">所有的處理都在您的瀏覽器中進行，檔案不會上傳至任何伺服器，確保隱私。</p>
@@ -802,6 +882,7 @@
                                     </div>
                                 </section>
 
+                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-blue-100 bg-blue-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">2</span>
@@ -853,6 +934,7 @@
                                     </div>
                                 </section>
 
+                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-green-100 bg-green-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">3</span>
@@ -881,6 +963,35 @@
                                             </div>
                                         )}
 
+                                        {pages.length > 0 && (
+                                            <div className="pt-2 border-t border-gray-100">
+                                                <label className="text-sm font-bold text-gray-700 mb-2 block">壓縮設定</label>
+                                                <div className="space-y-2">
+                                                    <label className="flex items-start gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition border border-transparent hover:border-gray-200">
+                                                        <input type="radio" name="compression" value="none" checked={compressionLevel === 'none'} onChange={() => setCompressionLevel('none')} className="mt-1 flex-shrink-0 accent-green-600" />
+                                                        <div>
+                                                            <div className="text-sm font-semibold text-gray-800">不壓縮 (推薦)</div>
+                                                            <div className="text-xs text-gray-500">保持原始檔案品質與架構，處理速度最快。</div>
+                                                        </div>
+                                                    </label>
+                                                    <label className="flex items-start gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition border border-transparent hover:border-gray-200">
+                                                        <input type="radio" name="compression" value="light" checked={compressionLevel === 'light'} onChange={() => setCompressionLevel('light')} className="mt-1 flex-shrink-0 accent-green-600" />
+                                                        <div>
+                                                            <div className="text-sm font-semibold text-gray-800">輕度壓縮 (無損文字)</div>
+                                                            <div className="text-xs text-gray-500">優化內部結構，略微縮小檔案，可正常選取複製文字。</div>
+                                                        </div>
+                                                    </label>
+                                                    <label className="flex items-start gap-2 cursor-pointer p-2 rounded-lg bg-orange-50/50 hover:bg-orange-50 border border-orange-100/50 transition">
+                                                        <input type="radio" name="compression" value="extreme" checked={compressionLevel === 'extreme'} onChange={() => setCompressionLevel('extreme')} className="mt-1 flex-shrink-0 accent-orange-500" />
+                                                        <div>
+                                                            <div className="text-sm font-semibold text-gray-800">極致壓縮 (全頁轉圖片)</div>
+                                                            <div className="text-xs text-orange-600 font-medium leading-relaxed">⚠️ 強力縮小檔案。但文字將轉為圖片，無法反白選取與搜尋，適合僅供螢幕檢視或系統上傳限制。</div>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="text-xs text-gray-600 bg-white border border-gray-100 rounded-lg px-3 py-2">{getExportSummary()}</div>
 
                                         <button onClick={handleExport} disabled={isLoading || pages.length === 0} className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow-sm transition font-bold flex items-center disabled:opacity-50 w-full justify-center">
@@ -892,6 +1003,7 @@
                             </div>
                         </div>
 
+                        {}
                         {lastError && (
                             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                                 <strong>錯誤：</strong>{lastError}
@@ -904,10 +1016,11 @@
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                正在處理您的請求，請稍候...
+                                <div className="text-lg">{exportProgress || '正在處理您的請求，請稍候...'}</div>
                             </div>
                         )}
 
+                        {}
                         {pages.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator(null); }}>
                                 {pages.map((page, index) => {
@@ -985,6 +1098,7 @@
                             )
                         )}
 
+                        {}
                         {/* 自訂對話框的 UI */}
                         {dialog && (
                             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity">
@@ -1020,6 +1134,7 @@
                             </div>
                         )}
 
+                        {}
                         {/* 放大預覽 Modal */}
                         {previewPage && (
                             <div

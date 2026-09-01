@@ -99,7 +99,7 @@
             <!-- 更新日期與紀錄按鈕 -->
             <div class="mt-3 flex items-center justify-center gap-3 text-sm">
                 <span class="text-gray-500 bg-gray-100 px-3 py-1 rounded-full font-medium shadow-inner border border-gray-200">
-                    最後更新：2026/7/17
+                    最後更新：2026/9/1
                 </span>
                 <button onclick="openHistoryModal()" class="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full font-bold transition-colors shadow-sm border border-blue-200">
                     <i data-lucide="history" class="w-4 h-4"></i>更新紀錄
@@ -282,18 +282,36 @@
         <!-- Content (Scrollable) -->
         <div class="p-6 overflow-y-auto modal-scrollbar flex-1 space-y-8">
             
-            <!-- 2026/7/17 (最新) -->
+            <!-- 2026/9/1 (最新) -->
             <div class="relative pl-6 border-l-2 border-blue-400">
                 <div class="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 shadow-[0_0_0_4px_rgba(59,130,246,0.2)]"></div>
                 <h4 class="text-lg font-bold text-blue-600 mb-3 flex items-center gap-2">
-                    2026/7/17 更新
+                    2026/9/1 更新
                     <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">最新</span>
                 </h4>
                 <div class="space-y-4 text-sm text-gray-700 leading-relaxed">
                     <ul class="space-y-3 list-none">
-                        <li><strong class="text-gray-900">15.價格拆算(新增)：</strong><span class="text-blue-600 font-medium">支援手機或網頁使用，快速單戶拆算價格及整棟拆算。單戶拆算可在包括車位數量價格，反推計算建物單價或總價。整棟拆算則加入店面、地下室等不同建物單價的樓層效用比，加總計算全棟價格。下方另有附租金投報率是試算及房貸試算可延伸運用。</span></li>
+                        <li><strong class="text-gray-900">6.土地開發分析估價 (優化)：</strong><span class="text-blue-600 font-medium">造價與售價敏感度分析可自行輸入敏感度變動幅度(1%~10%，預設為5%)</span></li>
                     </ul>
                 </div>
+            </div>
+
+            <!-- 2026/7/17 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/7/17 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">15.價格拆算(新增)：</strong>支援手機或網頁使用，快速單戶拆算價格及整棟拆算。單戶拆算可在包括車位數量價格，反推計算建物單價或總價。整棟拆算則加入店面、地下室等不同建物單價的樓層效用比，加總計算全棟價格。下方另有附租金投報率是試算及房貸試算可延伸運用。</li>
+                        </ul>
+                    </div>
+                </details>
             </div>
 
             <!-- 2026/6/25 -->

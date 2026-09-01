@@ -475,10 +475,18 @@
                         <h3 class="text-base font-bold text-stone-800 mb-1">售價與造價敏感度分析矩陣</h3>
                         <p id="desc-sens-matrix" class="text-[11px] text-stone-500">推估「土地合理單價 (萬元/坪)」隨房價與造價雙邊變動之熱力圖</p>
                     </div>
-                    <!-- 單價/總價 切換開關 (僅買斷模式顯示) -->
-                    <div id="matrix-toggle-container" class="flex bg-stone-200 p-0.5 rounded-md shadow-inner text-[10px] ml-2 shrink-0">
-                        <button type="button" id="btn-matrix-unit" onclick="setMatrixMode('unit')" class="px-2 py-1 font-bold rounded bg-white text-emerald-700 shadow-sm transition">單價</button>
-                        <button type="button" id="btn-matrix-total" onclick="setMatrixMode('total')" class="px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition">總價</button>
+                    <!-- 敏感度間距拉桿 與 單總價切換開關區塊 -->
+                    <div class="flex items-center gap-4 shrink-0 ml-2">
+                        <!-- 敏感度間距拉桿 -->
+                        <div class="flex items-center gap-2">
+                            <label class="text-[11px] text-stone-500 font-medium">間距: <span id="lbl-matrix-step" class="text-emerald-700 font-bold">5%</span></label>
+                            <input type="range" id="in-matrix-step" min="1" max="10" value="5" step="1" class="w-20 md:w-24 h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer outline-none">
+                        </div>
+                        <!-- 單價/總價 切換開關 (僅買斷模式顯示) -->
+                        <div id="matrix-toggle-container" class="flex bg-stone-200 p-0.5 rounded-md shadow-inner text-[10px]">
+                            <button type="button" id="btn-matrix-unit" onclick="setMatrixMode('unit')" class="px-2 py-1 font-bold rounded bg-white text-emerald-700 shadow-sm transition">單價</button>
+                            <button type="button" id="btn-matrix-total" onclick="setMatrixMode('total')" class="px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition">總價</button>
+                        </div>
                     </div>
                 </div>
                 <div class="overflow-x-auto custom-scrollbar pb-2">
@@ -684,7 +692,8 @@
             equityReturn: document.getElementById('in-equity-return'),
             loanInterest: document.getElementById('in-loan-interest'),
             equityRatio: document.getElementById('in-equity-ratio'),
-            years: document.getElementById('in-years')
+            years: document.getElementById('in-years'),
+            matrixStep: document.getElementById('in-matrix-step')
         };
 
         const outputs = {
@@ -714,6 +723,7 @@
             lblBelowFloors: document.getElementById('lbl-below-floors'),
             lblSimBcr: document.getElementById('lbl-sim-bcr'),
             lblSimExc: document.getElementById('lbl-sim-exc'),
+            lblMatrixStep: document.getElementById('lbl-matrix-step'),
             // A-2 模組輸出欄位
             ratioLandowner: document.getElementById('out-ratio-landowner'),
             ratioDev: document.getElementById('out-ratio-dev'),
@@ -740,7 +750,7 @@
         const defaultValues = {
             city: "台北市", area: 100, far: 300, coef: 1.55, bcr: 50, excavation: 75, floors: 3, mech: 20, 
             bonus: 0, transfer: 0, price: 80, parkPrice: 250, cost: 20, bonusCost: 0,
-            profit: 15, expDesign: 3, expAd: 5, expMgt: 2, expTax: 1, equityReturn: 1.6, loanInterest: 3.5, equityRatio: 50, years: 3
+            profit: 15, expDesign: 3, expAd: 5, expMgt: 2, expTax: 1, equityReturn: 1.6, loanInterest: 3.5, equityRatio: 50, years: 3, matrixStep: 5
         };
 
         // 模式切換邏輯
@@ -1717,7 +1727,11 @@
             const currentCost = parseFloat(inputs.cost.value) || 0;
             if (currentPrice <= 0 || currentCost <= 0) return;
 
-            const variations = [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3];
+            const stepPercent = parseInt(inputs.matrixStep.value) || 5;
+            outputs.lblMatrixStep.innerText = stepPercent + '%';
+            const step = stepPercent / 100;
+            const variations = [-3 * step, -2 * step, -1 * step, 0, 1 * step, 2 * step, 3 * step];
+            
             const head = document.getElementById('matrix-head');
             const body = document.getElementById('matrix-body');
             

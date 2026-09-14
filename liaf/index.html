@@ -15,6 +15,7 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
         
@@ -88,6 +89,34 @@
 
     <main class="flex-grow max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4 items-stretch">
         
+        <!-- 新增：多方案頁籤切換區塊 -->
+        <div class="lg:col-span-12 flex space-x-2 bg-stone-200/50 p-1.5 rounded-xl border border-stone-200 shadow-inner">
+            <!-- 方案 A -->
+            <div id="tab-btn-A" onclick="switchTab('A')" class="cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg bg-white text-emerald-700 shadow-sm border border-emerald-200 transition-all relative group flex items-center justify-center min-h-[40px] overflow-hidden">
+                <div id="tab-display-A" class="flex items-center justify-center pointer-events-none transition-opacity duration-200">
+                    <span>📂 <span id="tab-name-A">方案 A</span></span>
+                </div>
+                <input type="text" id="tab-input-A" class="hidden w-3/4 md:w-1/2 text-center bg-emerald-50 border-b-2 border-emerald-500 outline-none text-emerald-800 px-1 text-sm absolute z-10 rounded-t-sm" onclick="event.stopPropagation()" onblur="finishRename('A')" onkeydown="if(event.key === 'Enter') this.blur();">
+                <span onclick="triggerRename('A', event)" class="absolute right-2 md:right-4 opacity-30 group-hover:opacity-100 hover:scale-125 transition cursor-pointer text-xs z-20" title="直接編輯重新命名">✏️</span>
+            </div>
+            <!-- 方案 B -->
+            <div id="tab-btn-B" onclick="switchTab('B')" class="cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-all border border-transparent relative group flex items-center justify-center min-h-[40px] overflow-hidden">
+                <div id="tab-display-B" class="flex items-center justify-center pointer-events-none transition-opacity duration-200">
+                    <span>📂 <span id="tab-name-B">方案 B</span></span>
+                </div>
+                <input type="text" id="tab-input-B" class="hidden w-3/4 md:w-1/2 text-center bg-stone-100 border-b-2 border-stone-500 outline-none text-stone-800 px-1 text-sm absolute z-10 rounded-t-sm" onclick="event.stopPropagation()" onblur="finishRename('B')" onkeydown="if(event.key === 'Enter') this.blur();">
+                <span onclick="triggerRename('B', event)" class="absolute right-2 md:right-4 opacity-30 group-hover:opacity-100 hover:scale-125 transition cursor-pointer text-xs z-20" title="直接編輯重新命名">✏️</span>
+            </div>
+            <!-- 方案 C -->
+            <div id="tab-btn-C" onclick="switchTab('C')" class="cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-all border border-transparent relative group flex items-center justify-center min-h-[40px] overflow-hidden">
+                <div id="tab-display-C" class="flex items-center justify-center pointer-events-none transition-opacity duration-200">
+                    <span>📂 <span id="tab-name-C">方案 C</span></span>
+                </div>
+                <input type="text" id="tab-input-C" class="hidden w-3/4 md:w-1/2 text-center bg-stone-100 border-b-2 border-stone-500 outline-none text-stone-800 px-1 text-sm absolute z-10 rounded-t-sm" onclick="event.stopPropagation()" onblur="finishRename('C')" onkeydown="if(event.key === 'Enter') this.blur();">
+                <span onclick="triggerRename('C', event)" class="absolute right-2 md:right-4 opacity-30 group-hover:opacity-100 hover:scale-125 transition cursor-pointer text-xs z-20" title="直接編輯重新命名">✏️</span>
+            </div>
+        </div>
+
         <section class="lg:col-span-4 glass-card rounded-xl p-5 custom-scrollbar flex flex-col h-full">
             
             <div class="flex justify-between items-end mb-4 border-b border-stone-200 pb-2">
@@ -113,7 +142,13 @@
                         
                         <div class="space-y-3">
                             <div>
-                                <label class="block text-xs font-medium text-stone-600 mb-1">土地面積 (坪)</label>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-medium text-stone-600">土地面積 <span id="lbl-area-unit">(坪)</span></label>
+                                    <div class="flex bg-stone-200 p-0.5 rounded shadow-inner text-[10px]">
+                                        <button type="button" id="btn-area-ping" onclick="setAreaUnit('ping')" class="px-2 py-0.5 font-bold rounded bg-white text-emerald-700 shadow-sm transition">坪</button>
+                                        <button type="button" id="btn-area-sqm" onclick="setAreaUnit('sqm')" class="px-2 py-0.5 font-bold rounded text-stone-500 hover:text-stone-700 transition">平方公尺</button>
+                                    </div>
+                                </div>
                                 <input type="number" id="in-area" value="100" min="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right text-[15px] font-bold text-emerald-700">
                             </div>
                             <div class="grid grid-cols-2 gap-3">
@@ -738,6 +773,7 @@
         let savedBuyProfit = 18;
         let savedJvProfit = 20;
         let matrixDisplayMode = 'unit'; // 'unit' 或 'total' (新增矩陣顯示模式變數)
+        let currentAreaUnit = 'ping'; // 'ping' 或 'sqm'
 
         // Chart instances
         let waterfallChartInst = null;
@@ -753,9 +789,137 @@
             profit: 18, expDesign: 3, expAd: 5, expMgt: 2, expTax: 1, equityReturn: 1.6, loanInterest: 3.5, equityRatio: 50, years: 3, matrixStep: 5
         };
 
-        // 模式切換邏輯
-        function setMode(mode) {
-            currentMode = mode;
+        // === 多方案狀態管理與編輯 ===
+        let currentTab = 'A';
+        const scenarios = {
+            'A': { name: '方案 A', inputs: {...defaultValues}, mode: 'buy', savedBuyProfit: 18, savedJvProfit: 20, matrixMode: 'unit', areaUnit: 'ping' },
+            'B': { name: '方案 B', inputs: {...defaultValues}, mode: 'buy', savedBuyProfit: 18, savedJvProfit: 20, matrixMode: 'unit', areaUnit: 'ping' },
+            'C': { name: '方案 C', inputs: {...defaultValues}, mode: 'buy', savedBuyProfit: 18, savedJvProfit: 20, matrixMode: 'unit', areaUnit: 'ping' }
+        };
+
+        // --- 直接在頁籤上重新命名的邏輯 ---
+        window.triggerRename = function(tabId, event) {
+            event.stopPropagation(); // 避免點擊事件冒泡觸發 switchTab
+            const displayDiv = document.getElementById('tab-display-' + tabId);
+            const inputEl = document.getElementById('tab-input-' + tabId);
+            
+            // 隱藏純文字，顯示輸入框
+            displayDiv.style.opacity = '0';
+            inputEl.value = scenarios[tabId].name;
+            inputEl.classList.remove('hidden');
+            inputEl.focus();
+            inputEl.select(); // 全選文字方便直接覆寫
+        };
+
+        window.finishRename = function(tabId) {
+            const displayDiv = document.getElementById('tab-display-' + tabId);
+            const inputEl = document.getElementById('tab-input-' + tabId);
+            
+            const newName = inputEl.value.trim();
+            if (newName !== '') {
+                scenarios[tabId].name = newName;
+            }
+            
+            // 隱藏輸入框，恢復純文字顯示
+            inputEl.classList.add('hidden');
+            displayDiv.style.opacity = '1';
+            updateTabUI(); // 更新畫面上所有的名稱
+        };
+
+        // 方案頁籤切換邏輯
+        window.switchTab = function(newTab) {
+            if (newTab === currentTab) return;
+
+            // 1. 儲存當前方案狀態
+            Object.keys(inputs).forEach(key => {
+                scenarios[currentTab].inputs[key] = inputs[key].value;
+            });
+            scenarios[currentTab].mode = currentMode;
+            scenarios[currentTab].savedBuyProfit = savedBuyProfit;
+            scenarios[currentTab].savedJvProfit = savedJvProfit;
+            scenarios[currentTab].matrixMode = matrixDisplayMode;
+            scenarios[currentTab].areaUnit = currentAreaUnit;
+
+            // 2. 切換目標方案
+            currentTab = newTab;
+            const s = scenarios[currentTab];
+
+            // 3. 載入目標方案狀態
+            Object.keys(inputs).forEach(key => {
+                inputs[key].value = s.inputs[key];
+            });
+            currentMode = s.mode;
+            savedBuyProfit = s.savedBuyProfit;
+            savedJvProfit = s.savedJvProfit;
+            matrixDisplayMode = s.matrixMode;
+            currentAreaUnit = s.areaUnit;
+
+            // 4. 更新介面顯示 (不觸發數值覆寫)
+            updateModeUI(currentMode);
+            updateMatrixUI(matrixDisplayMode);
+            updateAreaUnitUI(currentAreaUnit);
+            updateTabUI();
+
+            // 5. 重新計算圖表與數值
+            updateDashboard();
+        };
+
+        // 更新頁籤視覺狀態
+        function updateTabUI() {
+            ['A', 'B', 'C'].forEach(tab => {
+                const btn = document.getElementById('tab-btn-' + tab);
+                const nameSpan = document.getElementById('tab-name-' + tab);
+                if(nameSpan) nameSpan.innerText = scenarios[tab].name;
+                
+                if (btn) {
+                    if (tab === currentTab) {
+                        btn.className = "cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg bg-white text-emerald-700 shadow-sm border border-emerald-200 transition-all relative group flex items-center justify-center min-h-[40px] overflow-hidden";
+                    } else {
+                        btn.className = "cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-all border border-transparent relative group flex items-center justify-center min-h-[40px] overflow-hidden";
+                    }
+                }
+            });
+        }
+
+        // --- 面積單位切換邏輯 ---
+        window.setAreaUnit = function(unit) {
+            if (currentAreaUnit === unit) return;
+            
+            const areaInput = document.getElementById('in-area');
+            let val = parseFloat(areaInput.value) || 0;
+            
+            if (unit === 'sqm') {
+                // 坪 轉 平方公尺 (1 坪 = 3.305785 平方公尺)
+                val = val / 0.3025;
+            } else {
+                // 平方公尺 轉 坪 (1 平方公尺 = 0.3025 坪)
+                val = val * 0.3025;
+            }
+            
+            areaInput.value = val > 0 ? (Math.round(val * 100) / 100) : '';
+            currentAreaUnit = unit;
+            updateAreaUnitUI(unit);
+            updateDashboard();
+        };
+
+        function updateAreaUnitUI(unit) {
+            const btnPing = document.getElementById('btn-area-ping');
+            const btnSqm = document.getElementById('btn-area-sqm');
+            const lblUnit = document.getElementById('lbl-area-unit');
+            
+            if (unit === 'ping') {
+                btnPing.className = "px-2 py-0.5 font-bold rounded bg-white text-emerald-700 shadow-sm transition";
+                btnSqm.className = "px-2 py-0.5 font-bold rounded text-stone-500 hover:text-stone-700 transition";
+                lblUnit.innerText = "(坪)";
+            } else {
+                btnSqm.className = "px-2 py-0.5 font-bold rounded bg-white text-emerald-700 shadow-sm transition";
+                btnPing.className = "px-2 py-0.5 font-bold rounded text-stone-500 hover:text-stone-700 transition";
+                lblUnit.innerText = "(平方公尺)";
+            }
+        }
+
+        // 模式切換邏輯UI抽離 (為了配合多方案自動更新)
+        function updateModeUI(mode) {
             const btnBuy = document.getElementById('btn-mode-buy');
             const btnJv = document.getElementById('btn-mode-jv');
             const lblProfit = document.getElementById('lbl-profit-rate');
@@ -794,10 +958,6 @@
                 
                 // 顯示單總價切換開關
                 if (matrixToggle) matrixToggle.style.display = 'flex';
-
-                // 儲存 JV 利潤率並恢復 Buy 利潤率
-                savedJvProfit = parseFloat(inputs.profit.value) || 20;
-                inputs.profit.value = savedBuyProfit;
             } else {
                 // UI 切換
                 btnJv.className = "flex-1 py-1.5 text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition";
@@ -819,17 +979,24 @@
                 
                 // 隱藏單總價切換開關
                 if (matrixToggle) matrixToggle.style.display = 'none';
+            }
+        }
 
-                // 儲存 Buy 利潤率並恢復 JV 利潤率
+        window.setMode = function(mode) {
+            if (currentMode === mode) return; 
+            if(mode === 'buy') {
+                savedJvProfit = parseFloat(inputs.profit.value) || 20;
+                inputs.profit.value = savedBuyProfit;
+            } else {
                 savedBuyProfit = parseFloat(inputs.profit.value) || 18;
                 inputs.profit.value = savedJvProfit;
             }
+            currentMode = mode;
+            updateModeUI(mode);
             updateDashboard();
         }
 
-        // 新增：矩陣單總價切換邏輯
-        window.setMatrixMode = function(mode) {
-            matrixDisplayMode = mode;
+        function updateMatrixUI(mode) {
             const btnUnit = document.getElementById('btn-matrix-unit');
             const btnTotal = document.getElementById('btn-matrix-total');
             const desc = document.getElementById('desc-sens-matrix');
@@ -843,6 +1010,13 @@
                 btnUnit.className = "px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition";
                 if(currentMode === 'buy' && desc) desc.innerText = '推估「土地合理總價 (萬元)」隨房價與造價雙邊變動之熱力圖';
             }
+        }
+
+        // 矩陣單總價切換邏輯
+        window.setMatrixMode = function(mode) {
+            if (matrixDisplayMode === mode) return;
+            matrixDisplayMode = mode;
+            updateMatrixUI(mode);
             updateSensitivityMatrix();
         }
 
@@ -884,14 +1058,13 @@
                 });
             }
 
+            updateTabUI(); // 初始化頁籤名稱
             initCharts();
             updateDashboard();
         }
 
         // Reset to default
         function resetDefaults() {
-            const current = currentMode; // 記住當前模式
-            
             Object.keys(defaultValues).forEach(key => {
                 if (key !== 'profit') {
                     inputs[key].value = defaultValues[key];
@@ -900,20 +1073,15 @@
             
             savedBuyProfit = 18;
             savedJvProfit = 20;
-            
-            // 根據當前模式恢復對應的預設利潤率
-            if (current === 'buy') {
-                inputs.profit.value = savedBuyProfit;
-            } else {
-                inputs.profit.value = savedJvProfit;
-            }
+            inputs.profit.value = currentMode === 'buy' ? savedBuyProfit : savedJvProfit;
             
             updateDashboard();
         }
 
         // Main Calculation Logic
         function calculateCore(p_price, p_cost, p_coef, p_profit) {
-            const area = parseFloat(inputs.area.value) || 0;
+            let inputArea = parseFloat(inputs.area.value) || 0;
+            const area = currentAreaUnit === 'sqm' ? inputArea * 0.3025 : inputArea; // 將平方公尺轉回坪作後續核心運算
             const far = parseFloat(inputs.far.value) / 100 || 0;
             const coef = p_coef !== undefined ? p_coef : (parseFloat(inputs.coef.value) || 0);
             const bcr = parseFloat(inputs.bcr.value) / 100 || 0;
@@ -944,17 +1112,18 @@
             const loanRatio = 1 - equityRatio;
             const wacc = (equityRatio * equityReturnRate) + (loanRatio * loanInterestRate);
 
-            // --- 2. 面積與車位運算 (精確分離法) ---
-            const basePing = area * far * coef;
-            const totalSalePing = basePing * (1 + bonusRate + transferRate);
-            
+            // --- 2. 面積與車位運算 (方案 A：傳統統包係數法) ---
             const basementArea = area * excavation * floorsBelow;
-            const mepArea = basementArea * mechRatio;
+            const mepArea = basementArea * mechRatio; // 地下機電面積
             const parkArea = basementArea - mepArea;
             const parkCount = Math.floor(parkArea / 12); 
             
-            const aboveGroundSalesPing = totalSalePing - mepArea;
-            const structuralAboveGroundPing = aboveGroundSalesPing;
+            // 恢復：1.55 倍的銷坪係數已隱含地下室機電公設，不重複外加
+            const basePing = area * far * coef;
+            const totalSalePing = basePing * (1 + bonusRate + transferRate); // 房屋總銷售坪數
+            
+            // 反推地上層數：從總銷坪中扣除地下機電面積，剩下的視為地上結構面積
+            const structuralAboveGroundPing = Math.max(0, totalSalePing - mepArea);
             const floorFootprint = area * bcr;
             const floorsAbove = floorFootprint > 0 ? Math.max(0, structuralAboveGroundPing / floorFootprint) : 0;
 

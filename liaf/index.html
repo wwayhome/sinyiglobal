@@ -81,8 +81,14 @@
                 <h1 class="text-2xl font-bold tracking-wider">🏢 土地開發分析估價系統</h1>
                 <p class="text-stone-400 text-sm mt-1">基於不動產估價技術規則第79條：高階財務指標與量體推估版</p>
             </div>
-            <div class="mt-4 md:mt-0 px-4 py-2 bg-stone-800 rounded text-sm text-stone-300 border border-stone-700">
-                🔄 調整參數即時繪製量體與財務分析
+            <div class="mt-4 md:mt-0 flex space-x-3">
+                <button type="button" onclick="exportProject()" class="px-5 py-2 text-sm font-bold rounded-lg bg-stone-100 text-stone-800 hover:bg-stone-200 shadow-sm transition whitespace-nowrap border border-stone-300">
+                    💾 匯出專案
+                </button>
+                <label id="lbl-import-btn" class="cursor-pointer px-5 py-2 text-sm font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm transition whitespace-nowrap border border-emerald-500 flex items-center justify-center m-0">
+                    📂 匯入專案
+                    <input type="file" id="in-file-upload" accept=".json" class="hidden" onchange="importProject(event)">
+                </label>
             </div>
         </div>
     </header>
@@ -90,7 +96,7 @@
     <main class="flex-grow max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4 items-stretch">
         
         <!-- 新增：多方案頁籤切換區塊 -->
-        <div class="lg:col-span-12 flex space-x-2 bg-stone-200/50 p-1.5 rounded-xl border border-stone-200 shadow-inner">
+        <div class="lg:col-span-12 flex w-full space-x-2 bg-stone-200/50 p-1.5 rounded-xl border border-stone-200 shadow-inner">
             <!-- 方案 A -->
             <div id="tab-btn-A" onclick="switchTab('A')" class="cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg bg-white text-emerald-700 shadow-sm border border-emerald-200 transition-all relative group flex items-center justify-center min-h-[40px] overflow-hidden">
                 <div id="tab-display-A" class="flex items-center justify-center pointer-events-none transition-opacity duration-200">
@@ -115,6 +121,12 @@
                 <input type="text" id="tab-input-C" class="hidden w-3/4 md:w-1/2 text-center bg-stone-100 border-b-2 border-stone-500 outline-none text-stone-800 px-1 text-sm absolute z-10 rounded-t-sm" onclick="event.stopPropagation()" onblur="finishRename('C')" onkeydown="if(event.key === 'Enter') this.blur();">
                 <span onclick="triggerRename('C', event)" class="absolute right-2 md:right-4 opacity-30 group-hover:opacity-100 hover:scale-125 transition cursor-pointer text-xs z-20" title="直接編輯重新命名">✏️</span>
             </div>
+
+            <!-- 新增：方案複製按鈕 -->
+            <div class="w-px bg-stone-300 mx-1"></div>
+            <button type="button" onclick="openCopyModal()" class="px-3 md:px-4 text-sm font-bold rounded-lg text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-all flex items-center justify-center shrink-0" title="複製方案參數">
+                📋 <span class="hidden md:inline ml-1">複製方案</span>
+            </button>
         </div>
 
         <section class="lg:col-span-4 glass-card rounded-xl p-5 custom-scrollbar flex flex-col h-full">
@@ -236,7 +248,7 @@
                         
                         <div class="space-y-4">
                             <div>
-                                <label id="lbl-profit-rate" class="block text-xs font-medium text-stone-600 mb-1 transition-colors duration-300" title="全案總銷金額之目標利潤率">預期獲利率</label>
+                                <label id="lbl-profit-rate" class="block text-xs font-medium text-stone-600 mb-1 transition-colors duration-300" title="預估成本利潤率">預期獲利率</label>
                                 <input type="number" id="in-profit" value="18" min="0" step="1" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition text-right text-[15px] font-medium text-stone-700">
                             </div>
 
@@ -590,6 +602,37 @@
             </ul>
         </section>
 
+        <!-- 新增：複製方案彈出視窗 (Modal) -->
+        <div id="copy-modal" class="fixed inset-0 bg-stone-900/60 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+            <div class="bg-white rounded-xl shadow-2xl p-6 w-11/12 max-w-sm border border-stone-200">
+                <h3 class="text-lg font-bold text-stone-800 mb-4 flex items-center gap-2">📋 複製方案參數</h3>
+                <p class="text-xs text-stone-500 mb-4">將指定方案的所有參數與模式設定，完整覆寫至另一個方案中。</p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-stone-700 mb-1">來源方案 (複製自)</label>
+                        <select id="sel-copy-src" onchange="updateCopyTargetOptions()" class="w-full p-2 border border-stone-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition bg-stone-50 text-sm font-medium text-stone-800">
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-center text-stone-400">
+                        ⬇️ 覆寫至
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-emerald-700 mb-1">目標方案 (將被覆蓋)</label>
+                        <select id="sel-copy-dst" class="w-full p-2 border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none transition bg-emerald-50 text-sm font-bold text-emerald-800 shadow-inner">
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="closeCopyModal()" class="px-4 py-2 text-sm font-bold text-stone-600 hover:bg-stone-100 rounded-lg transition">取消</button>
+                    <button type="button" id="btn-confirm-copy" onclick="executeCopyScenario()" class="px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-sm rounded-lg transition">確認覆寫</button>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <footer class="bg-stone-900 text-stone-400 py-6 px-4 text-center text-xs mt-8">
@@ -826,11 +869,8 @@
             updateTabUI(); // 更新畫面上所有的名稱
         };
 
-        // 方案頁籤切換邏輯
-        window.switchTab = function(newTab) {
-            if (newTab === currentTab) return;
-
-            // 1. 儲存當前方案狀態
+        // 同步當前畫面輸入值至方案狀態 (供切換或匯出前使用)
+        function syncCurrentToScenario() {
             Object.keys(inputs).forEach(key => {
                 scenarios[currentTab].inputs[key] = inputs[key].value;
             });
@@ -839,6 +879,14 @@
             scenarios[currentTab].savedJvProfit = savedJvProfit;
             scenarios[currentTab].matrixMode = matrixDisplayMode;
             scenarios[currentTab].areaUnit = currentAreaUnit;
+        }
+
+        // 方案頁籤切換邏輯
+        window.switchTab = function(newTab) {
+            if (newTab === currentTab) return;
+
+            // 1. 儲存當前方案狀態
+            syncCurrentToScenario();
 
             // 2. 切換目標方案
             currentTab = newTab;
@@ -864,6 +912,77 @@
             updateDashboard();
         };
 
+        // --- 匯出與匯入專案功能 ---
+        window.exportProject = function() {
+            syncCurrentToScenario(); // 先確保當前畫面已存入記憶體
+            
+            const dataStr = JSON.stringify(scenarios, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, "");
+            a.download = `土地開發估價_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        window.importProject = function(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+
+            const lblBtn = document.getElementById('lbl-import-btn');
+            const originalText = '📂 匯入專案';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // 基礎格式驗證
+                    if(importedData['A'] && importedData['B'] && importedData['C']) {
+                        // 覆寫方案庫
+                        Object.assign(scenarios, importedData);
+                        
+                        // 強制重新載入當前 Tab 內容
+                        const s = scenarios[currentTab];
+                        Object.keys(inputs).forEach(key => {
+                            inputs[key].value = s.inputs[key] !== undefined ? s.inputs[key] : defaultValues[key];
+                        });
+                        currentMode = s.mode;
+                        savedBuyProfit = s.savedBuyProfit;
+                        savedJvProfit = s.savedJvProfit;
+                        matrixDisplayMode = s.matrixMode || 'unit';
+                        currentAreaUnit = s.areaUnit || 'ping';
+
+                        // 更新全部 UI
+                        updateModeUI(currentMode);
+                        updateMatrixUI(matrixDisplayMode);
+                        updateAreaUnitUI(currentAreaUnit);
+                        updateTabUI();
+                        updateDashboard();
+                        
+                        // 成功提示
+                        lblBtn.innerText = '✅ 匯入成功';
+                        setTimeout(() => { lblBtn.innerHTML = `📂 匯入專案 <input type="file" id="in-file-upload" accept=".json" class="hidden" onchange="importProject(event)">`; }, 2000);
+                    } else {
+                        lblBtn.innerText = '❌ 格式錯誤';
+                        setTimeout(() => { lblBtn.innerHTML = `📂 匯入專案 <input type="file" id="in-file-upload" accept=".json" class="hidden" onchange="importProject(event)">`; }, 2000);
+                    }
+                } catch (error) {
+                    lblBtn.innerText = '❌ 讀取失敗';
+                    setTimeout(() => { lblBtn.innerHTML = `📂 匯入專案 <input type="file" id="in-file-upload" accept=".json" class="hidden" onchange="importProject(event)">`; }, 2000);
+                }
+                
+                // 清空 input，確保下次選同一個檔案也能觸發 change 事件
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        };
+
         // 更新頁籤視覺狀態
         function updateTabUI() {
             ['A', 'B', 'C'].forEach(tab => {
@@ -873,7 +992,8 @@
                 
                 if (btn) {
                     if (tab === currentTab) {
-                        btn.className = "cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg bg-white text-emerald-700 shadow-sm border border-emerald-200 transition-all relative group flex items-center justify-center min-h-[40px] overflow-hidden";
+                        // 強化反白與選取效果：加粗邊框、微幅放大並加深陰影
+                        btn.className = "cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg bg-white text-emerald-700 shadow-md border-2 border-emerald-500 transition-all relative group flex items-center justify-center min-h-[40px] overflow-hidden scale-[1.02] z-10";
                     } else {
                         btn.className = "cursor-pointer flex-1 py-2 text-sm font-bold rounded-lg text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-all border border-transparent relative group flex items-center justify-center min-h-[40px] overflow-hidden";
                     }
@@ -1014,11 +1134,115 @@
 
         // 矩陣單總價切換邏輯
         window.setMatrixMode = function(mode) {
-            if (matrixDisplayMode === mode) return;
             matrixDisplayMode = mode;
-            updateMatrixUI(mode);
+            const btnUnit = document.getElementById('btn-matrix-unit');
+            const btnTotal = document.getElementById('btn-matrix-total');
+            const desc = document.getElementById('desc-sens-matrix');
+            
+            if (mode === 'unit') {
+                btnUnit.className = "px-2 py-1 font-bold rounded bg-white text-emerald-700 shadow-sm transition";
+                btnTotal.className = "px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition";
+                if(currentMode === 'buy' && desc) desc.innerText = '推估「土地合理單價 (萬元/坪)」隨房價與造價雙邊變動之熱力圖';
+            } else {
+                btnTotal.className = "px-2 py-1 font-bold rounded bg-white text-emerald-700 shadow-sm transition";
+                btnUnit.className = "px-2 py-1 font-bold rounded text-stone-500 hover:text-stone-700 transition";
+                if(currentMode === 'buy' && desc) desc.innerText = '推估「土地合理總價 (萬元)」隨房價與造價雙邊變動之熱力圖';
+            }
             updateSensitivityMatrix();
         }
+
+        // --- 新增：複製方案彈出視窗與執行邏輯 ---
+        window.openCopyModal = function() {
+            syncCurrentToScenario(); // 確保當前輸入的最新參數已寫入記憶體
+            
+            const srcSelect = document.getElementById('sel-copy-src');
+            srcSelect.innerHTML = '';
+            
+            // 動態產生來源選項
+            ['A', 'B', 'C'].forEach(id => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.innerText = `${scenarios[id].name} (原始方案 ${id})`;
+                if(id === currentTab) opt.selected = true; // 預設來源為當前正在看的方案
+                srcSelect.appendChild(opt);
+            });
+            
+            window.updateCopyTargetOptions(); // 連動更新目標選項
+            
+            const modal = document.getElementById('copy-modal');
+            modal.classList.remove('hidden');
+        };
+
+        window.updateCopyTargetOptions = function() {
+            const srcSelect = document.getElementById('sel-copy-src');
+            const dstSelect = document.getElementById('sel-copy-dst');
+            const selectedSrc = srcSelect.value;
+            
+            dstSelect.innerHTML = '';
+            // 動態過濾，防止自己複製給自己
+            ['A', 'B', 'C'].forEach(id => {
+                if(id !== selectedSrc) {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.innerText = `${scenarios[id].name} (原始方案 ${id})`;
+                    dstSelect.appendChild(opt);
+                }
+            });
+        };
+
+        window.closeCopyModal = function() {
+            document.getElementById('copy-modal').classList.add('hidden');
+        };
+
+        window.executeCopyScenario = function() {
+            const srcId = document.getElementById('sel-copy-src').value;
+            const dstId = document.getElementById('sel-copy-dst').value;
+            
+            if(srcId && dstId && srcId !== dstId) {
+                // 深度複製參數 (保留目標原本的自訂名稱，避免切換時錯亂)
+                scenarios[dstId].inputs = { ...scenarios[srcId].inputs };
+                scenarios[dstId].mode = scenarios[srcId].mode;
+                scenarios[dstId].savedBuyProfit = scenarios[srcId].savedBuyProfit;
+                scenarios[dstId].savedJvProfit = scenarios[srcId].savedJvProfit;
+                scenarios[dstId].matrixMode = scenarios[srcId].matrixMode;
+                scenarios[dstId].areaUnit = scenarios[srcId].areaUnit;
+                
+                // 如果目標剛好是當前選取的頁籤，則需要強制刷新畫面 UI
+                if (dstId === currentTab) {
+                    const s = scenarios[currentTab];
+                    Object.keys(inputs).forEach(key => {
+                        inputs[key].value = s.inputs[key];
+                    });
+                    currentMode = s.mode;
+                    savedBuyProfit = s.savedBuyProfit;
+                    savedJvProfit = s.savedJvProfit;
+                    matrixDisplayMode = s.matrixMode;
+                    currentAreaUnit = s.areaUnit;
+                    
+                    updateModeUI(currentMode);
+                    updateMatrixUI(matrixDisplayMode);
+                    updateAreaUnitUI(currentAreaUnit);
+                    updateDashboard();
+                }
+                
+                // 成功回饋按鈕動畫
+                const btn = document.getElementById('btn-confirm-copy');
+                const originalText = btn.innerText;
+                btn.innerText = '✅ 複製成功';
+                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                btn.classList.add('bg-stone-500', 'cursor-not-allowed');
+                btn.disabled = true;
+                
+                setTimeout(() => {
+                    closeCopyModal();
+                    // 恢復按鈕狀態，供下次使用
+                    btn.innerText = originalText;
+                    btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+                    btn.classList.remove('bg-stone-500', 'cursor-not-allowed');
+                    btn.disabled = false;
+                }, 800);
+            }
+        };
 
         // Initialize Application
         function init() {
@@ -1511,10 +1735,10 @@
                 const PV_Sales = res.S / (1 + res.profitRate);
                 step3HTML = `
                     <div class="bg-stone-50 p-4 rounded border border-stone-200">
-                        <h4 class="font-bold text-emerald-700 mb-2">Step 3: 利息與總銷固定利潤</h4>
-                        <p class="mb-1 text-xs text-stone-500">WACC = ${res.waccDisplay}% , 預期獲利率 = ${(res.profitRate*100).toFixed(1)}%</p>
+                        <h4 class="font-bold text-emerald-700 mb-2">Step 3: 利息與成本利潤要求</h4>
+                        <p class="mb-1 text-xs text-stone-500">WACC = ${res.waccDisplay}% , 成本利潤率 = ${(res.profitRate*100).toFixed(1)}%</p>
                         <p class="mb-1">建造期利息 = 總成本 ${fmt(res.C + res.M)} 萬 × WACC × (${res.years}年/2) = <span class="text-stone-800 font-semibold">${fmt(res.buildInterestAmount)}</span> 萬</p>
-                        <p class="mb-1">預期獲利 = 總銷 ${fmt(res.S)} 萬 - (總銷 ÷ 1.${res.profitRate*100}) = <span class="text-stone-800 font-semibold">${fmt(res.profitAmount)}</span> 萬</p>
+                        <p class="mb-1">預估獲利 = 總銷 ${fmt(res.S)} 萬 - (總銷 ÷ 1.${res.profitRate*100}) = <span class="text-stone-800 font-semibold">${fmt(res.profitAmount)}</span> 萬 <span class="text-[10px] text-stone-500">(即總投入成本之 ${(res.profitRate*100).toFixed(1)}%)</span></p>
                     </div>`;
                 step4HTML = `
                     <div class="bg-emerald-50/50 p-4 rounded border border-emerald-200">

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APLI 01273 標籤列印產生器</title>
+    <!-- 引入 Tailwind CSS 處理版面與 UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS 處理 Excel 讀取 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* 預覽區的標籤樣式 (帶有虛線框方便檢視) */
+        .preview-page {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin: 0 auto 20px auto;
+            display: flex;
+            flex-wrap: wrap;
+            box-sizing: border-box;
+            /* A4 紙張大小 */
+        }
+
+        .preview-label {
+            width: 70mm;
+            height: 37mm;
+            box-sizing: border-box;
+            border: 1px dashed #cbd5e1; /* 預覽用虛線 */
+            padding: 4mm;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* 標籤內的文字排版 */
+        /* 地址與公司字體統一為 10pt */
+        .label-address { font-size: 10pt; line-height: 1.4; margin-bottom: 2mm; word-break: break-all; }
+        .label-company { font-size: 10pt; font-weight: 500; margin-bottom: 1mm; }
+        /* 姓名縮小為 11pt */
+        .label-recipient { font-size: 11pt; font-weight: bold; }
+        
+        .label-logo {
+            position: absolute;
+            top: 24px; /* 精準往下移得到 24px */
+            right: 2mm; /* 保持靠右邊距 */
+            height: 28mm; /* 根據高度調整大宗郵件圖案大小 */
+            width: auto;
+            object-fit: contain;
+            display: none; /* 預設隱藏 */
+        }
+
+        .show-logo .label-logo {
+            display: block;
+        }
+        
+        /* 當顯示 Logo 時，保護右側不被地址文字覆蓋 */
+        .show-logo .label-address {
+            padding-right: 24mm; 
+        }
+
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0; /* 移除瀏覽器預設邊界 */
+            }
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+            }
+            /* 隱藏非列印區域 */
+            .no-print {
+                display: none !important;
+            }
+            
+            /* 清除預覽區底部的 padding，避免撐出額外的空白頁 */
+            #previewArea {
+                padding-bottom: 0 !important;
+            }
+
+            .preview-page {
+                margin: 0;
+                box-shadow: none;
+                /* 鎖死絕對高度並隱藏溢出，避免瀏覽器小數點運算撐破版面 */
+                height: 297mm; 
+                overflow: hidden; 
+                page-break-after: always; /* 確保每張 A4 換頁 */
+                break-after: page; 
+            }
+            
+            /* 最後一張 A4 不再強制換頁，避免產生最後一頁空白頁 */
+            .preview-page:last-child {
+                page-break-after: auto;
+                break-after: auto;
+            }
+
+            /* 列印時移除虛線框 */
+            .preview-label {
+                border: none;
+                /* 微調邊距以防列印機硬體留白咬紙 */
+                padding-left: 5mm; 
+                padding-right: 5mm;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+<div class="no-print p-6 max-w-5xl mx-auto">
+    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h1 class="text-2xl font-bold mb-2 text-blue-700">APLI 01273 標籤列印產生器</h1>
+        <!-- 下載工廠清單超連結 -->
+        <div class="mb-4">
+            <a href="https://land.bip.gov.tw/gis/" target="_blank" class="text-blue-600 hover:text-blue-800 underline font-medium flex items-center gap-1 inline-flex">
+                🌐 下載工廠清單 (另開網頁)
+            </a>
+        </div>
+        <p class="text-sm text-gray-500 mb-6">請依序設定您的資料，並確認預覽無誤後再點擊「列印 PDF」。 (建議列印設定：無邊界、縮放 100%)</p>
+
+        <!-- 步驟區塊 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- 步驟 1: 上傳 Excel -->
+            <div class="border rounded-lg p-4 bg-blue-50">
+                <h2 class="font-bold mb-2 flex items-center"><span class="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">1</span> 上傳 Excel 清單</h2>
+                <input type="file" id="excelFile" accept=".xls,.xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"/>
+                <p class="text-xs text-gray-500 mt-2">支援自動偵測欄位標題，或手動調整對應。</p>
+            </div>
+
+            <!-- 步驟 2: 設定大宗郵件 Logo -->
+            <div class="border rounded-lg p-4 bg-green-50">
+                <h2 class="font-bold mb-3 flex items-center"><span class="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">2</span> 設定大宗郵件戳記</h2>
+                
+                <div class="flex flex-col gap-3">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="logoOption" value="none" class="w-4 h-4 text-green-600 bg-white border-gray-300 focus:ring-green-500" checked>
+                        <span class="ml-2 text-sm font-medium text-gray-700">不使用大宗郵件戳記</span>
+                    </label>
+                    
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="logoOption" value="preset" class="w-4 h-4 text-green-600 bg-white border-gray-300 focus:ring-green-500">
+                        <span class="ml-2 text-sm font-medium text-gray-700">使用「信利達」預設戳記</span>
+                    </label>
+                    
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="logoOption" value="upload" class="w-4 h-4 text-green-600 bg-white border-gray-300 focus:ring-green-500">
+                        <span class="ml-2 text-sm font-medium text-gray-700">自行上傳圖片後套用</span>
+                    </label>
+                </div>
+
+                <div id="uploadBox" class="mt-3 hidden p-3 border border-green-200 rounded-md bg-green-100/50">
+                    <input type="file" id="logoFile" accept="image/png,image/jpeg" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"/>
+                </div>
+            </div>
+
+            <!-- 步驟 3: 產生與列印 -->
+            <div class="border rounded-lg p-4 bg-orange-50 flex flex-col justify-center items-center">
+                <button id="generateBtn" class="w-full bg-gray-400 text-white font-bold py-3 px-4 rounded shadow cursor-not-allowed transition mb-3" disabled>
+                    等待上傳資料...
+                </button>
+                <button id="printBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded shadow transition hidden">
+                    🖨️ 列印標籤 / 匯出 PDF
+                </button>
+            </div>
+        </div>
+        
+        <div id="statusMsg" class="mt-4 text-sm font-semibold text-center text-red-500">請先上傳 Excel 檔案。</div>
+
+        <!-- 步驟 1.5 欄位對應與預覽 (預設隱藏) -->
+        <div id="mappingSection" class="hidden mt-6 border rounded-lg p-5 bg-yellow-50 shadow-inner">
+            <div class="mb-5 border-b border-yellow-200 pb-4">
+                <h2 class="font-bold text-lg flex items-center text-yellow-800 mb-3">
+                    <span class="bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">!</span> 
+                    確認欄位對應 (設定資料來源)
+                </h2>
+                <!-- 靠左放大的標題列設定 -->
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 bg-yellow-100 p-3 rounded-lg border border-yellow-300 w-full md:w-auto inline-block shadow-sm">
+                    <label class="text-base md:text-lg font-bold text-red-600">⚠️ 指定標題列為第幾列：</label>
+                    <input type="number" id="headerRowInput" value="1" min="1" class="border-2 border-red-400 p-1 w-20 text-lg rounded text-center focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 font-bold text-red-700 shadow-sm">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-700">公司名稱對應：</label>
+                    <select id="selCompany" class="w-full border border-gray-300 rounded shadow-sm p-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-700">地址對應：</label>
+                    <select id="selAddress" class="w-full border border-gray-300 rounded shadow-sm p-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-700">收件人對應：</label>
+                    <select id="selRecipient" class="w-full border border-gray-300 rounded shadow-sm p-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500"></select>
+                </div>
+            </div>
+
+            <!-- 進階標籤設定 -->
+            <div class="mt-4 pt-4 border-t border-yellow-200 mb-4 bg-yellow-100/50 p-3 rounded">
+                <h3 class="text-sm font-bold mb-3 text-yellow-800 flex items-center">
+                    <span class="mr-1">⚙️</span> 標籤格式進階設定
+                </h3>
+                
+                <div class="mb-4">
+                    <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="autoBreakAddress" class="mr-2 rounded text-yellow-600 focus:ring-yellow-500 w-4 h-4" checked>
+                        地址自動分為兩列 (系統將一律自動隱藏村里)
+                    </label>
+                </div>
+
+                <div class="border-t border-yellow-200/50 pt-3">
+                    <h4 class="text-sm font-bold mb-2 text-yellow-800">收件人設定 (三選一)：</h4>
+                    <div class="flex flex-col gap-3 ml-1">
+                        <!-- 選項 1 -->
+                        <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                            <input type="radio" name="recipientOption" value="excel" class="mr-2 text-yellow-600 bg-white border-gray-300 focus:ring-yellow-500 w-4 h-4" checked>
+                            1. 依清單聯絡人 + 自訂稱謂：
+                            <!-- 預設值改為 鈞啟 -->
+                            <input type="text" id="excelTitle" value="鈞啟" class="ml-2 border border-gray-300 p-1 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-32">
+                        </label>
+                        <!-- 選項 2 -->
+                        <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                            <input type="radio" name="recipientOption" value="custom" class="mr-2 text-yellow-600 bg-white border-gray-300 focus:ring-yellow-500 w-4 h-4">
+                            2. 統一自訂收件人 (忽略清單)：
+                            <input type="text" id="customAllText" value="董事長 鈞啟" class="ml-2 border border-gray-300 p-1 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-32 disabled:bg-gray-200 disabled:text-gray-400" disabled>
+                        </label>
+                        <!-- 選項 3 -->
+                        <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                            <input type="radio" name="recipientOption" value="company" class="mr-2 text-yellow-600 bg-white border-gray-300 focus:ring-yellow-500 w-4 h-4">
+                            3. 隱藏收件人 (於公司名稱後加)：
+                            <input type="text" id="companyOnlyTitle" value="收" class="ml-2 border border-gray-300 p-1 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-24 disabled:bg-gray-200 disabled:text-gray-400" disabled>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 即時預覽畫面 -->
+            <div class="bg-white p-3 rounded border shadow-sm">
+                <h3 class="text-sm font-bold text-gray-600 mb-3 border-b pb-2">🔍 前三筆快速預覽 (請確認資料是否正確)</h3>
+                <div id="quickPreviewBox" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <!-- 預覽卡片將由 JS 動態產生 -->
+                </div>
+                
+                <!-- 新增的第二顆產生預覽按鈕，方便使用者直接點擊 -->
+                <button id="generateBtn2" class="w-full mt-5 bg-gray-400 text-white font-bold py-3 px-4 rounded shadow cursor-not-allowed transition hidden" disabled>
+                    等待上傳資料...
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="previewArea" class="w-full flex flex-col items-center pb-10">
+    <!-- 動態產生的標籤頁面會放在這裡 -->
+</div>
+
+<script>
+    // 台灣3碼郵遞區號資料庫
+    const taiwanZipCodes = {
+        "臺北市中正區": "100", "台北市中正區": "100", "臺北市大同區": "103", "台北市大同區": "103", "臺北市中山區": "104", "台北市中山區": "104", "臺北市松山區": "105", "台北市松山區": "105", "臺北市大安區": "106", "台北市大安區": "106", "臺北市萬華區": "108", "台北市萬華區": "108", "臺北市信義區": "110", "台北市信義區": "110", "臺北市士林區": "111", "台北市士林區": "111", "臺北市北投區": "112", "台北市北投區": "112", "臺北市內湖區": "114", "台北市內湖區": "114", "臺北市南港區": "115", "台北市南港區": "115", "臺北市文山區": "116", "台北市文山區": "116",
+        "基隆市仁愛區": "200", "基隆市信義區": "201", "基隆市中正區": "202", "基隆市中山區": "203", "基隆市安樂區": "204", "基隆市暖暖區": "205", "基隆市七堵區": "206",
+        "新北市萬里區": "207", "新北市金山區": "208", "新北市板橋區": "220", "新北市汐止區": "221", "新北市深坑區": "222", "新北市石碇區": "223", "新北市瑞芳區": "224", "新北市平溪區": "226", "新北市雙溪區": "227", "新北市貢寮區": "228", "新北市新店區": "231", "新北市坪林區": "232", "新北市烏來區": "233", "新北市永和區": "234", "新北市中和區": "235", "新北市土城區": "236", "新北市三峽區": "237", "新北市樹林區": "238", "新北市鶯歌區": "239", "新北市三重區": "241", "新北市新莊區": "242", "新北市泰山區": "243", "新北市林口區": "244", "新北市蘆洲區": "247", "新北市五股區": "248", "新北市八里區": "249", "新北市淡水區": "251", "新北市三芝區": "252", "新北市石門區": "253",
+        "宜蘭縣宜蘭市": "260", "宜蘭縣頭城鎮": "261", "宜蘭縣礁溪鄉": "262", "宜蘭縣壯圍鄉": "263", "宜蘭縣員山鄉": "264", "宜蘭縣羅東鎮": "265", "宜蘭縣三星鄉": "266", "宜蘭縣大同鄉": "267", "宜蘭縣五結鄉": "268", "宜蘭縣冬山鄉": "269", "宜蘭縣蘇澳鎮": "270", "宜蘭縣南澳鄉": "272",
+        "新竹市東區": "300", "新竹市北區": "300", "新竹市香山區": "300", "新竹縣竹北市": "302", "新竹縣湖口鄉": "303", "新竹縣新豐鄉": "304", "新竹縣新埔鎮": "305", "新竹縣關西鎮": "306", "新竹縣芎林鄉": "307", "新竹縣寶山鄉": "308", "新竹縣竹東鎮": "310", "新竹縣五峰鄉": "311", "新竹縣橫山鄉": "312", "新竹縣尖石鄉": "313", "新竹縣北埔鄉": "314", "新竹縣峨眉鄉": "315",
+        "桃園市中壢區": "320", "桃園市平鎮區": "324", "桃園市龍潭區": "325", "桃園市楊梅區": "326", "桃園市新屋區": "327", "桃園市觀音區": "328", "桃園市桃園區": "330", "桃園市龜山區": "333", "桃園市八德區": "334", "桃園市大溪區": "335", "桃園市復興區": "336", "桃園市大園區": "337", "桃園市蘆竹區": "338",
+        "苗栗縣竹南鎮": "350", "苗栗縣頭份市": "351", "苗栗縣三灣鄉": "352", "苗栗縣南庄鄉": "353", "苗栗縣獅潭鄉": "354", "苗栗縣後龍鎮": "356", "苗栗縣通霄鎮": "357", "苗栗縣苑裡鎮": "358", "苗栗縣苗栗市": "360", "苗栗縣造橋鄉": "361", "苗栗縣頭屋鄉": "362", "苗栗縣公館鄉": "363", "苗栗縣大湖鄉": "364", "苗栗縣泰安鄉": "365", "苗栗縣銅鑼鄉": "366", "苗栗縣三義鄉": "367", "苗栗縣西湖鄉": "368",
+        "臺中市中區": "400", "台中市中區": "400", "臺中市東區": "401", "台中市東區": "401", "臺中市南區": "402", "台中市南區": "402", "臺中市西區": "403", "台中市西區": "403", "臺中市北區": "404", "台中市北區": "404", "臺中市北屯區": "406", "台中市北屯區": "406", "臺中市西屯區": "407", "台中市西屯區": "407", "臺中市南屯區": "408", "台中市南屯區": "408", "臺中市太平區": "411", "台中市太平區": "411", "臺中市大里區": "412", "台中市大里區": "412", "臺中市霧峰區": "413", "台中市霧峰區": "413", "臺中市烏日區": "414", "台中市烏日區": "414", "臺中市豐原區": "420", "台中市豐原區": "420", "臺中市后里區": "421", "台中市后里區": "421", "臺中市石岡區": "422", "台中市石岡區": "422", "臺中市東勢區": "423", "台中市東勢區": "423", "臺中市和平區": "424", "台中市和平區": "424", "臺中市新社區": "426", "台中市新社區": "426", "臺中市潭子區": "427", "台中市潭子區": "427", "臺中市大雅區": "428", "台中市大雅區": "428", "臺中市神岡區": "429", "台中市神岡區": "429", "臺中市大肚區": "432", "台中市大肚區": "432", "臺中市沙鹿區": "433", "台中市沙鹿區": "433", "臺中市龍井區": "434", "台中市龍井區": "434", "臺中市梧棲區": "435", "台中市梧棲區": "435", "臺中市清水區": "436", "台中市清水區": "436", "臺中市大甲區": "437", "台中市大甲區": "437", "臺中市外埔區": "438", "台中市外埔區": "438", "臺中市大安區": "439", "台中市大安區": "439",
+        "彰化縣彰化市": "500", "彰化縣芬園鄉": "502", "彰化縣花壇鄉": "503", "彰化縣秀水鄉": "504", "彰化縣鹿港鎮": "505", "彰化縣福興鄉": "506", "彰化縣線西鄉": "507", "彰化縣和美鎮": "508", "彰化縣伸港鄉": "509", "彰化縣員林市": "510", "彰化縣社頭鄉": "511", "彰化縣永靖鄉": "512", "彰化縣埔心鄉": "513", "彰化縣溪湖鎮": "514", "彰化縣大村鄉": "515", "彰化縣埔鹽鄉": "516", "彰化縣田中鎮": "520", "彰化縣北斗鎮": "521", "彰化縣田尾鄉": "522", "彰化縣埤頭鄉": "523", "彰化縣溪州鄉": "524", "彰化縣竹塘鄉": "525", "彰化縣二林鎮": "526", "彰化縣大城鄉": "527", "彰化縣芳苑鄉": "528", "彰化縣二水鄉": "530",
+        "南投縣南投市": "540", "南投縣中寮鄉": "541", "南投縣草屯鎮": "542", "南投縣國姓鄉": "544", "南投縣埔里鎮": "545", "南投縣仁愛鄉": "546", "南投縣名間鄉": "551", "南投縣集集鎮": "552", "南投縣水里鄉": "553", "南投縣魚池鄉": "555", "南投縣信義鄉": "556", "南投縣竹山鎮": "557", "南投縣鹿谷鄉": "558",
+        "嘉義市東區": "600", "嘉義市西區": "600", "嘉義縣番路鄉": "602", "嘉義縣梅山鄉": "603", "嘉義縣竹崎鄉": "604", "嘉義縣阿里山鄉": "605", "嘉義縣中埔鄉": "606", "嘉義縣大埔鄉": "607", "嘉義縣水上鄉": "608", "嘉義縣鹿草鄉": "611", "嘉義縣太保市": "612", "嘉義縣朴子市": "613", "嘉義縣東石鄉": "614", "嘉義縣六腳鄉": "615", "嘉義縣新港鄉": "616", "嘉義縣民雄鄉": "621", "嘉義縣大林鎮": "622", "嘉義縣溪口鄉": "623", "嘉義縣義竹鄉": "624", "嘉義縣布袋鎮": "625",
+        "雲林縣斗南鎮": "630", "雲林縣大埤鄉": "631", "雲林縣虎尾鎮": "632", "雲林縣土庫鎮": "633", "雲林縣褒忠鄉": "634", "雲林縣東勢鄉": "635", "雲林縣臺西鄉": "636", "雲林縣台西鄉": "636", "雲林縣崙背鄉": "637", "雲林縣麥寮鄉": "638", "雲林縣斗六市": "640", "雲林縣林內鄉": "643", "雲林縣古坑鄉": "646", "雲林縣莿桐鄉": "647", "雲林縣西螺鎮": "648", "雲林縣二崙鄉": "649", "雲林縣北港鎮": "651", "雲林縣水林鄉": "652", "雲林縣口湖鄉": "653", "雲林縣四湖鄉": "654", "雲林縣元長鄉": "655",
+        "臺南市中西區": "700", "台南市中西區": "700", "臺南市東區": "701", "台南市東區": "701", "臺南市南區": "702", "台南市南區": "702", "臺南市北區": "704", "台南市北區": "704", "臺南市安平區": "708", "台南市安平區": "708", "臺南市安南區": "709", "台南市安南區": "709", "臺南市永康區": "710", "台南市永康區": "710", "臺南市歸仁區": "711", "台南市歸仁區": "711", "臺南市新化區": "712", "台南市新化區": "712", "臺南市左鎮區": "713", "台南市左鎮區": "713", "臺南市玉井區": "714", "台南市玉井區": "714", "臺南市楠西區": "715", "台南市楠西區": "715", "臺南市南化區": "716", "台南市南化區": "716", "臺南市仁德區": "717", "台南市仁德區": "717", "臺南市關廟區": "718", "台南市關廟區": "718", "臺南市龍崎區": "719", "台南市龍崎區": "719", "臺南市官田區": "720", "台南市官田區": "720", "臺南市麻豆區": "721", "台南市麻豆區": "721", "臺南市佳里區": "722", "台南市佳里區": "722", "臺南市西港區": "723", "台南市西港區": "723", "臺南市七股區": "724", "台南市七股區": "724", "臺南市將軍區": "725", "台南市將軍區": "725", "臺南市學甲區": "726", "台南市學甲區": "726", "臺南市北門區": "727", "台南市北門區": "727", "臺南市新營區": "730", "台南市新營區": "730", "臺南市後壁區": "731", "台南市後壁區": "731", "臺南市白河區": "732", "台南市白河區": "732", "臺南市東山區": "733", "台南市東山區": "733", "臺南市六甲區": "734", "台南市六甲區": "734", "臺南市下營區": "735", "台南市下營區": "735", "臺南市柳營區": "736", "台南市柳營區": "736", "臺南市鹽水區": "737", "台南市鹽水區": "737",
+        "高雄市新興區": "800", "高雄市前金區": "801", "高雄市苓雅區": "802", "高雄市鹽埕區": "803", "高雄市鼓山區": "804", "高雄市旗津區": "805", "高雄市前鎮區": "806", "高雄市三民區": "807", "高雄市楠梓區": "811", "高雄市小港區": "812", "高雄市左營區": "813", "高雄市仁武區": "814", "高雄市大社區": "815", "高雄市東沙群島": "817", "高雄市南沙群島": "819", "高雄市岡山區": "820", "高雄市路竹區": "821", "高雄市阿蓮區": "822", "高雄市田寮區": "823", "高雄市燕巢區": "824", "高雄市橋頭區": "825", "高雄市梓官區": "826", "高雄市彌陀區": "827", "高雄市永安區": "828", "高雄市湖內區": "829", "高雄市鳳山區": "830", "高雄市大寮區": "831", "高雄市林園區": "832", "高雄市鳥松區": "833", "高雄市大樹區": "840", "高雄市旗山區": "842", "高雄市美濃區": "843", "高雄市六龜區": "844", "高雄市內門區": "845", "高雄市杉林區": "846", "高雄市甲仙區": "847", "高雄市桃源區": "848", "高雄市那瑪夏區": "849", "高雄市茂林區": "851", "高雄市茄萣區": "852",
+        "屏東縣屏東市": "900", "屏東縣三地門鄉": "901", "屏東縣霧臺鄉": "902", "屏東縣瑪家鄉": "903", "屏東縣九如鄉": "904", "屏東縣里港鄉": "905", "屏東縣高樹鄉": "906", "屏東縣鹽埔鄉": "907", "屏東縣長治鄉": "908", "屏東縣麟洛鄉": "909", "屏東縣竹田鄉": "911", "屏東縣內埔鄉": "912", "屏東縣萬丹鄉": "913", "屏東縣潮州鎮": "920", "屏東縣泰武鄉": "921", "屏東縣來義鄉": "922", "屏東縣萬巒鄉": "923", "屏東縣崁頂鄉": "924", "屏東縣新埤鄉": "925", "屏東縣南州鄉": "926", "屏東縣林邊鄉": "927", "屏東縣東港鎮": "928", "屏東縣琉球鄉": "929", "屏東縣佳冬鄉": "931", "屏東縣新園鄉": "932", "屏東縣枋寮鄉": "940", "屏東縣枋山鄉": "941", "屏東縣春日鄉": "942", "屏東縣獅子鄉": "943", "屏東縣車城鄉": "944", "屏東縣牡丹鄉": "945", "屏東縣恆春鎮": "946", "屏東縣滿州鄉": "947",
+        "臺東縣臺東市": "950", "台東縣台東市": "950", "臺東縣綠島鄉": "951", "台東縣綠島鄉": "951", "臺東縣蘭嶼鄉": "952", "台東縣蘭嶼鄉": "952", "臺東縣延平鄉": "953", "台東縣延平鄉": "953", "臺東縣卑南鄉": "954", "台東縣卑南鄉": "954", "臺東縣鹿野鄉": "955", "台東縣鹿野鄉": "955", "臺東縣關山鎮": "956", "台東縣關山鎮": "956", "臺東縣海端鄉": "957", "台東縣海端鄉": "957", "臺東縣池上鄉": "958", "台東縣池上鄉": "958", "臺東縣東河鄉": "959", "台東縣東河鄉": "959", "臺東縣成功鎮": "961", "台東縣成功鎮": "961", "臺東縣長濱鄉": "962", "台東縣長濱鄉": "962", "臺東縣太麻里鄉": "963", "台東縣太麻里鄉": "963", "臺東縣金峰鄉": "964", "台東縣金峰鄉": "964", "臺東縣大武鄉": "965", "台東縣大武鄉": "965", "臺東縣達仁鄉": "966", "台東縣達仁鄉": "966",
+        "花蓮縣花蓮市": "970", "花蓮縣新城鄉": "971", "花蓮縣秀林鄉": "972", "花蓮縣吉安鄉": "973", "花蓮縣壽豐鄉": "974", "花蓮縣鳳林鎮": "975", "花蓮縣光復鄉": "976", "花蓮縣豐濱鄉": "977", "花蓮縣瑞穗鄉": "978", "花蓮縣萬榮鄉": "979", "花蓮縣玉里鎮": "981", "花蓮縣卓溪鄉": "982", "花蓮縣富里鄉": "983",
+        "金門縣金沙鎮": "890", "金門縣金湖鎮": "891", "金門縣金寧鄉": "892", "金門縣金城鎮": "893", "金門縣烈嶼鄉": "894", "金門縣烏坵鄉": "896",
+        "連江縣南竿鄉": "209", "連江縣北竿鄉": "210", "連江縣莒光鄉": "211", "連江縣東引鄉": "212",
+        "澎湖縣馬公市": "880", "澎湖縣西嶼鄉": "881", "澎湖縣望安鄉": "882", "澎湖縣七美鄉": "883", "澎湖縣白沙鄉": "884", "澎湖縣湖西鄉": "885"
+    };
+
+    // 狀態變數
+    let rawExcelData = []; 
+    let excelHeaders = []; 
+    let parsedData = [];   
+    let selectedLogoUrl = ''; 
+    let customLogoDataUrl = ''; 
+    
+    // DOM 元素綁定
+    const excelFileInput = document.getElementById('excelFile');
+    const headerRowInput = document.getElementById('headerRowInput');
+    
+    const logoOptions = document.getElementsByName('logoOption');
+    const uploadBox = document.getElementById('uploadBox');
+    const logoFileInput = document.getElementById('logoFile');
+    
+    const selCompany = document.getElementById('selCompany');
+    const selAddress = document.getElementById('selAddress');
+    const selRecipient = document.getElementById('selRecipient');
+    const mappingSection = document.getElementById('mappingSection');
+    const quickPreviewBox = document.getElementById('quickPreviewBox');
+    
+    const autoBreakAddress = document.getElementById('autoBreakAddress');
+    
+    const recipientOptions = document.getElementsByName('recipientOption');
+    const excelTitle = document.getElementById('excelTitle');
+    const customAllText = document.getElementById('customAllText');
+    const companyOnlyTitle = document.getElementById('companyOnlyTitle');
+    
+    const generateBtn = document.getElementById('generateBtn');
+    const generateBtn2 = document.getElementById('generateBtn2');
+    const printBtn = document.getElementById('printBtn');
+    const previewArea = document.getElementById('previewArea');
+    const statusMsg = document.getElementById('statusMsg');
+
+    const PRESET_LOGO_URL = 'https://res.sinyiglobal.com/news/1789969282UDYUc.png';
+
+    excelFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        statusMsg.textContent = '讀取 Excel 中...';
+        statusMsg.className = 'mt-4 text-sm font-semibold text-center text-blue-500';
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                rawExcelData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                
+                if (rawExcelData.length === 0) {
+                    throw new Error("工作表是空的，請確認資料。");
+                }
+                parseHeadersAndInit();
+                
+            } catch (err) {
+                console.error(err);
+                statusMsg.textContent = '讀取失敗：' + err.message;
+                statusMsg.className = 'mt-4 text-sm font-semibold text-center text-red-500';
+                mappingSection.classList.add('hidden');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    headerRowInput.addEventListener('change', function() {
+        if (rawExcelData.length > 0) {
+            parseHeadersAndInit();
+        }
+    });
+
+    function parseHeadersAndInit() {
+        let headerIndex = parseInt(headerRowInput.value, 10) - 1;
+        if (isNaN(headerIndex) || headerIndex < 0) headerIndex = 0;
+        if (headerIndex >= rawExcelData.length) {
+            statusMsg.textContent = `錯誤：您指定的標題列 (${headerIndex+1}) 超過了資料總行數。`;
+            statusMsg.className = 'mt-4 text-sm font-semibold text-center text-red-500';
+            return;
+        }
+
+        excelHeaders = rawExcelData[headerIndex];
+        
+        if (!excelHeaders || excelHeaders.every(h => String(h).trim() === '')) {
+            let maxCols = rawExcelData.reduce((max, row) => Math.max(max, row.length), 0);
+            excelHeaders = Array.from({length: maxCols}, (_, i) => `第 ${i+1} 欄 (無標題)`);
+        } else {
+            excelHeaders = excelHeaders.map((h, i) => String(h).trim() ? String(h).trim() : `第 ${i+1} 欄 (空白)`);
+        }
+
+        selCompany.innerHTML = '<option value="">-- 請選擇 --</option>';
+        selAddress.innerHTML = '<option value="">-- 請選擇 --</option>';
+        selRecipient.innerHTML = '<option value="">-- 請選擇 --</option>';
+
+        excelHeaders.forEach((header, index) => {
+            selCompany.add(new Option(header, index));
+            selAddress.add(new Option(header, index));
+            selRecipient.add(new Option(header, index));
+        });
+
+        let guessCompany = excelHeaders.findIndex(h => h.includes('公司') || h.includes('工廠') || h.includes('名稱') || h.includes('客戶'));
+        let guessAddress = excelHeaders.findIndex(h => h.includes('地址') || h.includes('所在地') || h.includes('聯絡處'));
+        let guessRecipient = excelHeaders.findIndex(h => h.includes('聯絡人') || h.includes('收件人') || h.includes('姓名') || h.includes('負責人'));
+
+        selCompany.value = guessCompany !== -1 ? guessCompany : 0;
+        selAddress.value = guessAddress !== -1 ? guessAddress : (excelHeaders.length > 1 ? 1 : 0);
+        selRecipient.value = guessRecipient !== -1 ? guessRecipient : (excelHeaders.length > 2 ? 2 : 0);
+
+        mappingSection.classList.remove('hidden');
+        statusMsg.textContent = '請在上方確認「欄位對應」是否正確，並查看預覽。';
+        statusMsg.className = 'mt-4 text-sm font-semibold text-center text-yellow-600';
+
+        // 啟用第一顆產生按鈕
+        generateBtn.disabled = false;
+        generateBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow transition mb-3';
+        generateBtn.textContent = '👁️ 產生正式標籤預覽';
+
+        // 啟用並顯示第二顆產生按鈕
+        generateBtn2.disabled = false;
+        generateBtn2.className = 'w-full mt-5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow transition';
+        generateBtn2.textContent = '👁️ 產生正式標籤預覽';
+        generateBtn2.classList.remove('hidden');
+
+        updateQuickPreview();
+    }
+
+    // 綁定基礎欄位變更事件
+    [selCompany, selAddress, selRecipient, autoBreakAddress].forEach(el => {
+        el.addEventListener('change', updateQuickPreview);
+    });
+
+    // 處理收件人選項切換與狀態鎖定
+    recipientOptions.forEach(radio => {
+        radio.addEventListener('change', function() {
+            excelTitle.disabled = this.value !== 'excel';
+            customAllText.disabled = this.value !== 'custom';
+            companyOnlyTitle.disabled = this.value !== 'company';
+            updateQuickPreview();
+        });
+    });
+
+    // 綁定三個收件人文字框，實現打字即時更新
+    [excelTitle, customAllText, companyOnlyTitle].forEach(input => {
+        input.addEventListener('input', updateQuickPreview);
+    });
+
+    // 大宗郵件戳記選項切換
+    logoOptions.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'upload') {
+                uploadBox.classList.remove('hidden');
+                selectedLogoUrl = customLogoDataUrl;
+            } else {
+                uploadBox.classList.add('hidden');
+                selectedLogoUrl = (this.value === 'preset') ? PRESET_LOGO_URL : '';
+            }
+            updateQuickPreview();
+            updateGeneratedLabelsLogo();
+        });
+    });
+
+    // 自行上傳大宗郵件圖檔
+    logoFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            customLogoDataUrl = e.target.result;
+            document.querySelector('input[name="logoOption"][value="upload"]').checked = true;
+            selectedLogoUrl = customLogoDataUrl;
+            updateQuickPreview();
+            updateGeneratedLabelsLogo();
+        };
+        reader.readAsDataURL(file);
+    });
+
+    function updateGeneratedLabelsLogo() {
+        const labels = document.querySelectorAll('#previewArea .preview-label');
+        if (selectedLogoUrl) {
+            labels.forEach(label => {
+                label.classList.add('show-logo');
+                label.querySelector('.label-logo').src = selectedLogoUrl;
+            });
+        } else {
+            labels.forEach(label => label.classList.remove('show-logo'));
+        }
+    }
+
+    function getZipCode(addressStr) {
+        let clean = addressStr.replace(/\s+/g, '');
+        // 抓取縣市與鄉鎮市區，例如：新北市板橋區
+        const match = clean.match(/^(?:.{2}[縣市])?.{1,3}[區市鎮鄉]/);
+        if (match) {
+            let key = match[0].replace(/臺/g, '台');
+            if (taiwanZipCodes[key]) return taiwanZipCodes[key];
+        }
+        return '';
+    }
+
+    function formatAddress(address, breakLine) {
+        if (!address) return '';
+        let cleanAddress = String(address).replace(/\s+/g, '').replace(/臺/g, '台');
+        
+        // 精準鎖定第一段：「縣市 (可省略) + 鄉鎮市區」
+        const match = cleanAddress.match(/^(?:.{2}[縣市])?.{1,3}[區市鎮鄉]/);
+        
+        if (match) {
+            let cityAndDistrict = match[0];
+            let restAddress = cleanAddress.substring(cityAndDistrict.length);
+            
+            // 一律無條件過濾並隱藏「村」或「里」
+            restAddress = restAddress.replace(/^.{1,3}[村里]/, '');
+            
+            // 決定是否強制折行
+            if (breakLine && restAddress.length > 0) {
+                return cityAndDistrict + '<br>' + restAddress;
+            } else {
+                return cityAndDistrict + restAddress;
+            }
+        }
+        return cleanAddress; 
+    }
+
+    function formatCompany(company) {
+        if (!company) return '';
+        let result = String(company).trim();
+        let companyIdx = result.indexOf('公司');
+        if (companyIdx !== -1) {
+            let afterCompany = result.substring(companyIdx + 2); 
+            // 只要公司後面出現「廠」字，就直接截斷，只保留到「公司」
+            if (afterCompany.includes('廠')) {
+                return result.substring(0, companyIdx + 2);
+            }
+        }
+        return result;
+    }
+
+    function updateQuickPreview() {
+        if (rawExcelData.length === 0) return;
+
+        let headerIndex = parseInt(headerRowInput.value, 10) - 1;
+        if (isNaN(headerIndex) || headerIndex < 0) headerIndex = 0;
+        
+        let dataRows = rawExcelData.slice(headerIndex + 1);
+        let previewCount = 0;
+        quickPreviewBox.innerHTML = '';
+        parsedData = []; 
+
+        let idxC = selCompany.value;
+        let idxA = selAddress.value;
+        let idxR = selRecipient.value;
+
+        // 取得目前選取的收件人模式
+        const recOpt = document.querySelector('input[name="recipientOption"]:checked').value;
+
+        for (let i = 0; i < dataRows.length; i++) {
+            const row = dataRows[i];
+            
+            let rawCompany = row[idxC] !== undefined ? String(row[idxC]).trim() : '';
+            let rawAddress = row[idxA] !== undefined ? String(row[idxA]).trim() : '';
+            let rawRecipient = row[idxR] !== undefined ? String(row[idxR]).trim() : '';
+
+            if (!rawCompany && !rawAddress && !rawRecipient) continue;
+
+            parsedData.push({ company: rawCompany, address: rawAddress, recipient: rawRecipient });
+
+            if (previewCount < 3) {
+                let finalCompany = formatCompany(rawCompany);
+                let displayRecipient = '';
+
+                // 根據模式處理收件人與公司後綴文字
+                if (recOpt === 'company') {
+                    const appendText = companyOnlyTitle.value.trim();
+                    if (appendText) finalCompany += ' ' + appendText;
+                    // displayRecipient 保持空白
+                } else if (recOpt === 'custom') {
+                    displayRecipient = customAllText.value.trim();
+                } else {
+                    displayRecipient = rawRecipient;
+                    const appendText = excelTitle.value.trim();
+                    if (displayRecipient && appendText) {
+                        displayRecipient += ' ' + appendText;
+                    }
+                }
+
+                let zip = getZipCode(rawAddress);
+                // 移除原本位在字首的郵遞區號(如果有)
+                let cleanAddrForDisplay = rawAddress.replace(/^\d{3,5}\s*/, ''); 
+                let formattedAddr = formatAddress(cleanAddrForDisplay, autoBreakAddress.checked);
+                
+                // 將郵遞區號直接前綴在地址第一列的最前方
+                let finalAddressHtml = zip ? `${zip} ${formattedAddr}` : formattedAddr;
+
+                let logoImgHtml = selectedLogoUrl ? `<img class="label-logo" src="${selectedLogoUrl}" alt="郵資已付" style="display:block;">` : '';
+                let logoClass = selectedLogoUrl ? 'show-logo' : '';
+
+                quickPreviewBox.innerHTML += `
+                    <div class="border border-yellow-300 rounded p-3 relative overflow-hidden bg-white shadow-sm flex flex-col justify-center h-[130px] ${logoClass}">
+                        ${logoImgHtml}
+                        <div class="label-address" style="margin-bottom: 4px;">${finalAddressHtml}</div>
+                        <div class="label-company">${finalCompany}</div>
+                        <div class="label-recipient mt-1">${displayRecipient || '　'}</div>
+                    </div>
+                `;
+                previewCount++;
+            }
+        }
+        
+        statusMsg.textContent = `對應完成！有效資料共 ${parsedData.length} 筆，請點擊「產生正式標籤預覽」。`;
+        statusMsg.className = 'mt-4 text-sm font-semibold text-center text-green-600';
+    }
+
+    // 獨立出產生正式標籤的邏輯，供兩顆按鈕共用呼叫
+    function generateFinalLabels() {
+        if (parsedData.length === 0) return;
+
+        previewArea.innerHTML = ''; 
+        const LABELS_PER_PAGE = 24; 
+        let currentPage = null;
+
+        const recOpt = document.querySelector('input[name="recipientOption"]:checked').value;
+
+        parsedData.forEach((row, index) => {
+            if (index % LABELS_PER_PAGE === 0) {
+                currentPage = document.createElement('div');
+                currentPage.className = 'preview-page';
+                previewArea.appendChild(currentPage);
+            }
+
+            let finalCompany = formatCompany(row.company);
+            let displayRecipient = '';
+
+            if (recOpt === 'company') {
+                const appendText = companyOnlyTitle.value.trim();
+                if (appendText) finalCompany += ' ' + appendText;
+            } else if (recOpt === 'custom') {
+                displayRecipient = customAllText.value.trim();
+            } else {
+                displayRecipient = row.recipient;
+                const appendText = excelTitle.value.trim();
+                if (displayRecipient && appendText) {
+                    displayRecipient += ' ' + appendText;
+                }
+            }
+
+            let zip = getZipCode(row.address);
+            let cleanAddrForDisplay = row.address.replace(/^\d{3,5}\s*/, ''); 
+            let formattedAddr = formatAddress(cleanAddrForDisplay, autoBreakAddress.checked);
+            let finalAddressHtml = zip ? `${zip} ${formattedAddr}` : formattedAddr;
+
+            const labelDiv = document.createElement('div');
+            labelDiv.className = `preview-label ${selectedLogoUrl ? 'show-logo' : ''}`;
+            
+            labelDiv.innerHTML = `
+                <img class="label-logo" src="${selectedLogoUrl || ''}" alt="郵資已付">
+                <div class="label-address">${finalAddressHtml}</div>
+                <div class="label-company">${finalCompany}</div>
+                <div class="label-recipient">${displayRecipient || '　'}</div>
+            `;
+            
+            currentPage.appendChild(labelDiv);
+        });
+
+        statusMsg.textContent = `預覽產生完畢！共計 ${parsedData.length} 張標籤。可以準備列印。`;
+        statusMsg.className = 'mt-4 text-sm font-semibold text-center text-green-600';
+        
+        printBtn.classList.remove('hidden');
+        previewArea.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 將兩顆產生預覽按鈕，都綁定到同一個產生邏輯
+    generateBtn.addEventListener('click', generateFinalLabels);
+    generateBtn2.addEventListener('click', generateFinalLabels);
+
+    printBtn.addEventListener('click', function() {
+        // 在列印瞬間動態改變網頁標題，讓 PDF 產出自動帶入日期與筆數
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}${mm}${dd}`;
+        
+        const originalTitle = document.title;
+        document.title = `${dateStr}_標籤共${parsedData.length}筆`;
+        
+        window.print();
+        
+        // 列印對話框彈出後，稍候將標題改回來
+        setTimeout(() => {
+            document.title = originalTitle;
+        }, 1000);
+    });
+
+</script>
+</body>
+</html>

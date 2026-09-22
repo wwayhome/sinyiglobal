@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APLI 01273 標籤列印產生器</title>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-5YQY4RT9H2');
+    </script>
+    
     <!-- 引入 Tailwind CSS 處理版面與 UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 SheetJS 處理 Excel 讀取 -->
@@ -27,14 +37,13 @@
             display: flex;
             flex-wrap: wrap;
             box-sizing: border-box;
-            /* A4 紙張大小 */
         }
 
         .preview-label {
             width: 70mm;
             height: 37mm;
             box-sizing: border-box;
-            border: 1px dashed #cbd5e1; /* 預覽用虛線 */
+            border: 1px dashed #cbd5e1;
             padding: 4mm;
             position: relative;
             overflow: hidden;
@@ -44,27 +53,24 @@
         }
 
         /* 標籤內的文字排版 */
-        /* 地址與公司字體統一為 10pt */
         .label-address { font-size: 10pt; line-height: 1.4; margin-bottom: 2mm; word-break: break-all; }
         .label-company { font-size: 10pt; font-weight: 500; margin-bottom: 1mm; }
-        /* 姓名縮小為 11pt */
         .label-recipient { font-size: 11pt; font-weight: bold; }
         
         .label-logo {
             position: absolute;
-            top: 24px; /* 精準往下移得到 24px */
-            right: 2mm; /* 保持靠右邊距 */
-            height: 28mm; /* 根據高度調整大宗郵件圖案大小 */
+            top: 24px; /* 精準往下移 24px */
+            right: 2mm;
+            height: 28mm;
             width: auto;
             object-fit: contain;
-            display: none; /* 預設隱藏 */
+            display: none;
         }
 
         .show-logo .label-logo {
             display: block;
         }
         
-        /* 當顯示 Logo 時，保護右側不被地址文字覆蓋 */
         .show-logo .label-address {
             padding-right: 24mm; 
         }
@@ -72,43 +78,33 @@
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 0; /* 移除瀏覽器預設邊界 */
+                margin: 0;
             }
             body {
                 background: white;
                 margin: 0;
                 padding: 0;
             }
-            /* 隱藏非列印區域 */
             .no-print {
                 display: none !important;
             }
-            
-            /* 清除預覽區底部的 padding，避免撐出額外的空白頁 */
             #previewArea {
                 padding-bottom: 0 !important;
             }
-
             .preview-page {
                 margin: 0;
                 box-shadow: none;
-                /* 鎖死絕對高度並隱藏溢出，避免瀏覽器小數點運算撐破版面 */
                 height: 297mm; 
                 overflow: hidden; 
-                page-break-after: always; /* 確保每張 A4 換頁 */
+                page-break-after: always;
                 break-after: page; 
             }
-            
-            /* 最後一張 A4 不再強制換頁，避免產生最後一頁空白頁 */
             .preview-page:last-child {
                 page-break-after: auto;
                 break-after: auto;
             }
-
-            /* 列印時移除虛線框 */
             .preview-label {
                 border: none;
-                /* 微調邊距以防列印機硬體留白咬紙 */
                 padding-left: 5mm; 
                 padding-right: 5mm;
             }
@@ -120,24 +116,23 @@
 <div class="no-print p-6 max-w-5xl mx-auto">
     <div class="bg-white rounded-xl shadow-md p-6 mb-6">
         <h1 class="text-2xl font-bold mb-2 text-blue-700">APLI 01273 標籤列印產生器</h1>
-        <!-- 下載工廠清單超連結 -->
+        
         <div class="mb-4">
             <a href="https://land.bip.gov.tw/gis/" target="_blank" class="text-blue-600 hover:text-blue-800 underline font-medium flex items-center gap-1 inline-flex">
                 🌐 下載工廠清單 (另開網頁)
             </a>
         </div>
-        <p class="text-sm text-gray-500 mb-6">請依序設定您的資料，並確認預覽無誤後再點擊「列印 PDF」。 (建議列印設定：無邊界、縮放 100%)</p>
+        <p class="text-sm text-gray-500 mb-2">請依序設定您的資料，並確認預覽無誤後再點擊「列印 PDF」。 (建議列印設定：無邊界、縮放 100%)</p>
+        <p class="text-sm text-red-600 font-bold mb-6">⚠️ 警語：標籤來源請自行過濾拒絕行銷之客戶名單。</p>
 
         <!-- 步驟區塊 -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- 步驟 1: 上傳 Excel -->
             <div class="border rounded-lg p-4 bg-blue-50">
                 <h2 class="font-bold mb-2 flex items-center"><span class="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">1</span> 上傳 Excel 清單</h2>
                 <input type="file" id="excelFile" accept=".xls,.xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"/>
                 <p class="text-xs text-gray-500 mt-2">支援自動偵測欄位標題，或手動調整對應。</p>
             </div>
 
-            <!-- 步驟 2: 設定大宗郵件 Logo -->
             <div class="border rounded-lg p-4 bg-green-50">
                 <h2 class="font-bold mb-3 flex items-center"><span class="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">2</span> 設定大宗郵件戳記</h2>
                 
@@ -146,29 +141,25 @@
                         <input type="radio" name="logoOption" value="none" class="w-4 h-4 text-green-600 bg-white border-gray-300 focus:ring-green-500" checked>
                         <span class="ml-2 text-sm font-medium text-gray-700">不使用大宗郵件戳記</span>
                     </label>
-                    
                     <label class="flex items-center cursor-pointer">
                         <input type="radio" name="logoOption" value="preset" class="w-4 h-4 text-green-600 bg-white border-gray-300 focus:ring-green-500">
                         <span class="ml-2 text-sm font-medium text-gray-700">使用「信利達」預設戳記</span>
                     </label>
-                    
                     <label class="flex items-center cursor-pointer">
                         <input type="radio" name="logoOption" value="upload" class="w-4 h-4 text-green-600 bg-white border-gray-300 focus:ring-green-500">
                         <span class="ml-2 text-sm font-medium text-gray-700">自行上傳圖片後套用</span>
                     </label>
                 </div>
-
                 <div id="uploadBox" class="mt-3 hidden p-3 border border-green-200 rounded-md bg-green-100/50">
                     <input type="file" id="logoFile" accept="image/png,image/jpeg" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"/>
                 </div>
             </div>
 
-            <!-- 步驟 3: 產生與列印 -->
             <div class="border rounded-lg p-4 bg-orange-50 flex flex-col justify-center items-center">
                 <button id="generateBtn" class="w-full bg-gray-400 text-white font-bold py-3 px-4 rounded shadow cursor-not-allowed transition mb-3" disabled>
                     等待上傳資料...
                 </button>
-                <button id="printBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded shadow transition hidden">
+                <button id="printBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded shadow transition hidden">
                     🖨️ 列印標籤 / 匯出 PDF
                 </button>
             </div>
@@ -176,14 +167,12 @@
         
         <div id="statusMsg" class="mt-4 text-sm font-semibold text-center text-red-500">請先上傳 Excel 檔案。</div>
 
-        <!-- 步驟 1.5 欄位對應與預覽 (預設隱藏) -->
         <div id="mappingSection" class="hidden mt-6 border rounded-lg p-5 bg-yellow-50 shadow-inner">
             <div class="mb-5 border-b border-yellow-200 pb-4">
                 <h2 class="font-bold text-lg flex items-center text-yellow-800 mb-3">
                     <span class="bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">!</span> 
                     確認欄位對應 (設定資料來源)
                 </h2>
-                <!-- 靠左放大的標題列設定 -->
                 <div class="flex flex-col sm:flex-row sm:items-center gap-2 bg-yellow-100 p-3 rounded-lg border border-yellow-300 w-full md:w-auto inline-block shadow-sm">
                     <label class="text-base md:text-lg font-bold text-red-600">⚠️ 指定標題列為第幾列：</label>
                     <input type="number" id="headerRowInput" value="1" min="1" class="border-2 border-red-400 p-1 w-20 text-lg rounded text-center focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 font-bold text-red-700 shadow-sm">
@@ -205,7 +194,6 @@
                 </div>
             </div>
 
-            <!-- 進階標籤設定 -->
             <div class="mt-4 pt-4 border-t border-yellow-200 mb-4 bg-yellow-100/50 p-3 rounded">
                 <h3 class="text-sm font-bold mb-3 text-yellow-800 flex items-center">
                     <span class="mr-1">⚙️</span> 標籤格式進階設定
@@ -221,20 +209,16 @@
                 <div class="border-t border-yellow-200/50 pt-3">
                     <h4 class="text-sm font-bold mb-2 text-yellow-800">收件人設定 (三選一)：</h4>
                     <div class="flex flex-col gap-3 ml-1">
-                        <!-- 選項 1 -->
                         <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
                             <input type="radio" name="recipientOption" value="excel" class="mr-2 text-yellow-600 bg-white border-gray-300 focus:ring-yellow-500 w-4 h-4" checked>
                             1. 依清單聯絡人 + 自訂稱謂：
-                            <!-- 預設值改為 鈞啟 -->
                             <input type="text" id="excelTitle" value="鈞啟" class="ml-2 border border-gray-300 p-1 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-32">
                         </label>
-                        <!-- 選項 2 -->
                         <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
                             <input type="radio" name="recipientOption" value="custom" class="mr-2 text-yellow-600 bg-white border-gray-300 focus:ring-yellow-500 w-4 h-4">
                             2. 統一自訂收件人 (忽略清單)：
                             <input type="text" id="customAllText" value="董事長 鈞啟" class="ml-2 border border-gray-300 p-1 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-32 disabled:bg-gray-200 disabled:text-gray-400" disabled>
                         </label>
-                        <!-- 選項 3 -->
                         <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
                             <input type="radio" name="recipientOption" value="company" class="mr-2 text-yellow-600 bg-white border-gray-300 focus:ring-yellow-500 w-4 h-4">
                             3. 隱藏收件人 (於公司名稱後加)：
@@ -244,17 +228,20 @@
                 </div>
             </div>
 
-            <!-- 即時預覽畫面 -->
             <div class="bg-white p-3 rounded border shadow-sm">
                 <h3 class="text-sm font-bold text-gray-600 mb-3 border-b pb-2">🔍 前三筆快速預覽 (請確認資料是否正確)</h3>
                 <div id="quickPreviewBox" class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <!-- 預覽卡片將由 JS 動態產生 -->
                 </div>
                 
-                <!-- 新增的第二顆產生預覽按鈕，方便使用者直接點擊 -->
-                <button id="generateBtn2" class="w-full mt-5 bg-gray-400 text-white font-bold py-3 px-4 rounded shadow cursor-not-allowed transition hidden" disabled>
-                    等待上傳資料...
-                </button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                    <button id="generateBtn2" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow transition hidden" disabled>
+                        👁️ 產生正式標籤預覽
+                    </button>
+                    <button id="printBtnBottom" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded shadow transition hidden">
+                        🖨️ 列印標籤 / 匯出 PDF
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -265,7 +252,6 @@
 </div>
 
 <script>
-    // 台灣3碼郵遞區號資料庫
     const taiwanZipCodes = {
         "臺北市中正區": "100", "台北市中正區": "100", "臺北市大同區": "103", "台北市大同區": "103", "臺北市中山區": "104", "台北市中山區": "104", "臺北市松山區": "105", "台北市松山區": "105", "臺北市大安區": "106", "台北市大安區": "106", "臺北市萬華區": "108", "台北市萬華區": "108", "臺北市信義區": "110", "台北市信義區": "110", "臺北市士林區": "111", "台北市士林區": "111", "臺北市北投區": "112", "台北市北投區": "112", "臺北市內湖區": "114", "台北市內湖區": "114", "臺北市南港區": "115", "台北市南港區": "115", "臺北市文山區": "116", "台北市文山區": "116",
         "基隆市仁愛區": "200", "基隆市信義區": "201", "基隆市中正區": "202", "基隆市中山區": "203", "基隆市安樂區": "204", "基隆市暖暖區": "205", "基隆市七堵區": "206",
@@ -289,14 +275,12 @@
         "澎湖縣馬公市": "880", "澎湖縣西嶼鄉": "881", "澎湖縣望安鄉": "882", "澎湖縣七美鄉": "883", "澎湖縣白沙鄉": "884", "澎湖縣湖西鄉": "885"
     };
 
-    // 狀態變數
     let rawExcelData = []; 
     let excelHeaders = []; 
     let parsedData = [];   
     let selectedLogoUrl = ''; 
     let customLogoDataUrl = ''; 
     
-    // DOM 元素綁定
     const excelFileInput = document.getElementById('excelFile');
     const headerRowInput = document.getElementById('headerRowInput');
     
@@ -320,6 +304,7 @@
     const generateBtn = document.getElementById('generateBtn');
     const generateBtn2 = document.getElementById('generateBtn2');
     const printBtn = document.getElementById('printBtn');
+    const printBtnBottom = document.getElementById('printBtnBottom');
     const previewArea = document.getElementById('previewArea');
     const statusMsg = document.getElementById('statusMsg');
 
@@ -329,7 +314,16 @@
         const file = e.target.files[0];
         if (!file) return;
 
-        statusMsg.textContent = '讀取 Excel 中...';
+        // 使用 includes 增加檔名辨識的容錯率，只要檔名中有工廠查詢名單(或工廠名單)即視為第2列標題
+        const fileName = file.name;
+        if (fileName.includes("工廠查詢") || fileName.includes("工廠名單")) {
+            headerRowInput.value = "2";
+            statusMsg.textContent = '讀取 Excel 中... (偵測為工廠清單，標題列自動設為 2)';
+        } else {
+            headerRowInput.value = "1";
+            statusMsg.textContent = '讀取 Excel 中...';
+        }
+        
         statusMsg.className = 'mt-4 text-sm font-semibold text-center text-blue-500';
         
         const reader = new FileReader();
@@ -340,7 +334,8 @@
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                rawExcelData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                // 加入 blankrows: true 確保 Excel 第一列若是空白的也能確實對應到 rawExcelData[0]
+                rawExcelData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: "", blankrows: true});
                 
                 if (rawExcelData.length === 0) {
                     throw new Error("工作表是空的，請確認資料。");
@@ -358,9 +353,7 @@
     });
 
     headerRowInput.addEventListener('change', function() {
-        if (rawExcelData.length > 0) {
-            parseHeadersAndInit();
-        }
+        if (rawExcelData.length > 0) parseHeadersAndInit();
     });
 
     function parseHeadersAndInit() {
@@ -403,26 +396,22 @@
         statusMsg.textContent = '請在上方確認「欄位對應」是否正確，並查看預覽。';
         statusMsg.className = 'mt-4 text-sm font-semibold text-center text-yellow-600';
 
-        // 啟用第一顆產生按鈕
         generateBtn.disabled = false;
         generateBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow transition mb-3';
         generateBtn.textContent = '👁️ 產生正式標籤預覽';
 
-        // 啟用並顯示第二顆產生按鈕
         generateBtn2.disabled = false;
-        generateBtn2.className = 'w-full mt-5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow transition';
+        generateBtn2.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow transition';
         generateBtn2.textContent = '👁️ 產生正式標籤預覽';
         generateBtn2.classList.remove('hidden');
 
         updateQuickPreview();
     }
 
-    // 綁定基礎欄位變更事件
     [selCompany, selAddress, selRecipient, autoBreakAddress].forEach(el => {
         el.addEventListener('change', updateQuickPreview);
     });
 
-    // 處理收件人選項切換與狀態鎖定
     recipientOptions.forEach(radio => {
         radio.addEventListener('change', function() {
             excelTitle.disabled = this.value !== 'excel';
@@ -432,12 +421,10 @@
         });
     });
 
-    // 綁定三個收件人文字框，實現打字即時更新
     [excelTitle, customAllText, companyOnlyTitle].forEach(input => {
         input.addEventListener('input', updateQuickPreview);
     });
 
-    // 大宗郵件戳記選項切換
     logoOptions.forEach(radio => {
         radio.addEventListener('change', function() {
             if (this.value === 'upload') {
@@ -452,7 +439,6 @@
         });
     });
 
-    // 自行上傳大宗郵件圖檔
     logoFileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -482,7 +468,6 @@
 
     function getZipCode(addressStr) {
         let clean = addressStr.replace(/\s+/g, '');
-        // 抓取縣市與鄉鎮市區，例如：新北市板橋區
         const match = clean.match(/^(?:.{2}[縣市])?.{1,3}[區市鎮鄉]/);
         if (match) {
             let key = match[0].replace(/臺/g, '台');
@@ -495,17 +480,15 @@
         if (!address) return '';
         let cleanAddress = String(address).replace(/\s+/g, '').replace(/臺/g, '台');
         
-        // 精準鎖定第一段：「縣市 (可省略) + 鄉鎮市區」
         const match = cleanAddress.match(/^(?:.{2}[縣市])?.{1,3}[區市鎮鄉]/);
         
         if (match) {
             let cityAndDistrict = match[0];
             let restAddress = cleanAddress.substring(cityAndDistrict.length);
             
-            // 一律無條件過濾並隱藏「村」或「里」
+            // 一律無條件過濾掉跟在區/鎮後面的村/里 (通常是 1~3 個字)
             restAddress = restAddress.replace(/^.{1,3}[村里]/, '');
             
-            // 決定是否強制折行
             if (breakLine && restAddress.length > 0) {
                 return cityAndDistrict + '<br>' + restAddress;
             } else {
@@ -521,7 +504,6 @@
         let companyIdx = result.indexOf('公司');
         if (companyIdx !== -1) {
             let afterCompany = result.substring(companyIdx + 2); 
-            // 只要公司後面出現「廠」字，就直接截斷，只保留到「公司」
             if (afterCompany.includes('廠')) {
                 return result.substring(0, companyIdx + 2);
             }
@@ -544,7 +526,6 @@
         let idxA = selAddress.value;
         let idxR = selRecipient.value;
 
-        // 取得目前選取的收件人模式
         const recOpt = document.querySelector('input[name="recipientOption"]:checked').value;
 
         for (let i = 0; i < dataRows.length; i++) {
@@ -562,11 +543,9 @@
                 let finalCompany = formatCompany(rawCompany);
                 let displayRecipient = '';
 
-                // 根據模式處理收件人與公司後綴文字
                 if (recOpt === 'company') {
                     const appendText = companyOnlyTitle.value.trim();
                     if (appendText) finalCompany += ' ' + appendText;
-                    // displayRecipient 保持空白
                 } else if (recOpt === 'custom') {
                     displayRecipient = customAllText.value.trim();
                 } else {
@@ -578,11 +557,8 @@
                 }
 
                 let zip = getZipCode(rawAddress);
-                // 移除原本位在字首的郵遞區號(如果有)
                 let cleanAddrForDisplay = rawAddress.replace(/^\d{3,5}\s*/, ''); 
                 let formattedAddr = formatAddress(cleanAddrForDisplay, autoBreakAddress.checked);
-                
-                // 將郵遞區號直接前綴在地址第一列的最前方
                 let finalAddressHtml = zip ? `${zip} ${formattedAddr}` : formattedAddr;
 
                 let logoImgHtml = selectedLogoUrl ? `<img class="label-logo" src="${selectedLogoUrl}" alt="郵資已付" style="display:block;">` : '';
@@ -604,7 +580,6 @@
         statusMsg.className = 'mt-4 text-sm font-semibold text-center text-green-600';
     }
 
-    // 獨立出產生正式標籤的邏輯，供兩顆按鈕共用呼叫
     function generateFinalLabels() {
         if (parsedData.length === 0) return;
 
@@ -659,15 +634,14 @@
         statusMsg.className = 'mt-4 text-sm font-semibold text-center text-green-600';
         
         printBtn.classList.remove('hidden');
+        printBtnBottom.classList.remove('hidden');
         previewArea.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // 將兩顆產生預覽按鈕，都綁定到同一個產生邏輯
     generateBtn.addEventListener('click', generateFinalLabels);
     generateBtn2.addEventListener('click', generateFinalLabels);
 
-    printBtn.addEventListener('click', function() {
-        // 在列印瞬間動態改變網頁標題，讓 PDF 產出自動帶入日期與筆數
+    function executePrint() {
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -679,11 +653,13 @@
         
         window.print();
         
-        // 列印對話框彈出後，稍候將標題改回來
         setTimeout(() => {
             document.title = originalTitle;
         }, 1000);
-    });
+    }
+
+    printBtn.addEventListener('click', executePrint);
+    printBtnBottom.addEventListener('click', executePrint);
 
 </script>
 </body>

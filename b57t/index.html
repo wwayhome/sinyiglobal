@@ -21,7 +21,7 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-        
+                
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #f3f4f6;
@@ -57,6 +57,16 @@
         .label-company { font-size: 10pt; font-weight: 500; margin-bottom: 1mm; }
         .label-recipient { font-size: 11pt; font-weight: bold; }
         
+        /* 單位代碼樣式 (定位於右上角) */
+        .label-store-code {
+            position: absolute;
+            top: 3mm;
+            right: 5mm;
+            font-size: 8pt;
+            color: #64748b;
+            z-index: 10;
+        }
+
         .label-logo {
             position: absolute;
             top: 24px; /* 精準往下移 24px */
@@ -226,6 +236,21 @@
                         </label>
                     </div>
                 </div>
+
+                <div class="border-t border-yellow-200/50 pt-3 mt-3">
+                    <h4 class="text-sm font-bold mb-2 text-yellow-800 flex items-center">🏢 寄件單位代碼 (顯示於標籤右下角)：</h4>
+                    <select id="selStoreCode" class="w-full border border-gray-300 rounded shadow-sm p-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm">
+                        <option value="">-- 不顯示代碼 --</option>
+                        <option value="R650">商仲一部</option>
+                        <option value="BR21">商仲二部</option>
+                        <option value="FC10">投資一部</option>
+                        <option value="FC50">投資二部</option>
+                        <option value="FC40">工業地產部</option>
+                        <option value="FC80">桃園商仲部</option>
+                        <option value="FC60">中區商仲部</option>
+                        <option value="FCA0">專案標售部</option>
+                    </select>
+                </div>
             </div>
 
             <div class="bg-white p-3 rounded border shadow-sm">
@@ -275,32 +300,28 @@
         "澎湖縣馬公市": "880", "澎湖縣西嶼鄉": "881", "澎湖縣望安鄉": "882", "澎湖縣七美鄉": "883", "澎湖縣白沙鄉": "884", "澎湖縣湖西鄉": "885"
     };
 
-    let rawExcelData = []; 
-    let excelHeaders = []; 
-    let parsedData = [];   
-    let selectedLogoUrl = ''; 
-    let customLogoDataUrl = ''; 
-    
+    let rawExcelData = [];
+    let excelHeaders = [];
+    let parsedData = [];
+    let selectedLogoUrl = '';
+    let customLogoDataUrl = '';
+
     const excelFileInput = document.getElementById('excelFile');
     const headerRowInput = document.getElementById('headerRowInput');
-    
     const logoOptions = document.getElementsByName('logoOption');
     const uploadBox = document.getElementById('uploadBox');
     const logoFileInput = document.getElementById('logoFile');
-    
     const selCompany = document.getElementById('selCompany');
     const selAddress = document.getElementById('selAddress');
     const selRecipient = document.getElementById('selRecipient');
+    const selStoreCode = document.getElementById('selStoreCode');
     const mappingSection = document.getElementById('mappingSection');
     const quickPreviewBox = document.getElementById('quickPreviewBox');
-    
     const autoBreakAddress = document.getElementById('autoBreakAddress');
-    
     const recipientOptions = document.getElementsByName('recipientOption');
     const excelTitle = document.getElementById('excelTitle');
     const customAllText = document.getElementById('customAllText');
     const companyOnlyTitle = document.getElementById('companyOnlyTitle');
-    
     const generateBtn = document.getElementById('generateBtn');
     const generateBtn2 = document.getElementById('generateBtn2');
     const printBtn = document.getElementById('printBtn');
@@ -408,7 +429,7 @@
         updateQuickPreview();
     }
 
-    [selCompany, selAddress, selRecipient, autoBreakAddress].forEach(el => {
+    [selCompany, selAddress, selRecipient, autoBreakAddress, selStoreCode].forEach(el => {
         el.addEventListener('change', updateQuickPreview);
     });
 
@@ -564,12 +585,16 @@
                 let logoImgHtml = selectedLogoUrl ? `<img class="label-logo" src="${selectedLogoUrl}" alt="郵資已付" style="display:block;">` : '';
                 let logoClass = selectedLogoUrl ? 'show-logo' : '';
 
+                let storeCodeVal = selStoreCode.value;
+                let storeCodeHtml = storeCodeVal ? `<div class="label-store-code">${storeCodeVal}</div>` : '';
+
                 quickPreviewBox.innerHTML += `
                     <div class="border border-yellow-300 rounded p-3 relative overflow-hidden bg-white shadow-sm flex flex-col justify-center h-[130px] ${logoClass}">
                         ${logoImgHtml}
                         <div class="label-address" style="margin-bottom: 4px;">${finalAddressHtml}</div>
                         <div class="label-company">${finalCompany}</div>
                         <div class="label-recipient mt-1">${displayRecipient || '　'}</div>
+                        ${storeCodeHtml}
                     </div>
                 `;
                 previewCount++;
@@ -617,6 +642,9 @@
             let formattedAddr = formatAddress(cleanAddrForDisplay, autoBreakAddress.checked);
             let finalAddressHtml = zip ? `${zip} ${formattedAddr}` : formattedAddr;
 
+            let storeCodeVal = selStoreCode.value;
+            let storeCodeHtml = storeCodeVal ? `<div class="label-store-code">${storeCodeVal}</div>` : '';
+
             const labelDiv = document.createElement('div');
             labelDiv.className = `preview-label ${selectedLogoUrl ? 'show-logo' : ''}`;
             
@@ -625,6 +653,7 @@
                 <div class="label-address">${finalAddressHtml}</div>
                 <div class="label-company">${finalCompany}</div>
                 <div class="label-recipient">${displayRecipient || '　'}</div>
+                ${storeCodeHtml}
             `;
             
             currentPage.appendChild(labelDiv);

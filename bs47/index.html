@@ -894,9 +894,7 @@
                             throw new Error('節點位置或尺寸不正確，請重新讀取心智圖');
                         }
                         const style = getComputedStyle(element);
-                        return { ...node, childCount: node.parentId === null ? 0 : exportBranches.counts.get(node.id),
-                            collapseDirection: branchDirection(node, nodesRef.current),
-                            width: element.offsetWidth, height: element.offsetHeight,
+                        return { ...node, width: element.offsetWidth, height: element.offsetHeight,
                             background: style.backgroundColor, color: style.color,
                             border: style.borderColor, borderWidth: parseFloat(style.borderTopWidth) || 0,
                             radius: parseFloat(style.borderTopLeftRadius) || 12,
@@ -906,9 +904,9 @@
                     });
                     if (!snapshot.length) throw new Error('心智圖沒有可匯出的節點');
                     const padding = 40;
-                    const minX = Math.min(...snapshot.map(n => n.x - n.width / 2 - (n.childCount && n.collapseDirection < 0 ? collapseBadgeWidth(n.childCount) + 6 : 0))) - padding;
+                    const minX = Math.min(...snapshot.map(n => n.x - n.width / 2)) - padding;
                     const minY = Math.min(...snapshot.map(n => n.y - n.height / 2)) - padding;
-                    const width = Math.ceil(Math.max(...snapshot.map(n => n.x + n.width / 2 + (n.childCount && n.collapseDirection > 0 ? collapseBadgeWidth(n.childCount) + 6 : 0))) - minX + padding);
+                    const width = Math.ceil(Math.max(...snapshot.map(n => n.x + n.width / 2)) - minX + padding);
                     const height = Math.ceil(Math.max(...snapshot.map(n => n.y + n.height / 2)) - minY + padding);
                     // 限制像素總量與最長邊，避免大型心智圖超過瀏覽器 Canvas 上限。
                     const scale = Math.min(2, 8192 / width, 8192 / height, Math.sqrt(16000000 / width / height));
@@ -969,20 +967,7 @@
                         }
                         const startY = node.y - (lines.length - 1) * node.lineHeight / 2;
                         lines.forEach((line, index) => context.fillText(line, node.x, startY + index * node.lineHeight));
-                        if (node.childCount > 0) {
-                            const badgeWidth = collapseBadgeWidth(node.childCount);
-                            const badgeX = node.x + node.collapseDirection * (node.width / 2 + 5 + badgeWidth / 2);
-                            context.beginPath();
-                            context.roundRect(badgeX - badgeWidth / 2, node.y - 11, badgeWidth, 22, 11);
-                            context.fillStyle = node.collapsed ? '#2563eb' : '#ffffff';
-                            context.fill();
-                            context.strokeStyle = node.collapsed ? '#2563eb' : '#cbd5e1';
-                            context.lineWidth = 1;
-                            context.stroke();
-                            context.fillStyle = node.collapsed ? '#ffffff' : '#475569';
-                            context.font = `600 11px ${NODE_FONT_FAMILY}`;
-                            context.fillText(String(node.childCount), badgeX, node.y);
-                        }
+
                     }
                     const jpeg = await new Promise((resolve, reject) => canvas.toBlob(
                         blob => blob ? resolve(blob) : reject(new Error('無法產生心智圖影像')), 'image/jpeg', 0.98));

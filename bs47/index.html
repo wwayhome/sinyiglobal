@@ -25,8 +25,7 @@
     <!-- 引入 Babel 轉換 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- 引入 html2pdf.js 用於匯出 PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- PDF 匯出使用瀏覽器 Canvas 與原生 PDF 編碼，不依賴外部截圖套件。 -->
     
     <!-- 引入 Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -84,7 +83,197 @@
             { id: 'root', text: '中心主題', x: window.innerWidth / 2, y: window.innerHeight / 2, parentId: null }
         ];
 
-        const Node = ({ node, isSelected, isDropTarget, isEditing, isDragging, onSelect, onDoubleClick, onChange, onDragStart, theme }) => {
+        // 中心主題為第一層；第三層與更深層採相同寬度上限。
+        const NODE_FONT_FAMILY = 'Arial, "Microsoft JhengHei", "PingFang TC", sans-serif';
+        const NODE_HORIZONTAL_GAP = 60;
+        const NODE_VERTICAL_GAP = 32;
+        const getNodeLevel = (id, nodeMap) => {
+            let level = 1;
+            let node = nodeMap.get(id);
+            const visited = new Set([id]);
+            while (node && node.parentId !== null && nodeMap.has(node.parentId)) {
+                if (visited.has(node.parentId)) break;
+                visited.add(node.parentId);
+                level++;
+                node = nodeMap.get(node.parentId);
+            }
+            return level;
+        };
+        const getNodeConfig = level => ({
+            minWidth: level === 1 ? 160 : 140,
+            maxWidth: level === 1 ? 240 : level === 2 ? 280 : 320,
+            fontSize: level === 1 ? 20 : level === 2 ? 18 : 16,
+            fontWeight: level === 1 ? 700 : 500,
+            lineHeight: level === 1 ? 30 : level === 2 ? 27 : 24,
+            paddingX: level === 1 ? 24 : 16,
+            paddingY: level === 1 ? 12 : 8,
+            borderWidth: level === 1 ? 0 : 2
+        });
+        const nodeMetricCache = new Map();
+        let nodeMeasureCanvas;
+        const measureNode = (node, level) => {
+            const config = getNodeConfig(level);
+            const text = String(node.text || ' ');
+            const key = JSON.stringify([Math.min(level, 3), text]);
+            if (nodeMetricCache.has(key)) return nodeMetricCache.get(key);
+            if (!nodeMeasureCanvas) nodeMeasureCanvas = document.createElement('canvas');
+            const context = nodeMeasureCanvas.getContext('2d');
+            context.font = `${config.fontWeight} ${config.fontSize}px ${NODE_FONT_FAMILY}`;
+            const textWidth = Math.max(...text.split('\n').map(line => context.measureText(line).width));
+            const width = Math.ceil(Math.min(config.maxWidth, Math.max(config.minWidth,
+                textWidth + 2 * (config.paddingX + config.borderWidth) + 2)));
+            // 使用與節點相同的排版規則量測多行高度，包含中英文斷行。
+            const measure = document.createElement('div');
+            Object.assign(measure.style, {
+                position: 'absolute', left: '-100000px', top: '0', visibility: 'hidden',
+                boxSizing: 'border-box', width: `${width}px`,
+                fontFamily: NODE_FONT_FAMILY, fontSize: `${config.fontSize}px`,
+                fontWeight: String(config.fontWeight), lineHeight: `${config.lineHeight}px`,
+                padding: `${config.paddingY}px ${config.paddingX}px`,
+                border: `${config.borderWidth}px solid transparent`,
+                whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'normal'
+            });
+            measure.textContent = text;
+            document.body.appendChild(measure);
+            const height = Math.max(measure.offsetHeight, config.lineHeight + 2 * (config.paddingY + config.borderWidth));
+            measure.remove();
+            const metrics = { ...config, width, height };
+            if (nodeMetricCache.size > 1000) nodeMetricCache.clear();
+            nodeMetricCache.set(key, metrics);
+            return metrics;
+        };
+        const getNodeMetrics = nodeList => {
+            const map = new Map(nodeList.map(n => [n.id, n]));
+            return new Map(nodeList.map(n => [n.id, measureNode(n, getNodeLevel(n.id, map))]));
+        };
+        // order 僅表示同一父節點下的順序；舊 JSON 依原陣列順序補齊。
+        const orderedChildren = (nodeList, parentId) => nodeList
+            .map((node, index) => ({ node, index }))
+            .filter(item => item.node.parentId === parentId)
+            .sort((a, b) => (Number.isFinite(a.node.order) ? a.node.order : a.index)
+                - (Number.isFinite(b.node.order) ? b.node.order : b.index) || a.index - b.index)
+            .map(item => item.node);
+        const normalizeOrders = nodeList => {
+            const orders = new Map();
+            const parents = new Set(nodeList.map(n => n.parentId));
+            parents.forEach(parent => orderedChildren(nodeList, parent).forEach((n, index) => orders.set(n.id, index)));
+            return nodeList.map(n => ({ ...n, order: orders.get(n.id) }));
+        };
+        const isInBranch = (id, ancestorId, nodeList) => {
+            const map = new Map(nodeList.map(n => [n.id, n]));
+            const visited = new Set();
+            while (map.has(id) && !visited.has(id)) {
+                if (id === ancestorId) return true;
+                visited.add(id);
+                id = map.get(id).parentId;
+            }
+            return false;
+        };
+        const moveOrderedNode = (nodeList, id, parentId, referenceId = null, placement = 'after') => {
+            const normalized = normalizeOrders(nodeList);
+            const node = normalized.find(n => n.id === id);
+            if (!node || node.parentId === null || !normalized.some(n => n.id === parentId)
+                || isInBranch(parentId, id, normalized)) return normalized;
+            const siblings = orderedChildren(normalized, parentId).filter(n => n.id !== id);
+            let index = siblings.length;
+            if (referenceId !== null) {
+                const referenceIndex = siblings.findIndex(n => n.id === referenceId);
+                if (referenceIndex < 0) return normalized;
+                index = referenceIndex + (placement === 'before' ? 0 : 1);
+            }
+            siblings.splice(index, 0, { ...node, parentId });
+            const newOrders = new Map(siblings.map((n, i) => [n.id, i]));
+            return normalizeOrders(normalized.map(n => n.id === id
+                ? { ...n, parentId, order: newOrders.get(id) }
+                : n.parentId === parentId ? { ...n, order: newOrders.get(n.id) } : n));
+        };
+        const findDropIntent = (nodeList, metrics, draggedId, x, y) => {
+            const dragged = nodeList.find(n => n.id === draggedId);
+            if (!dragged || dragged.parentId === null) return null;
+            let best = null;
+            let distance = Infinity;
+            for (const target of nodeList) {
+                if (isInBranch(target.id, draggedId, nodeList)) continue;
+                const size = metrics.get(target.id);
+                const dx = Math.abs(x - target.x);
+                const dy = y - target.y;
+                if (dx > size.width / 2 + 12 || Math.abs(dy) > size.height / 2 + 18) continue;
+                const score = Math.hypot(dx / size.width, dy / size.height);
+                if (score >= distance) continue;
+                const edge = Math.min(14, size.height / 4);
+                const type = target.parentId !== null && dy < -size.height / 2 + edge ? 'before'
+                    : target.parentId !== null && dy > size.height / 2 - edge ? 'after' : 'child';
+                const parentId = type === 'child' ? target.id : target.parentId;
+                if (isInBranch(parentId, draggedId, nodeList)) continue;
+                best = { targetId: target.id, parentId, type };
+                distance = score;
+            }
+            return best;
+        };
+
+        const arrangeNodes = (nodeList, mode, metrics) => {
+            const result = normalizeOrders(nodeList);
+            const byId = new Map(result.map(n => [n.id, n]));
+            const root = result.find(n => n.parentId === null);
+            if (!root) return nodeList;
+            const children = new Map(result.map(n => [n.id, []]));
+            result.forEach(n => { if (children.has(n.parentId)) children.get(n.parentId).push(n.id); });
+            children.forEach(ids => ids.sort((a, b) => byId.get(a).order - byId.get(b).order));
+            const rootChildren = children.get(root.id);
+            const right = mode === 'right' ? rootChildren : rootChildren.filter((_, i) => i % 2 === 0);
+            const left = mode === 'right' ? [] : rootChildren.filter((_, i) => i % 2 === 1);
+            const placeSide = (branches, direction) => {
+                if (!branches.length) return;
+                // 每側按層級對齊，採該層最大節點寬度，避免不同分支交錯重疊。
+                const widths = [metrics.get(root.id).width];
+                const depths = new Map();
+                const collect = (id, depth) => {
+                    if (depths.has(id)) return;
+                    depths.set(id, depth);
+                    widths[depth] = Math.max(widths[depth] || 0, metrics.get(id).width);
+                    children.get(id).forEach(child => collect(child, depth + 1));
+                };
+                branches.forEach(id => collect(id, 1));
+                const positions = [root.x];
+                for (let depth = 1; depth < widths.length; depth++) {
+                    positions[depth] = positions[depth - 1] + direction *
+                        (widths[depth - 1] / 2 + widths[depth] / 2 + NODE_HORIZONTAL_GAP);
+                }
+                const heights = new Map();
+                const subtreeHeight = id => {
+                    if (heights.has(id)) return heights.get(id);
+                    const childIds = children.get(id);
+                    const childrenHeight = childIds.reduce((sum, child) => sum + subtreeHeight(child), 0)
+                        + Math.max(0, childIds.length - 1) * NODE_VERTICAL_GAP;
+                    const height = Math.max(metrics.get(id).height, childrenHeight);
+                    heights.set(id, height);
+                    return height;
+                };
+                const place = (id, top) => {
+                    const height = subtreeHeight(id);
+                    const node = byId.get(id);
+                    node.x = positions[depths.get(id)];
+                    node.y = top + height / 2;
+                    const childIds = children.get(id);
+                    const childrenHeight = childIds.reduce((sum, child) => sum + subtreeHeight(child), 0)
+                        + Math.max(0, childIds.length - 1) * NODE_VERTICAL_GAP;
+                    let childTop = top + (height - childrenHeight) / 2;
+                    childIds.forEach(child => {
+                        place(child, childTop);
+                        childTop += subtreeHeight(child) + NODE_VERTICAL_GAP;
+                    });
+                };
+                const totalHeight = branches.reduce((sum, id) => sum + subtreeHeight(id), 0)
+                    + (branches.length - 1) * NODE_VERTICAL_GAP;
+                let top = root.y - totalHeight / 2;
+                branches.forEach(id => { place(id, top); top += subtreeHeight(id) + NODE_VERTICAL_GAP; });
+            };
+            placeSide(right, 1);
+            placeSide(left, -1);
+            return result;
+        };
+
+        const Node = ({ node, metrics, isSelected, isDropTarget, isEditing, isDragging, onSelect, onDoubleClick, onChange, onDragStart, theme }) => {
             const nodeRef = useRef(null);
             
             useEffect(() => {
@@ -112,16 +301,26 @@
                     className={`absolute rounded-xl shadow-lg flex items-center justify-center transition-all duration-200
                         ${isDropTarget ? 'ring-4 ring-emerald-500 ring-opacity-80 scale-110 z-30 shadow-2xl' : isSelected ? 'ring-4 ring-blue-400 ring-opacity-50 z-20' : 'z-10 hover:shadow-xl'}
                         ${isDragging ? 'opacity-60 scale-105 ring-2 ring-dashed ring-slate-500 z-40 shadow-2xl' : ''}
-                        ${isRoot ? `${theme.root} px-6 py-3 font-bold text-lg` : `${theme.child} border-2 px-4 py-2 font-medium`}
+                        ${isRoot ? theme.root : `${theme.child} border-2`}
                     `}
                     style={{
                         left: node.x,
                         top: node.y,
                         transform: 'translate(-50%, -50%)',
-                        minWidth: '100px',
+                        boxSizing: 'border-box',
+                        width: metrics.width,
+                        height: metrics.height,
+                        minWidth: metrics.minWidth,
+                        maxWidth: metrics.maxWidth,
+                        padding: `${metrics.paddingY}px ${metrics.paddingX}px`,
+                        fontFamily: NODE_FONT_FAMILY,
+                        fontSize: metrics.fontSize,
+                        fontWeight: metrics.fontWeight,
+                        lineHeight: `${metrics.lineHeight}px`,
                         cursor: isEditing ? 'text' : 'pointer',
                         touchAction: 'none'
                     }}
+                    data-node-id={node.id}
                     onPointerDown={handlePointerDown}
                     onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -129,21 +328,24 @@
                     }}
                 >
                     {isEditing ? (
-                        <input
+                        <textarea
                             ref={nodeRef}
+                            rows={1}
+                            style={{ resize: 'none', display: 'block', padding: 0, height: metrics.height - 2 * (metrics.paddingY + metrics.borderWidth), lineHeight: 'inherit', overflow: 'hidden' }}
                             className={`node-input ${isRoot ? theme.inputRoot : theme.inputChild}`}
                             value={node.text}
                             onChange={(e) => onChange(node.id, e.target.value)}
                             onBlur={() => onDoubleClick(null)} // 取消編輯狀態
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
+                                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                                     e.preventDefault();
                                     onDoubleClick(null); // 結束編輯
                                 }
                             }}
                         />
                     ) : (
-                        <div className="select-none text-center whitespace-pre-wrap w-full">
+                        // 新增：break-words 允許長單字換行
+                        <div className="select-none text-center whitespace-pre-wrap break-words w-full">
                             {node.text || ' '}
                         </div>
                     )}
@@ -152,7 +354,7 @@
         };
 
         const MindMapApp = () => {
-            const [nodes, setNodes] = useState(initialNodes);
+            const [nodes, setNodes] = useState(() => normalizeOrders(initialNodes));
             const [selectedId, setSelectedId] = useState('root');
             const [editingId, setEditingId] = useState(null);
             const [draggingNodeId, setDraggingNodeId] = useState(null);
@@ -160,8 +362,12 @@
             const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
             const [currentTheme, setCurrentTheme] = useState(THEMES[0]);
             const [dropTargetId, setDropTargetId] = useState(null);
+            const [dropIntent, setDropIntent] = useState(null);
+            const [isExporting, setIsExporting] = useState(false);
+            const exportingRef = useRef(false);
             const [layoutMode, setLayoutMode] = useState('right'); // 預設改為右側排列
             
+            const nodeMetrics = getNodeMetrics(nodes);
             const containerRef = useRef(null);
             const fileInputRef = useRef(null);
 
@@ -176,6 +382,7 @@
             useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
             
             const dropTargetIdRef = useRef(null);
+            const dropIntentRef = useRef(null);
 
             // 拖曳狀態
             const dragState = useRef({
@@ -212,7 +419,10 @@
                 const node = nodes.find(n => n.id === id);
                 if (!node) return;
 
-                setDraggingNodeId(id);
+                dropIntentRef.current = null;
+                dropTargetIdRef.current = null;
+                setDropIntent(null);
+                setDropTargetId(null);
 
                 dragState.current = {
                     isDraggingCanvas: false,
@@ -221,133 +431,76 @@
                     startX: e.clientX,
                     startY: e.clientY,
                     initialTransform: null,
-                    initialNodePos: { x: node.x, y: node.y }
+                    initialNodePos: { x: node.x, y: node.y },
+                    originalNodes: nodes.map(n => ({ ...n })),
+                    hasMoved: false
                 };
-            };
-
-            // 檢查節點階層 (避免循環依賴)
-            const isDescendant = (childId, ancestorId) => {
-                if (childId === ancestorId) return true;
-                const node = nodesRef.current.find(n => n.id === childId);
-                if (!node || node.parentId === null) return false;
-                return isDescendant(node.parentId, ancestorId);
             };
 
             const handlePointerMove = (e) => {
                 if (dragState.current.isDraggingCanvas) {
                     const dx = e.clientX - dragState.current.startX;
                     const dy = e.clientY - dragState.current.startY;
-                    setTransform(prev => ({
-                        ...prev,
+                    setTransform(prev => ({ ...prev,
                         x: dragState.current.initialTransform.x + dx,
-                        y: dragState.current.initialTransform.y + dy
-                    }));
+                        y: dragState.current.initialTransform.y + dy }));
                 } else if (dragState.current.isDraggingNode) {
+                    const drag = dragState.current;
+                    if (!drag.hasMoved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
+                    drag.hasMoved = true;
+                    setDraggingNodeId(drag.nodeId);
                     const currentTransform = transformRef.current;
-                    const dx = (e.clientX - dragState.current.startX) / currentTransform.scale;
-                    const dy = (e.clientY - dragState.current.startY) / currentTransform.scale;
-                    
-                    setNodes(prevNodes => prevNodes.map(node => 
-                        node.id === dragState.current.nodeId
-                            ? { ...node, x: dragState.current.initialNodePos.x + dx, y: dragState.current.initialNodePos.y + dy }
-                            : node
-                    ));
-
-                    // 計算拖曳時是否靠近其他節點
-                    const draggedId = dragState.current.nodeId;
-                    const pointerCanvasX = (e.clientX - currentTransform.x) / currentTransform.scale;
-                    const pointerCanvasY = (e.clientY - currentTransform.y) / currentTransform.scale;
-
-                    let closestId = null;
-                    let minDistance = 80;
-
-                    nodesRef.current.forEach(n => {
-                        if (n.id !== draggedId && !isDescendant(n.id, draggedId)) {
-                            const dist = Math.sqrt(Math.pow(n.x - pointerCanvasX, 2) + Math.pow(n.y - pointerCanvasY, 2));
-                            if (dist < minDistance) {
-                                minDistance = dist;
-                                closestId = n.id;
-                            }
-                        }
-                    });
-
-                    if (dropTargetIdRef.current !== closestId) {
-                        dropTargetIdRef.current = closestId;
-                        setDropTargetId(closestId);
-                    }
+                    const dx = (e.clientX - drag.startX) / currentTransform.scale;
+                    const dy = (e.clientY - drag.startY) / currentTransform.scale;
+                    const originalById = new Map(drag.originalNodes.map(n => [n.id, n]));
+                    // 自由拖曳時整個分支一起移動，不改變兄弟節點順序。
+                    setNodes(previous => previous.map(node => {
+                        if (!isInBranch(node.id, drag.nodeId, drag.originalNodes)) return node;
+                        const original = originalById.get(node.id);
+                        return { ...node, x: original.x + dx, y: original.y + dy };
+                    }));
+                    const rect = containerRef.current.getBoundingClientRect();
+                    const x = (e.clientX - rect.left - currentTransform.x) / currentTransform.scale;
+                    const y = (e.clientY - rect.top - currentTransform.y) / currentTransform.scale;
+                    const intent = findDropIntent(nodesRef.current, getNodeMetrics(nodesRef.current), drag.nodeId, x, y);
+                    dropIntentRef.current = intent;
+                    dropTargetIdRef.current = intent ? intent.targetId : null;
+                    setDropIntent(intent);
+                    setDropTargetId(intent ? intent.targetId : null);
                 }
             };
 
             const handlePointerUp = () => {
-                if (dragState.current.isDraggingNode && dropTargetIdRef.current) {
-                    const draggedId = dragState.current.nodeId;
-                    const newParentId = dropTargetIdRef.current;
-                    
-                    const draggedNode = nodesRef.current.find(n => n.id === draggedId);
-                    const newParent = nodesRef.current.find(n => n.id === newParentId);
-                    
-                    if (draggedNode && draggedNode.parentId !== null && newParent) {
-                        // 1. 決定子節點方向
-                        let direction = 1;
-                        if (layoutModeRef.current === 'right') {
-                            direction = 1; // 永遠向右
-                        } else {
-                            if (newParent.parentId === null) {
-                                direction = draggedNode.x > newParent.x ? 1 : -1;
-                            } else {
-                                const rootNode = nodesRef.current.find(n => n.parentId === null);
-                                direction = newParent.x >= (rootNode?.x || 0) ? 1 : -1;
-                            }
-                        }
-
-                        // 2. 尋找目標父節點目前有多少子節點，計算新位置避免遮蓋
-                        const siblings = nodesRef.current.filter(n => n.parentId === newParentId && n.id !== draggedId);
-                        const VERTICAL_SPACING = 80;
-                        const HORIZONTAL_SPACING = 280;
-                        
-                        const newX = newParent.x + (HORIZONTAL_SPACING * direction);
-                        let newY = newParent.y;
-                        if (siblings.length > 0) {
-                            const maxSiblingY = Math.max(...siblings.map(s => s.y));
-                            newY = maxSiblingY + VERTICAL_SPACING;
-                        }
-
-                        // 計算平移差值
-                        const dx = newX - draggedNode.x;
-                        const dy = newY - draggedNode.y;
-
-                        // 3. 找出所有子孫節點一起平移
-                        const getDescendants = (id, currentNodes) => {
-                             const children = currentNodes.filter(n => n.parentId === id);
-                             let desc = [...children];
-                             children.forEach(c => {
-                                 desc = [...desc, ...getDescendants(c.id, currentNodes)];
-                             });
-                             return desc;
-                        };
-                        const descendants = getDescendants(draggedId, nodesRef.current);
-                        const descendantIds = descendants.map(d => d.id);
-
-                        setNodes(prevNodes => prevNodes.map(n => {
-                            if (n.id === draggedId) {
-                                return { ...n, parentId: newParentId, x: newX, y: newY };
-                            }
-                            if (descendantIds.includes(n.id)) {
-                                return { ...n, x: n.x + dx, y: n.y + dy };
-                            }
-                            return n;
-                        }));
-                        showToast('已更新心智圖架構', 'success');
-                    }
+                const drag = dragState.current;
+                const intent = dropIntentRef.current;
+                if (drag.isDraggingNode && drag.hasMoved && intent) {
+                    const id = drag.nodeId;
+                    setNodes(previous => {
+                        const moved = moveOrderedNode(previous, id, intent.parentId,
+                            intent.type === 'child' ? null : intent.targetId, intent.type);
+                        return arrangeNodes(moved, layoutModeRef.current, getNodeMetrics(moved));
+                    });
+                    showToast(intent.type === 'child' ? '已移至新父節點，排在子節點最後' : '已更新同層節點順序', 'success');
                 }
-
                 dragState.current.isDraggingCanvas = false;
                 dragState.current.isDraggingNode = false;
                 dragState.current.nodeId = null;
-                
                 setDraggingNodeId(null);
+                dropIntentRef.current = null;
                 dropTargetIdRef.current = null;
+                setDropIntent(null);
                 setDropTargetId(null);
+            };
+
+            const handlePointerCancel = () => {
+                const originals = dragState.current.originalNodes;
+                if (dragState.current.isDraggingNode && originals) {
+                    const positions = new Map(originals.map(n => [n.id, n]));
+                    setNodes(previous => previous.map(n => positions.has(n.id)
+                        ? { ...n, x: positions.get(n.id).x, y: positions.get(n.id).y } : n));
+                }
+                dropIntentRef.current = null;
+                handlePointerUp();
             };
 
             const handleWheel = (e) => {
@@ -366,6 +519,7 @@
                 }
                 window.addEventListener('pointermove', handlePointerMove);
                 window.addEventListener('pointerup', handlePointerUp);
+                window.addEventListener('pointercancel', handlePointerCancel);
                 
                 return () => {
                     if (container) {
@@ -373,6 +527,7 @@
                     }
                     window.removeEventListener('pointermove', handlePointerMove);
                     window.removeEventListener('pointerup', handlePointerUp);
+                    window.removeEventListener('pointercancel', handlePointerCancel);
                 };
             }, [transform.scale]);
 
@@ -403,6 +558,7 @@
 
                 const newId = generateId();
                 const childrenCount = nodes.filter(n => n.parentId === parentId).length;
+                const newMetrics = measureNode({ text: '新節點' }, getNodeLevel(parentId, new Map(nodes.map(n => [n.id, n]))) + 1);
                 
                 let direction = 1; // 預設向右
                 if (layoutMode === 'both') {
@@ -417,12 +573,13 @@
                 const newNode = {
                     id: newId,
                     text: '新節點',
-                    x: parent.x + (280 * direction),
-                    y: parent.y + (childrenCount * 80),
-                    parentId: parentId
+                    x: parent.x + ((nodeMetrics.get(parent.id).width / 2 + newMetrics.width / 2 + NODE_HORIZONTAL_GAP) * direction),
+                    y: childrenCount ? Math.max(...nodes.filter(n => n.parentId === parentId).map(n => n.y + nodeMetrics.get(n.id).height / 2)) + newMetrics.height / 2 + NODE_VERTICAL_GAP : parent.y,
+                    parentId: parentId,
+                    order: childrenCount
                 };
 
-                setNodes(prev => [...prev, newNode]);
+                setNodes(prev => normalizeOrders([...prev, newNode]));
                 setSelectedId(newId);
                 setEditingId(newId);
             };
@@ -434,19 +591,44 @@
                     return;
                 }
 
-                const siblingCount = nodes.filter(n => n.parentId === node.parentId).length;
+                const siblings = nodes.filter(n => n.parentId === node.parentId);
+                const newMetrics = measureNode({ text: '新節點' }, getNodeLevel(nodeId, new Map(nodes.map(n => [n.id, n]))));
                 const newId = generateId();
                 const newNode = {
                     id: newId,
                     text: '新節點',
                     x: node.x,
-                    y: node.y + 80,
-                    parentId: node.parentId
+                    y: Math.max(...siblings.map(n => n.y + nodeMetrics.get(n.id).height / 2)) + newMetrics.height / 2 + NODE_VERTICAL_GAP,
+                    parentId: node.parentId,
+                    order: siblings.length
                 };
 
-                setNodes(prev => [...prev, newNode]);
+                setNodes(prev => {
+                    const added = moveOrderedNode([...prev, newNode], newId, node.parentId, nodeId, 'after');
+                    return arrangeNodes(added, layoutModeRef.current, getNodeMetrics(added));
+                });
                 setSelectedId(newId);
                 setEditingId(newId);
+            };
+
+            const selectedNode = nodes.find(n => n.id === selectedId);
+            const selectedSiblings = selectedNode ? orderedChildren(nodes, selectedNode.parentId) : [];
+            const selectedIndex = selectedSiblings.findIndex(n => n.id === selectedId);
+            const canMoveUp = !!selectedNode && selectedNode.parentId !== null && selectedIndex > 0;
+            const canMoveDown = !!selectedNode && selectedNode.parentId !== null && selectedIndex < selectedSiblings.length - 1;
+            const moveSelected = direction => {
+                if (editingId) setEditingId(null);
+                setNodes(previous => {
+                    const selected = previous.find(n => n.id === selectedId);
+                    if (!selected || selected.parentId === null) return previous;
+                    const siblings = orderedChildren(previous, selected.parentId);
+                    const index = siblings.findIndex(n => n.id === selectedId);
+                    const reference = siblings[index + direction];
+                    if (!reference) return previous;
+                    const moved = moveOrderedNode(previous, selectedId, selected.parentId, reference.id,
+                        direction < 0 ? 'before' : 'after');
+                    return arrangeNodes(moved, layoutModeRef.current, getNodeMetrics(moved));
+                });
             };
 
             const deleteNode = (nodeId) => {
@@ -475,7 +657,7 @@
             };
 
             const handleSave = () => {
-                const data = JSON.stringify(nodes, null, 2);
+                const data = JSON.stringify(normalizeOrders(nodes), null, 2);
                 const blob = new Blob([data], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -497,7 +679,9 @@
                     try {
                         const parsedNodes = JSON.parse(event.target.result);
                         if (Array.isArray(parsedNodes) && parsedNodes.length > 0 && parsedNodes[0].id === 'root') {
-                            setNodes(parsedNodes);
+                            setNodes(normalizeOrders(parsedNodes));
+                            setSelectedId('root');
+                            setEditingId(null);
                             setTransform({ x: 0, y: 0, scale: 1 });
                             showToast('成功讀取心智圖', 'success');
                         } else {
@@ -511,65 +695,156 @@
                 e.target.value = '';
             };
 
-            // 修復版 PDF 匯出功能
-            const handleExportPDF = () => {
+            // 以實際節點尺寸繪製獨立畫布，匯出不受視窗平移、縮放或裁切影響。
+            const handleExportPDF = async () => {
+                if (exportingRef.current) return;
+                exportingRef.current = true;
+                setIsExporting(true);
                 showToast('正在準備匯出 PDF...', 'info');
-                const element = document.getElementById('export-container');
-                
-                const originalSelectedId = selectedId;
-                const originalTransform = transform;
-                setSelectedId(null);
-                setEditingId(null);
-                
-                // 計算整張圖的真實邊界
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                nodesRef.current.forEach(n => {
-                    if (n.x < minX) minX = n.x;
-                    if (n.y < minY) minY = n.y;
-                    if (n.x > maxX) maxX = n.x;
-                    if (n.y > maxY) maxY = n.y;
-                });
-                
-                const padding = 100;
-                const width = maxX - minX + padding * 2;
-                const height = maxY - minY + padding * 2;
-                
-                // 為了截圖，強迫將畫布平移到視窗左上角(0,0) 並取消縮放
-                setTransform({
-                    x: -minX + padding,
-                    y: -minY + padding,
-                    scale: 1
-                });
-
-                // 給 React 一點時間重新渲染 DOM
-                setTimeout(() => {
-                    const opt = {
-                        margin:       10,
-                        filename:     `mindmap-${new Date().getTime()}.pdf`,
-                        image:        { type: 'jpeg', quality: 0.98 },
-                        html2canvas:  { 
-                            scale: 2, 
-                            useCORS: true, 
-                            logging: false,
-                            width: width,
-                            height: height,
-                            windowWidth: width,
-                            windowHeight: height
-                        },
-                        jsPDF:        { unit: 'px', format: [width + 20, height + 20], orientation: width > height ? 'landscape' : 'portrait' }
-                    };
-
-                    html2pdf().set(opt).from(element).save().then(() => {
-                        setTransform(originalTransform);
-                        setSelectedId(originalSelectedId);
-                        showToast('匯出 PDF 完成', 'success');
-                    }).catch(err => {
-                        console.error(err);
-                        setTransform(originalTransform);
-                        setSelectedId(originalSelectedId);
-                        showToast('匯出 PDF 失敗', 'error');
+                let canvas;
+                let downloadUrl;
+                let link;
+                try {
+                    setEditingId(null);
+                    // 等待編輯文字提交及字型載入，避免輸出舊值。
+                    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                    if (document.fonts) await document.fonts.ready;
+                    const source = document.getElementById('export-container');
+                    if (!source) throw new Error('找不到心智圖畫布');
+                    const elements = new Map(Array.from(source.querySelectorAll('[data-node-id]'))
+                        .map(element => [element.dataset.nodeId, element]));
+                    const snapshot = nodesRef.current.map(node => {
+                        const element = elements.get(String(node.id));
+                        if (!element || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+                            throw new Error('節點位置或尺寸不正確，請重新讀取心智圖');
+                        }
+                        const style = getComputedStyle(element);
+                        return { ...node, width: element.offsetWidth, height: element.offsetHeight,
+                            background: style.backgroundColor, color: style.color,
+                            border: style.borderColor, borderWidth: parseFloat(style.borderTopWidth) || 0,
+                            radius: parseFloat(style.borderTopLeftRadius) || 12,
+                            font: `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`,
+                            lineHeight: parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5,
+                            padding: (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0) };
                     });
-                }, 800);
+                    if (!snapshot.length) throw new Error('心智圖沒有可匯出的節點');
+                    const padding = 40;
+                    const minX = Math.min(...snapshot.map(n => n.x - n.width / 2)) - padding;
+                    const minY = Math.min(...snapshot.map(n => n.y - n.height / 2)) - padding;
+                    const width = Math.ceil(Math.max(...snapshot.map(n => n.x + n.width / 2)) - minX + padding);
+                    const height = Math.ceil(Math.max(...snapshot.map(n => n.y + n.height / 2)) - minY + padding);
+                    // 限制像素總量與最長邊，避免大型心智圖超過瀏覽器 Canvas 上限。
+                    const scale = Math.min(2, 8192 / width, 8192 / height, Math.sqrt(16000000 / width / height));
+                    canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.ceil(width * scale));
+                    canvas.height = Math.max(1, Math.ceil(height * scale));
+                    const context = canvas.getContext('2d');
+                    if (!context) throw new Error('瀏覽器無法建立匯出畫布');
+                    context.fillStyle = '#f8fafc';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                    context.scale(scale, scale);
+                    context.translate(-minX, -minY);
+                    const byId = new Map(snapshot.map(n => [n.id, n]));
+                    context.strokeStyle = currentTheme.line;
+                    context.lineWidth = 3;
+                    for (const node of snapshot) {
+                        const parent = byId.get(node.parentId);
+                        if (!parent) continue;
+                        const middleX = (parent.x + node.x) / 2;
+                        context.beginPath();
+                        context.moveTo(parent.x, parent.y);
+                        context.bezierCurveTo(middleX, parent.y, middleX, node.y, node.x, node.y);
+                        context.stroke();
+                    }
+                    for (const node of snapshot) {
+                        const x = node.x - node.width / 2;
+                        const y = node.y - node.height / 2;
+                        const radius = Math.min(node.radius, node.width / 2, node.height / 2);
+                        context.beginPath();
+                        context.moveTo(x + radius, y);
+                        context.arcTo(x + node.width, y, x + node.width, y + node.height, radius);
+                        context.arcTo(x + node.width, y + node.height, x, y + node.height, radius);
+                        context.arcTo(x, y + node.height, x, y, radius);
+                        context.arcTo(x, y, x + node.width, y, radius);
+                        context.closePath();
+                        context.fillStyle = node.background;
+                        context.fill();
+                        if (node.borderWidth) {
+                            context.strokeStyle = node.border;
+                            context.lineWidth = node.borderWidth;
+                            context.stroke();
+                        }
+                        context.font = node.font;
+                        context.fillStyle = node.color;
+                        context.textAlign = 'center';
+                        context.textBaseline = 'middle';
+                        const lines = [];
+                        const maxTextWidth = node.width - node.padding - node.borderWidth * 2;
+                        for (const paragraph of String(node.text || ' ').split('\n')) {
+                            let line = '';
+                            for (const character of Array.from(paragraph)) {
+                                if (line && context.measureText(line + character).width > maxTextWidth) {
+                                    lines.push(line);
+                                    line = character;
+                                } else line += character;
+                            }
+                            lines.push(line);
+                        }
+                        const startY = node.y - (lines.length - 1) * node.lineHeight / 2;
+                        lines.forEach((line, index) => context.fillText(line, node.x, startY + index * node.lineHeight));
+                    }
+                    const jpeg = await new Promise((resolve, reject) => canvas.toBlob(
+                        blob => blob ? resolve(blob) : reject(new Error('無法產生心智圖影像')), 'image/jpeg', 0.98));
+                    const imageBytes = new Uint8Array(await jpeg.arrayBuffer());
+                    // 單頁 PDF：JPEG 以二進位嵌入，位移以位元組計算，中文由 Canvas 保留。
+                    const encoder = new TextEncoder();
+                    const parts = [];
+                    let byteLength = 0;
+                    const offsets = [0];
+                    const append = value => {
+                        const bytes = typeof value === 'string' ? encoder.encode(value) : value;
+                        parts.push(bytes);
+                        byteLength += bytes.length;
+                    };
+                    const object = (id, content) => {
+                        offsets[id] = byteLength;
+                        append(`${id} 0 obj\n${content}\nendobj\n`);
+                    };
+                    // 頁面最長邊不超過 14400 pt，維持完整比例及單頁輸出。
+                    const pageScale = Math.min(0.75, 14400 / Math.max(width, height));
+                    const pageWidth = (width * pageScale).toFixed(3);
+                    const pageHeight = (height * pageScale).toFixed(3);
+                    append('%PDF-1.4\n');
+                    object(1, '<< /Type /Catalog /Pages 2 0 R >>');
+                    object(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+                    object(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
+                    offsets[4] = byteLength;
+                    append(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>\nstream\n`);
+                    append(imageBytes);
+                    append('\nendstream\nendobj\n');
+                    const commands = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im0 Do\nQ\n`;
+                    object(5, `<< /Length ${encoder.encode(commands).length} >>\nstream\n${commands}endstream`);
+                    const xrefOffset = byteLength;
+                    append('xref\n0 6\n0000000000 65535 f \n');
+                    for (let id = 1; id <= 5; id++) append(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
+                    append(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
+                    downloadUrl = URL.createObjectURL(new Blob(parts, { type: 'application/pdf' }));
+                    link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = `mindmap-${Date.now()}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    showToast('PDF 已產生，請查看下載檔案', 'success');
+                } catch (error) {
+                    console.error('PDF 匯出錯誤:', error);
+                    showToast(`匯出失敗：${error.message || '請稍後重試'}`, 'error');
+                } finally {
+                    if (link) link.remove();
+                    if (downloadUrl) setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
+                    if (canvas) { canvas.width = 0; canvas.height = 0; }
+                    exportingRef.current = false;
+                    setIsExporting(false);
+                }
             };
 
             const resetView = () => {
@@ -598,84 +873,11 @@
                 showToast(`已切換為${newMode === 'right' ? '右側' : '左右'}排列`, 'success');
             };
 
-            // 雙模式自動排列演算法
+            // 自動排列以實際文字尺寸計算每層距離與分支高度。
             const handleAutoLayout = (forceMode) => {
                 const activeMode = typeof forceMode === 'string' ? forceMode : layoutMode;
-
-                setNodes(prevNodes => {
-                    const newNodes = prevNodes.map(n => ({ ...n }));
-                    const childrenMap = {};
-                    
-                    newNodes.forEach(n => {
-                        if (n.parentId) {
-                            if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
-                            childrenMap[n.parentId].push(n.id);
-                        }
-                    });
-
-                    const rootNode = newNodes.find(n => n.parentId === null);
-                    if (!rootNode) return prevNodes;
-
-                    const HORIZONTAL_SPACING = 280;
-                    const VERTICAL_SPACING = 80;
-
-                    const rootChildren = childrenMap[rootNode.id] || [];
-                    
-                    const rightChildren = activeMode === 'right'
-                        ? rootChildren
-                        : rootChildren.filter((_, index) => index % 2 === 0);
-                        
-                    const leftChildren = activeMode === 'right'
-                        ? []
-                        : rootChildren.filter((_, index) => index % 2 === 1);
-
-                    const calculateSubtreeHeight = (nodeId) => {
-                        const children = childrenMap[nodeId] || [];
-                        if (children.length === 0) return VERTICAL_SPACING;
-                        return children.reduce((sum, childId) => sum + calculateSubtreeHeight(childId), 0);
-                    };
-
-                    const positionSubtree = (nodeId, startX, startY, direction) => {
-                        const node = newNodes.find(n => n.id === nodeId);
-                        if (!node) return 0;
-
-                        const children = childrenMap[nodeId] || [];
-                        const subtreeHeight = calculateSubtreeHeight(nodeId);
-                        
-                        node.x = startX;
-                        node.y = startY + subtreeHeight / 2;
-
-                        let currentChildStartY = startY;
-                        const nextX = startX + (HORIZONTAL_SPACING * direction);
-                        
-                        children.forEach(childId => {
-                            const childHeight = calculateSubtreeHeight(childId);
-                            positionSubtree(childId, nextX, currentChildStartY, direction);
-                            currentChildStartY += childHeight;
-                        });
-
-                        return subtreeHeight;
-                    };
-
-                    let rightTotalHeight = rightChildren.reduce((sum, id) => sum + calculateSubtreeHeight(id), 0);
-                    let currentRightY = rootNode.y - rightTotalHeight / 2;
-                    rightChildren.forEach(childId => {
-                        const h = calculateSubtreeHeight(childId);
-                        positionSubtree(childId, rootNode.x + HORIZONTAL_SPACING, currentRightY, 1);
-                        currentRightY += h;
-                    });
-
-                    let leftTotalHeight = leftChildren.reduce((sum, id) => sum + calculateSubtreeHeight(id), 0);
-                    let currentLeftY = rootNode.y - leftTotalHeight / 2;
-                    leftChildren.forEach(childId => {
-                        const h = calculateSubtreeHeight(childId);
-                        positionSubtree(childId, rootNode.x - HORIZONTAL_SPACING, currentLeftY, -1);
-                        currentLeftY += h;
-                    });
-
-                    return newNodes;
-                });
-                if(typeof forceMode !== 'string') showToast('已重新整齊排列節點', 'success');
+                setNodes(previous => arrangeNodes(previous, activeMode, getNodeMetrics(previous)));
+                if (typeof forceMode !== 'string') showToast('已依文字尺寸整齊排列節點', 'success');
             };
 
             useEffect(() => {
@@ -715,7 +917,7 @@
 
                 // 拖曳預覽線
                 if (draggingNodeId && dropTargetId) {
-                    const target = nodes.find(n => n.id === dropTargetId);
+                    const target = nodes.find(n => n.id === (dropIntent?.parentId || dropTargetId));
                     const dragged = nodes.find(n => n.id === draggingNodeId);
                     if (target && dragged) {
                         const dx = dragged.x - target.x;
@@ -759,8 +961,8 @@
                         
                         <div className="w-px h-5 bg-slate-300"></div>
 
-                        <button onClick={handleExportPDF} className="flex items-center gap-2 text-slate-700 hover:text-red-600 transition-colors" title="匯出為 PDF">
-                            <i data-lucide="file-down" className="w-5 h-5"></i> <span className="hidden sm:inline text-sm font-medium">PDF匯出</span>
+                        <button onClick={handleExportPDF} disabled={isExporting} aria-busy={isExporting} className="flex items-center gap-2 text-slate-700 hover:text-red-600 transition-colors" title="匯出為 PDF">
+                            <i data-lucide="file-down" className="w-5 h-5"></i> <span className="hidden sm:inline text-sm font-medium">{isExporting ? '匯出中…' : 'PDF匯出'}</span>
                         </button>
 
                         <div className="w-px h-5 bg-slate-300"></div>
@@ -788,13 +990,22 @@
                         </button>
                     </div>
 
+                    {selectedNode && selectedNode.parentId !== null && !draggingNodeId && (
+                        <div className="absolute top-24 right-4 z-50 bg-white shadow-md border border-slate-200 rounded-xl p-2 flex gap-2" aria-label="同層節點排序">
+                            <button onClick={() => moveSelected(-1)} disabled={!canMoveUp} className="px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">↑ 上移</button>
+                            <button onClick={() => moveSelected(1)} disabled={!canMoveDown} className="px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">↓ 下移</button>
+                        </div>
+                    )}
+
                     {/* 操作提示 */}
                     <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow border border-slate-200 z-50 text-xs text-slate-600 space-y-1 pointer-events-none">
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">雙擊</kbd> 編輯文字</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Tab</kbd> 新增子節點</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Enter</kbd> 新增同層節點</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Del</kbd> 刪除節點與分支</p>
-                        <p>💡 拖曳節點可轉移連接。右側或左右交錯排列可於上方切換。</p>
+                        <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Shift＋Enter</kbd> 編輯時換行</p>
+                        <p>拖到節點中央：成為子節點；拖到上／下緣：插入之前／之後。</p>
+                        <p>選取節點後，可按右上方「上移／下移」。空白處拖曳只改位置。</p>
                     </div>
 
                     {/* 提示訊息 */}
@@ -832,13 +1043,24 @@
                                 {renderConnections()}
                             </svg>
 
+                            {dropIntent && dropIntent.type !== 'child' && (() => {
+                                const target = nodes.find(n => n.id === dropIntent.targetId);
+                                if (!target) return null;
+                                const size = nodeMetrics.get(target.id);
+                                const y = target.y + (dropIntent.type === 'before' ? -size.height / 2 - 8 : size.height / 2 + 8);
+                                return <div role="status" aria-label={dropIntent.type === 'before' ? '插入此節點之前' : '插入此節點之後'}
+                                    className="absolute bg-blue-500 rounded-full pointer-events-none z-50"
+                                    style={{ left: target.x - size.width / 2 - 8, top: y - 2, width: size.width + 16, height: 4 }} />;
+                            })()}
+
                             {/* 節點層 */}
                             {nodes.map(node => (
                                 <Node
                                     key={node.id}
                                     node={node}
+                                    metrics={nodeMetrics.get(node.id)}
                                     isSelected={selectedId === node.id}
-                                    isDropTarget={dropTargetId === node.id}
+                                    isDropTarget={dropTargetId === node.id && dropIntent?.type === 'child'}
                                     isEditing={editingId === node.id}
                                     isDragging={draggingNodeId === node.id}
                                     onSelect={setSelectedId}

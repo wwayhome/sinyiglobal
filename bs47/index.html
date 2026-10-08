@@ -57,23 +57,6 @@
         ::-webkit-scrollbar {
             display: none;
         }
-        
-        .toast-enter {
-            opacity: 0;
-            transform: translateY(100%);
-        }
-        .toast-enter-active {
-            opacity: 1;
-            transform: translateY(0);
-            transition: opacity 300ms, transform 300ms;
-        }
-        .toast-exit {
-            opacity: 1;
-        }
-        .toast-exit-active {
-            opacity: 0;
-            transition: opacity 300ms;
-        }
     </style>
 </head>
 <body>
@@ -101,8 +84,7 @@
             { id: 'root', text: '中心主題', x: window.innerWidth / 2, y: window.innerHeight / 2, parentId: null }
         ];
 
-        // 節點元件
-        const Node = ({ node, isSelected, isEditing, onSelect, onDoubleClick, onChange, onDragStart, theme }) => {
+        const Node = ({ node, isSelected, isDropTarget, isEditing, isDragging, onSelect, onDoubleClick, onChange, onDragStart, theme }) => {
             const nodeRef = useRef(null);
             
             useEffect(() => {
@@ -127,8 +109,9 @@
 
             return (
                 <div
-                    className={`absolute rounded-xl shadow-lg flex items-center justify-center transition-shadow duration-200
-                        ${isSelected ? 'ring-4 ring-blue-400 ring-opacity-50 z-20' : 'z-10 hover:shadow-xl'}
+                    className={`absolute rounded-xl shadow-lg flex items-center justify-center transition-all duration-200
+                        ${isDropTarget ? 'ring-4 ring-emerald-500 ring-opacity-80 scale-110 z-30 shadow-2xl' : isSelected ? 'ring-4 ring-blue-400 ring-opacity-50 z-20' : 'z-10 hover:shadow-xl'}
+                        ${isDragging ? 'opacity-60 scale-105 ring-2 ring-dashed ring-slate-500 z-40 shadow-2xl' : ''}
                         ${isRoot ? `${theme.root} px-6 py-3 font-bold text-lg` : `${theme.child} border-2 px-4 py-2 font-medium`}
                     `}
                     style={{
@@ -172,12 +155,27 @@
             const [nodes, setNodes] = useState(initialNodes);
             const [selectedId, setSelectedId] = useState('root');
             const [editingId, setEditingId] = useState(null);
+            const [draggingNodeId, setDraggingNodeId] = useState(null);
             const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
             const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
             const [currentTheme, setCurrentTheme] = useState(THEMES[0]);
+            const [dropTargetId, setDropTargetId] = useState(null);
+            const [layoutMode, setLayoutMode] = useState('right'); // 預設改為右側排列
             
             const containerRef = useRef(null);
             const fileInputRef = useRef(null);
+
+            // 使用 Ref 追蹤最新狀態，避免事件監聽器拿到舊資料
+            const nodesRef = useRef(nodes);
+            useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+            
+            const transformRef = useRef(transform);
+            useEffect(() => { transformRef.current = transform; }, [transform]);
+
+            const layoutModeRef = useRef(layoutMode);
+            useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
+            
+            const dropTargetIdRef = useRef(null);
 
             // 拖曳狀態
             const dragState = useRef({
@@ -198,7 +196,6 @@
             const handlePointerDown = (e) => {
                 if (editingId) setEditingId(null);
                 
-                // 開始拖曳畫布
                 dragState.current = {
                     isDraggingCanvas: true,
                     isDraggingNode: false,
@@ -215,6 +212,8 @@
                 const node = nodes.find(n => n.id === id);
                 if (!node) return;
 
+                setDraggingNodeId(id);
+
                 dragState.current = {
                     isDraggingCanvas: false,
                     isDraggingNode: true,
@@ -224,6 +223,14 @@
                     initialTransform: null,
                     initialNodePos: { x: node.x, y: node.y }
                 };
+            };
+
+            // 檢查節點階層 (避免循環依賴)
+            const isDescendant = (childId, ancestorId) => {
+                if (childId === ancestorId) return true;
+                const node = nodesRef.current.find(n => n.id === childId);
+                if (!node || node.parentId === null) return false;
+                return isDescendant(node.parentId, ancestorId);
             };
 
             const handlePointerMove = (e) => {
@@ -236,34 +243,119 @@
                         y: dragState.current.initialTransform.y + dy
                     }));
                 } else if (dragState.current.isDraggingNode) {
-                    const dx = (e.clientX - dragState.current.startX) / transform.scale;
-                    const dy = (e.clientY - dragState.current.startY) / transform.scale;
+                    const currentTransform = transformRef.current;
+                    const dx = (e.clientX - dragState.current.startX) / currentTransform.scale;
+                    const dy = (e.clientY - dragState.current.startY) / currentTransform.scale;
                     
                     setNodes(prevNodes => prevNodes.map(node => 
                         node.id === dragState.current.nodeId
                             ? { ...node, x: dragState.current.initialNodePos.x + dx, y: dragState.current.initialNodePos.y + dy }
                             : node
                     ));
+
+                    // 計算拖曳時是否靠近其他節點
+                    const draggedId = dragState.current.nodeId;
+                    const pointerCanvasX = (e.clientX - currentTransform.x) / currentTransform.scale;
+                    const pointerCanvasY = (e.clientY - currentTransform.y) / currentTransform.scale;
+
+                    let closestId = null;
+                    let minDistance = 80;
+
+                    nodesRef.current.forEach(n => {
+                        if (n.id !== draggedId && !isDescendant(n.id, draggedId)) {
+                            const dist = Math.sqrt(Math.pow(n.x - pointerCanvasX, 2) + Math.pow(n.y - pointerCanvasY, 2));
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                closestId = n.id;
+                            }
+                        }
+                    });
+
+                    if (dropTargetIdRef.current !== closestId) {
+                        dropTargetIdRef.current = closestId;
+                        setDropTargetId(closestId);
+                    }
                 }
             };
 
             const handlePointerUp = () => {
+                if (dragState.current.isDraggingNode && dropTargetIdRef.current) {
+                    const draggedId = dragState.current.nodeId;
+                    const newParentId = dropTargetIdRef.current;
+                    
+                    const draggedNode = nodesRef.current.find(n => n.id === draggedId);
+                    const newParent = nodesRef.current.find(n => n.id === newParentId);
+                    
+                    if (draggedNode && draggedNode.parentId !== null && newParent) {
+                        // 1. 決定子節點方向
+                        let direction = 1;
+                        if (layoutModeRef.current === 'right') {
+                            direction = 1; // 永遠向右
+                        } else {
+                            if (newParent.parentId === null) {
+                                direction = draggedNode.x > newParent.x ? 1 : -1;
+                            } else {
+                                const rootNode = nodesRef.current.find(n => n.parentId === null);
+                                direction = newParent.x >= (rootNode?.x || 0) ? 1 : -1;
+                            }
+                        }
+
+                        // 2. 尋找目標父節點目前有多少子節點，計算新位置避免遮蓋
+                        const siblings = nodesRef.current.filter(n => n.parentId === newParentId && n.id !== draggedId);
+                        const VERTICAL_SPACING = 80;
+                        const HORIZONTAL_SPACING = 280;
+                        
+                        const newX = newParent.x + (HORIZONTAL_SPACING * direction);
+                        let newY = newParent.y;
+                        if (siblings.length > 0) {
+                            const maxSiblingY = Math.max(...siblings.map(s => s.y));
+                            newY = maxSiblingY + VERTICAL_SPACING;
+                        }
+
+                        // 計算平移差值
+                        const dx = newX - draggedNode.x;
+                        const dy = newY - draggedNode.y;
+
+                        // 3. 找出所有子孫節點一起平移
+                        const getDescendants = (id, currentNodes) => {
+                             const children = currentNodes.filter(n => n.parentId === id);
+                             let desc = [...children];
+                             children.forEach(c => {
+                                 desc = [...desc, ...getDescendants(c.id, currentNodes)];
+                             });
+                             return desc;
+                        };
+                        const descendants = getDescendants(draggedId, nodesRef.current);
+                        const descendantIds = descendants.map(d => d.id);
+
+                        setNodes(prevNodes => prevNodes.map(n => {
+                            if (n.id === draggedId) {
+                                return { ...n, parentId: newParentId, x: newX, y: newY };
+                            }
+                            if (descendantIds.includes(n.id)) {
+                                return { ...n, x: n.x + dx, y: n.y + dy };
+                            }
+                            return n;
+                        }));
+                        showToast('已更新心智圖架構', 'success');
+                    }
+                }
+
                 dragState.current.isDraggingCanvas = false;
                 dragState.current.isDraggingNode = false;
                 dragState.current.nodeId = null;
+                
+                setDraggingNodeId(null);
+                dropTargetIdRef.current = null;
+                setDropTargetId(null);
             };
 
-            // 處理滾輪縮放
             const handleWheel = (e) => {
                 e.preventDefault();
                 const zoomSensitivity = 0.001;
                 const delta = -e.deltaY * zoomSensitivity;
                 let newScale = transform.scale * (1 + delta);
-                
-                // 限制縮放範圍
                 newScale = Math.max(0.2, Math.min(newScale, 3));
-                
-                // 為了讓縮放以滑鼠為中心，需要複雜的計算。為保持程式碼簡潔且單一檔案穩定，這裡先實現以中心縮放
                 setTransform(prev => ({ ...prev, scale: newScale }));
             };
 
@@ -286,9 +378,7 @@
 
             useEffect(() => {
                 const handleKeyDown = (e) => {
-                    // 如果正在編輯文字，不觸發快捷鍵
                     if (editingId) return;
-
                     if (!selectedId) return;
 
                     if (e.key === 'Tab') {
@@ -305,33 +395,41 @@
 
                 window.addEventListener('keydown', handleKeyDown);
                 return () => window.removeEventListener('keydown', handleKeyDown);
-            }, [selectedId, editingId, nodes]);
+            }, [selectedId, editingId, nodes, layoutMode]);
 
             const addChildNode = (parentId) => {
                 const parent = nodes.find(n => n.id === parentId);
                 if (!parent) return;
 
                 const newId = generateId();
-                // 簡單的佈局：放在右邊偏下
                 const childrenCount = nodes.filter(n => n.parentId === parentId).length;
+                
+                let direction = 1; // 預設向右
+                if (layoutMode === 'both') {
+                    const rootNode = nodes.find(n => n.parentId === null);
+                    if (parent.parentId === null) {
+                        direction = childrenCount % 2 === 0 ? 1 : -1; // 左右交錯
+                    } else {
+                        direction = parent.x >= (rootNode?.x || 0) ? 1 : -1; // 繼承方向
+                    }
+                }
                 
                 const newNode = {
                     id: newId,
                     text: '新節點',
-                    x: parent.x + 200,
-                    y: parent.y + (childrenCount * 60) - 30, // 稍微錯開
+                    x: parent.x + (280 * direction),
+                    y: parent.y + (childrenCount * 80),
                     parentId: parentId
                 };
 
                 setNodes(prev => [...prev, newNode]);
                 setSelectedId(newId);
-                setEditingId(newId); // 直接進入編輯模式
+                setEditingId(newId);
             };
 
             const addSiblingNode = (nodeId) => {
                 const node = nodes.find(n => n.id === nodeId);
                 if (!node || node.parentId === null) {
-                    // 如果是根節點，Enter 就當作新增子節點
                     if (node && node.parentId === null) addChildNode(nodeId);
                     return;
                 }
@@ -342,7 +440,7 @@
                     id: newId,
                     text: '新節點',
                     x: node.x,
-                    y: node.y + 80, // 放在下方
+                    y: node.y + 80,
                     parentId: node.parentId
                 };
 
@@ -355,10 +453,9 @@
                 const nodeToDelete = nodes.find(n => n.id === nodeId);
                 if (!nodeToDelete || nodeToDelete.parentId === null) {
                     showToast('無法刪除中心主題', 'error');
-                    return; // 根節點不能刪除
+                    return;
                 }
 
-                // 遞迴取得所有要刪除的子節點 ID
                 const getChildrenIds = (id) => {
                     const children = nodes.filter(n => n.parentId === id).map(n => n.id);
                     let allChildren = [...children];
@@ -370,7 +467,7 @@
 
                 const idsToDelete = [nodeId, ...getChildrenIds(nodeId)];
                 setNodes(prev => prev.filter(n => !idsToDelete.includes(n.id)));
-                setSelectedId(nodeToDelete.parentId); // 選回父節點
+                setSelectedId(nodeToDelete.parentId);
             };
 
             const handleNodeTextChange = (id, newText) => {
@@ -411,23 +508,22 @@
                     }
                 };
                 reader.readAsText(file);
-                // 重置 input，允許重複選擇同一個檔案
                 e.target.value = '';
             };
 
+            // 修復版 PDF 匯出功能
             const handleExportPDF = () => {
                 showToast('正在準備匯出 PDF...', 'info');
                 const element = document.getElementById('export-container');
                 
-                // 為了匯出完整，暫時取消選取狀態，並重置變形
                 const originalSelectedId = selectedId;
                 const originalTransform = transform;
                 setSelectedId(null);
                 setEditingId(null);
                 
-                // 尋找邊界以調整匯出視圖
+                // 計算整張圖的真實邊界
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                nodes.forEach(n => {
+                nodesRef.current.forEach(n => {
                     if (n.x < minX) minX = n.x;
                     if (n.y < minY) minY = n.y;
                     if (n.x > maxX) maxX = n.x;
@@ -437,28 +533,33 @@
                 const padding = 100;
                 const width = maxX - minX + padding * 2;
                 const height = maxY - minY + padding * 2;
-                const centerX = minX + (maxX - minX) / 2;
-                const centerY = minY + (maxY - minY) / 2;
                 
-                // 調整畫布至置中並涵蓋所有節點
+                // 為了截圖，強迫將畫布平移到視窗左上角(0,0) 並取消縮放
                 setTransform({
-                    x: window.innerWidth / 2 - centerX,
-                    y: window.innerHeight / 2 - centerY,
+                    x: -minX + padding,
+                    y: -minY + padding,
                     scale: 1
                 });
 
-                // 給予 React 時間重新渲染再匯出
+                // 給 React 一點時間重新渲染 DOM
                 setTimeout(() => {
                     const opt = {
                         margin:       10,
                         filename:     `mindmap-${new Date().getTime()}.pdf`,
                         image:        { type: 'jpeg', quality: 0.98 },
-                        html2canvas:  { scale: 2, useCORS: true, logging: false },
-                        jsPDF:        { unit: 'mm', format: 'a4', orientation: width > height ? 'landscape' : 'portrait' }
+                        html2canvas:  { 
+                            scale: 2, 
+                            useCORS: true, 
+                            logging: false,
+                            width: width,
+                            height: height,
+                            windowWidth: width,
+                            windowHeight: height
+                        },
+                        jsPDF:        { unit: 'px', format: [width + 20, height + 20], orientation: width > height ? 'landscape' : 'portrait' }
                     };
 
                     html2pdf().set(opt).from(element).save().then(() => {
-                        // 恢復原狀
                         setTransform(originalTransform);
                         setSelectedId(originalSelectedId);
                         showToast('匯出 PDF 完成', 'success');
@@ -468,39 +569,131 @@
                         setSelectedId(originalSelectedId);
                         showToast('匯出 PDF 失敗', 'error');
                     });
-                }, 500);
+                }, 800);
             };
 
             const resetView = () => {
-                setTransform({ x: 0, y: 0, scale: 1 });
+                const rootNode = nodes.find(n => n.parentId === null);
+                if (rootNode) {
+                    setTransform({
+                        x: window.innerWidth / 2 - rootNode.x,
+                        y: window.innerHeight / 2 - rootNode.y,
+                        scale: 1
+                    });
+                } else {
+                    setTransform({ x: 0, y: 0, scale: 1 });
+                }
             };
 
             const handleRandomTheme = () => {
-                // 隨機挑選與目前不同的一個主題
                 const availableThemes = THEMES.filter(t => t.id !== currentTheme.id);
                 const randomTheme = availableThemes[Math.floor(Math.random() * availableThemes.length)];
                 setCurrentTheme(randomTheme);
             };
 
-            // 確保 React 狀態更新後，Lucide 圖標仍然能正常渲染
+            const toggleLayoutMode = () => {
+                const newMode = layoutMode === 'right' ? 'both' : 'right';
+                setLayoutMode(newMode);
+                handleAutoLayout(newMode);
+                showToast(`已切換為${newMode === 'right' ? '右側' : '左右'}排列`, 'success');
+            };
+
+            // 雙模式自動排列演算法
+            const handleAutoLayout = (forceMode) => {
+                const activeMode = typeof forceMode === 'string' ? forceMode : layoutMode;
+
+                setNodes(prevNodes => {
+                    const newNodes = prevNodes.map(n => ({ ...n }));
+                    const childrenMap = {};
+                    
+                    newNodes.forEach(n => {
+                        if (n.parentId) {
+                            if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
+                            childrenMap[n.parentId].push(n.id);
+                        }
+                    });
+
+                    const rootNode = newNodes.find(n => n.parentId === null);
+                    if (!rootNode) return prevNodes;
+
+                    const HORIZONTAL_SPACING = 280;
+                    const VERTICAL_SPACING = 80;
+
+                    const rootChildren = childrenMap[rootNode.id] || [];
+                    
+                    const rightChildren = activeMode === 'right'
+                        ? rootChildren
+                        : rootChildren.filter((_, index) => index % 2 === 0);
+                        
+                    const leftChildren = activeMode === 'right'
+                        ? []
+                        : rootChildren.filter((_, index) => index % 2 === 1);
+
+                    const calculateSubtreeHeight = (nodeId) => {
+                        const children = childrenMap[nodeId] || [];
+                        if (children.length === 0) return VERTICAL_SPACING;
+                        return children.reduce((sum, childId) => sum + calculateSubtreeHeight(childId), 0);
+                    };
+
+                    const positionSubtree = (nodeId, startX, startY, direction) => {
+                        const node = newNodes.find(n => n.id === nodeId);
+                        if (!node) return 0;
+
+                        const children = childrenMap[nodeId] || [];
+                        const subtreeHeight = calculateSubtreeHeight(nodeId);
+                        
+                        node.x = startX;
+                        node.y = startY + subtreeHeight / 2;
+
+                        let currentChildStartY = startY;
+                        const nextX = startX + (HORIZONTAL_SPACING * direction);
+                        
+                        children.forEach(childId => {
+                            const childHeight = calculateSubtreeHeight(childId);
+                            positionSubtree(childId, nextX, currentChildStartY, direction);
+                            currentChildStartY += childHeight;
+                        });
+
+                        return subtreeHeight;
+                    };
+
+                    let rightTotalHeight = rightChildren.reduce((sum, id) => sum + calculateSubtreeHeight(id), 0);
+                    let currentRightY = rootNode.y - rightTotalHeight / 2;
+                    rightChildren.forEach(childId => {
+                        const h = calculateSubtreeHeight(childId);
+                        positionSubtree(childId, rootNode.x + HORIZONTAL_SPACING, currentRightY, 1);
+                        currentRightY += h;
+                    });
+
+                    let leftTotalHeight = leftChildren.reduce((sum, id) => sum + calculateSubtreeHeight(id), 0);
+                    let currentLeftY = rootNode.y - leftTotalHeight / 2;
+                    leftChildren.forEach(childId => {
+                        const h = calculateSubtreeHeight(childId);
+                        positionSubtree(childId, rootNode.x - HORIZONTAL_SPACING, currentLeftY, -1);
+                        currentLeftY += h;
+                    });
+
+                    return newNodes;
+                });
+                if(typeof forceMode !== 'string') showToast('已重新整齊排列節點', 'success');
+            };
+
             useEffect(() => {
                 if (window.lucide) {
                     window.lucide.createIcons();
                 }
             });
 
-            // 繪製貝茲曲線
             const renderConnections = () => {
-                return nodes.map(node => {
+                const lines = nodes.map(node => {
                     if (node.parentId === null) return null;
                     const parent = nodes.find(n => n.id === node.parentId);
                     if (!parent) return null;
 
-                    // 計算曲線控制點
+                    const isDraggedNode = node.id === draggingNodeId;
+                    if (isDraggedNode && dropTargetId) return null;
+
                     const dx = node.x - parent.x;
-                    const dy = node.y - parent.y;
-                    
-                    // 從父節點的右側/左側連出，連到子節點的左側/右側
                     const path = `M ${parent.x} ${parent.y} 
                                   C ${parent.x + dx/2} ${parent.y}, 
                                     ${node.x - dx/2} ${node.y}, 
@@ -513,10 +706,40 @@
                             fill="none"
                             stroke={currentTheme.line}
                             strokeWidth="3"
+                            opacity={isDraggedNode ? 0.2 : 1}
+                            strokeDasharray={isDraggedNode ? "5,5" : "none"}
                             className="transition-all duration-200"
                         />
                     );
                 });
+
+                // 拖曳預覽線
+                if (draggingNodeId && dropTargetId) {
+                    const target = nodes.find(n => n.id === dropTargetId);
+                    const dragged = nodes.find(n => n.id === draggingNodeId);
+                    if (target && dragged) {
+                        const dx = dragged.x - target.x;
+                        const path = `M ${target.x} ${target.y} 
+                                      C ${target.x + dx/2} ${target.y}, 
+                                        ${dragged.x - dx/2} ${dragged.y}, 
+                                        ${dragged.x} ${dragged.y}`;
+                        
+                        lines.push(
+                            <path
+                                key="preview-line"
+                                d={path}
+                                fill="none"
+                                stroke={currentTheme.line}
+                                strokeWidth="4"
+                                strokeDasharray="8,8"
+                                opacity="0.6"
+                                className="animate-pulse"
+                            />
+                        );
+                    }
+                }
+
+                return lines;
             };
 
             return (
@@ -548,21 +771,33 @@
 
                         <div className="w-px h-5 bg-slate-300"></div>
 
+                        <button onClick={toggleLayoutMode} className="flex items-center gap-2 text-slate-700 hover:text-orange-600 transition-colors" title="切換排列模式">
+                            <i data-lucide={layoutMode === 'right' ? 'align-left' : 'align-center'} className="w-5 h-5"></i> <span className="hidden sm:inline text-sm font-medium">{layoutMode === 'right' ? '右側排列' : '左右排列'}</span>
+                        </button>
+
+                        <div className="w-px h-5 bg-slate-300"></div>
+
+                        <button onClick={() => handleAutoLayout()} className="flex items-center gap-2 text-slate-700 hover:text-emerald-600 transition-colors" title="一鍵排列">
+                            <i data-lucide="network" className="w-5 h-5"></i> <span className="hidden sm:inline text-sm font-medium">自動排列</span>
+                        </button>
+
+                        <div className="w-px h-5 bg-slate-300"></div>
+
                         <button onClick={resetView} className="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition-colors" title="重置視角">
                             <i data-lucide="maximize" className="w-5 h-5"></i>
                         </button>
                     </div>
 
                     {/* 操作提示 */}
-                    <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow border border-slate-200 z-50 text-xs text-slate-600 space-y-1">
+                    <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow border border-slate-200 z-50 text-xs text-slate-600 space-y-1 pointer-events-none">
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">雙擊</kbd> 編輯文字</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Tab</kbd> 新增子節點</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Enter</kbd> 新增同層節點</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Del</kbd> 刪除節點與分支</p>
-                        <p>拖曳背景可平移，滾輪可縮放</p>
+                        <p>💡 拖曳節點可轉移連接。右側或左右交錯排列可於上方切換。</p>
                     </div>
 
-                    {/* 提示訊息 (Toast) */}
+                    {/* 提示訊息 */}
                     {toast.show && (
                         <div className={`absolute top-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg z-50 text-sm font-medium text-white transition-all duration-300 ${toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
                             {toast.message}
@@ -603,7 +838,9 @@
                                     key={node.id}
                                     node={node}
                                     isSelected={selectedId === node.id}
+                                    isDropTarget={dropTargetId === node.id}
                                     isEditing={editingId === node.id}
+                                    isDragging={draggingNodeId === node.id}
                                     onSelect={setSelectedId}
                                     onDoubleClick={(id) => setEditingId(id)}
                                     onChange={handleNodeTextChange}

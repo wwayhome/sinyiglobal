@@ -150,6 +150,33 @@
             const map = new Map(nodeList.map(n => [n.id, n]));
             return new Map(nodeList.map(n => [n.id, measureNode(n, getNodeLevel(n.id, map))]));
         };
+        // 收合只隱藏後代，保留內容、位置及各分支原有的收合狀態。
+        const getBranchInfo = nodeList => {
+            const byId = new Map(nodeList.map(node => [node.id, node]));
+            const counts = new Map(nodeList.map(node => [node.id, 0]));
+            nodeList.forEach(node => {
+                if (counts.has(node.parentId)) counts.set(node.parentId, counts.get(node.parentId) + 1);
+            });
+            const visible = nodeList.filter(node => {
+                let hidden = false;
+                let parentId = node.parentId;
+                const visited = new Set([node.id]);
+                while (byId.has(parentId) && !visited.has(parentId)) {
+                    visited.add(parentId);
+                    const parent = byId.get(parentId);
+                    // 舊檔即使曾收合中心主題，也一律顯示其分支。
+                    if (parent.parentId !== null && parent.collapsed) hidden = true;
+                    parentId = parent.parentId;
+                }
+                return !hidden;
+            });
+            return { visible, counts };
+        };
+        const collapseBadgeWidth = count => Math.max(26, String(count).length * 7 + 18);
+        const branchDirection = (node, nodeList) => {
+            const root = nodeList.find(item => item.parentId === null);
+            return root && node.parentId !== null && node.x < root.x ? -1 : 1;
+        };
         // order 僅表示同一父節點下的順序；舊 JSON 依原陣列順序補齊。
         const orderedChildren = (nodeList, parentId) => nodeList
             .map((node, index) => ({ node, index }))
@@ -199,7 +226,7 @@
             if (!dragged || dragged.parentId === null) return null;
             let best = null;
             let distance = Infinity;
-            for (const target of nodeList) {
+            for (const target of getBranchInfo(nodeList).visible) {
                 if (isInBranch(target.id, draggedId, nodeList)) continue;
                 const size = metrics.get(target.id);
                 const dx = Math.abs(x - target.x);
@@ -280,7 +307,7 @@
             return result;
         };
 
-        const Node = ({ node, metrics, isSelected, isDropTarget, isEditing, isDragging, onSelect, onDoubleClick, onChange, onDragStart, theme }) => {
+        const Node = ({ node, metrics, isSelected, isDropTarget, isEditing, isDragging, onSelect, onDoubleClick, onChange, onDragStart, onToggleCollapse, childCount, collapseDirection, theme }) => {
             const nodeRef = useRef(null);
             
             useEffect(() => {
@@ -334,6 +361,24 @@
                         onDoubleClick(node.id);
                     }}
                 >
+                    {!isRoot && childCount > 0 && (
+                        <button type="button"
+                            data-collapse-for={node.id}
+                            className={`absolute flex items-center justify-center rounded-full border shadow-sm select-none
+                                ${node.collapsed ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-blue-50 hover:border-blue-400'}`}
+                            style={{ width: collapseBadgeWidth(childCount), height: 22, padding: 0,
+                                fontSize: 11, fontWeight: 600, lineHeight: '20px', top: '50%',
+                                transform: 'translateY(-50%)', cursor: 'pointer',
+                                ...(collapseDirection < 0 ? { right: 'calc(100% + 5px)' } : { left: 'calc(100% + 5px)' }) }}
+                            title={`${node.collapsed ? '展開' : '摺疊'}分支（${childCount} 個直屬子單元）`}
+                            aria-label={`${node.collapsed ? '展開' : '摺疊'}分支（${childCount} 個直屬子單元）`}
+                            aria-expanded={!node.collapsed}
+                            onPointerDown={e => e.stopPropagation()}
+                            onDoubleClick={e => e.stopPropagation()}
+                            onKeyDown={e => e.stopPropagation()}
+                            onClick={e => { e.stopPropagation(); onToggleCollapse(node.id); }}
+                        >{childCount}</button>
+                    )}
                     {isEditing ? (
                         <textarea
                             ref={nodeRef}
@@ -398,6 +443,7 @@
             const [layoutMode, setLayoutModeState] = useState('right'); // 預設改為右側排列
             
             const nodeMetrics = getNodeMetrics(nodes);
+            const { visible: visibleNodes, counts: childCounts } = getBranchInfo(nodes);
             const containerRef = useRef(null);
             const fileInputRef = useRef(null);
 
@@ -481,7 +527,7 @@
                 setNodesState(snapshot.nodes);
                 setCurrentThemeState(currentThemeRef.current);
                 setLayoutModeState(snapshot.layoutMode);
-                setSelectedId(id => snapshot.nodes.some(node => node.id === id) ? id : 'root');
+                setSelectedId(id => getBranchInfo(snapshot.nodes).visible.some(node => node.id === id) ? id : (snapshot.nodes.find(node => node.parentId === null)?.id || null));
             };
             const handleHistoryStep = direction => {
                 setEditingId(null);
@@ -490,6 +536,14 @@
                 if (!snapshot) return;
                 restoreDocument(snapshot);
                 refreshHistory();
+            };
+
+            const toggleCollapse = id => {
+                setEditingId(null);
+                finishHistoryGroup();
+                setSelectedId(id);
+                setNodes(previous => previous.map(node => node.id === id && node.parentId !== null
+                    ? { ...node, collapsed: !node.collapsed } : node));
             };
 
             // 拖曳狀態
@@ -591,7 +645,12 @@
                     setNodes(previous => {
                         const moved = moveOrderedNode(previous, id, intent.parentId,
                             intent.type === 'child' ? null : intent.targetId, intent.type);
-                        return arrangeNodes(moved, layoutModeRef.current, getNodeMetrics(moved));
+                        // 拖入收合中的父節點時展開，讓剛移入的節點仍可看見。
+                    if (intent.type === 'child') {
+                        const parent = moved.find(node => node.id === intent.parentId);
+                        if (parent) parent.collapsed = false;
+                    }
+                    return arrangeNodes(moved, layoutModeRef.current, getNodeMetrics(moved));
                     });
                     showToast(intent.type === 'child' ? '已移至新父節點，排在子節點最後' : '已更新同層節點順序', 'success');
                 }
@@ -693,7 +752,7 @@
                     order: childrenCount
                 };
 
-                setNodes(prev => normalizeOrders([...prev, newNode]));
+                setNodes(prev => normalizeOrders([...prev.map(n => n.id === parentId ? { ...n, collapsed: false } : n), newNode]));
                 setSelectedId(newId);
                 setEditingId(newId);
             };
@@ -828,13 +887,16 @@
                     if (!source) throw new Error('找不到心智圖畫布');
                     const elements = new Map(Array.from(source.querySelectorAll('[data-node-id]'))
                         .map(element => [element.dataset.nodeId, element]));
-                    const snapshot = nodesRef.current.map(node => {
+                    const exportBranches = getBranchInfo(nodesRef.current);
+                    const snapshot = exportBranches.visible.map(node => {
                         const element = elements.get(String(node.id));
                         if (!element || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
                             throw new Error('節點位置或尺寸不正確，請重新讀取心智圖');
                         }
                         const style = getComputedStyle(element);
-                        return { ...node, width: element.offsetWidth, height: element.offsetHeight,
+                        return { ...node, childCount: node.parentId === null ? 0 : exportBranches.counts.get(node.id),
+                            collapseDirection: branchDirection(node, nodesRef.current),
+                            width: element.offsetWidth, height: element.offsetHeight,
                             background: style.backgroundColor, color: style.color,
                             border: style.borderColor, borderWidth: parseFloat(style.borderTopWidth) || 0,
                             radius: parseFloat(style.borderTopLeftRadius) || 12,
@@ -844,9 +906,9 @@
                     });
                     if (!snapshot.length) throw new Error('心智圖沒有可匯出的節點');
                     const padding = 40;
-                    const minX = Math.min(...snapshot.map(n => n.x - n.width / 2)) - padding;
+                    const minX = Math.min(...snapshot.map(n => n.x - n.width / 2 - (n.childCount && n.collapseDirection < 0 ? collapseBadgeWidth(n.childCount) + 6 : 0))) - padding;
                     const minY = Math.min(...snapshot.map(n => n.y - n.height / 2)) - padding;
-                    const width = Math.ceil(Math.max(...snapshot.map(n => n.x + n.width / 2)) - minX + padding);
+                    const width = Math.ceil(Math.max(...snapshot.map(n => n.x + n.width / 2 + (n.childCount && n.collapseDirection > 0 ? collapseBadgeWidth(n.childCount) + 6 : 0))) - minX + padding);
                     const height = Math.ceil(Math.max(...snapshot.map(n => n.y + n.height / 2)) - minY + padding);
                     // 限制像素總量與最長邊，避免大型心智圖超過瀏覽器 Canvas 上限。
                     const scale = Math.min(2, 8192 / width, 8192 / height, Math.sqrt(16000000 / width / height));
@@ -907,6 +969,20 @@
                         }
                         const startY = node.y - (lines.length - 1) * node.lineHeight / 2;
                         lines.forEach((line, index) => context.fillText(line, node.x, startY + index * node.lineHeight));
+                        if (node.childCount > 0) {
+                            const badgeWidth = collapseBadgeWidth(node.childCount);
+                            const badgeX = node.x + node.collapseDirection * (node.width / 2 + 5 + badgeWidth / 2);
+                            context.beginPath();
+                            context.roundRect(badgeX - badgeWidth / 2, node.y - 11, badgeWidth, 22, 11);
+                            context.fillStyle = node.collapsed ? '#2563eb' : '#ffffff';
+                            context.fill();
+                            context.strokeStyle = node.collapsed ? '#2563eb' : '#cbd5e1';
+                            context.lineWidth = 1;
+                            context.stroke();
+                            context.fillStyle = node.collapsed ? '#ffffff' : '#475569';
+                            context.font = `600 11px ${NODE_FONT_FAMILY}`;
+                            context.fillText(String(node.childCount), badgeX, node.y);
+                        }
                     }
                     const jpeg = await new Promise((resolve, reject) => canvas.toBlob(
                         blob => blob ? resolve(blob) : reject(new Error('無法產生心智圖影像')), 'image/jpeg', 0.98));
@@ -963,16 +1039,50 @@
             };
 
             const resetView = () => {
-                const rootNode = nodes.find(n => n.parentId === null);
-                if (rootNode) {
-                    setTransform({
-                        x: window.innerWidth / 2 - rootNode.x,
-                        y: window.innerHeight / 2 - rootNode.y,
-                        scale: 1
-                    });
-                } else {
-                    setTransform({ x: 0, y: 0, scale: 1 });
+                const container = containerRef.current;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return;
+
+                // 依全部節點的實際寬高取範圍，包含文字、外框與連線。
+                const currentBranches = getBranchInfo(nodesRef.current);
+                const currentNodes = currentBranches.visible;
+                if (!currentNodes.length) {
+                    setTransform({ x: rect.width / 2, y: rect.height / 2, scale: 1 });
+                    return;
                 }
+                const metrics = getNodeMetrics(nodesRef.current);
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                currentNodes.forEach(node => {
+                    const size = metrics.get(node.id);
+                    const count = node.parentId === null ? 0 : currentBranches.counts.get(node.id);
+                    const badgeSpace = count ? collapseBadgeWidth(count) + 6 : 0;
+                    const direction = branchDirection(node, nodesRef.current);
+                    minX = Math.min(minX, node.x - size.width / 2 - 8 - (direction < 0 ? badgeSpace : 0));
+                    maxX = Math.max(maxX, node.x + size.width / 2 + 8 + (direction > 0 ? badgeSpace : 0));
+                    minY = Math.min(minY, node.y - size.height / 2 - 8);
+                    maxY = Math.max(maxY, node.y + size.height / 2 + 8);
+                });
+
+                // 預留工具列、操作提示與四周留白，避免遮住心智圖。
+                const padding = Math.min(32, rect.width * 0.05, rect.height * 0.05);
+                const toolbar = document.getElementById('mindmap-toolbar')?.getBoundingClientRect();
+                const hints = document.getElementById('mindmap-hints')?.getBoundingClientRect();
+                const left = padding;
+                const right = rect.width - padding;
+                const top = Math.max(padding, toolbar ? toolbar.bottom - rect.top + padding : padding);
+                const bottom = Math.min(rect.height - padding,
+                    hints ? hints.top - rect.top - padding : rect.height - padding);
+                const availableWidth = Math.max(1, right - left);
+                const availableHeight = Math.max(1, bottom - top);
+                // 不套用手動縮放的 20% 下限，大型心智圖也能完整顯示。
+                const scale = Math.min(1, availableWidth / Math.max(1, maxX - minX),
+                    availableHeight / Math.max(1, maxY - minY));
+                setTransform({
+                    x: left + availableWidth / 2 - (minX + maxX) / 2 * scale,
+                    y: top + availableHeight / 2 - (minY + maxY) / 2 * scale,
+                    scale
+                });
             };
 
             const handleRandomTheme = () => {
@@ -1007,7 +1117,7 @@
             });
 
             const renderConnections = () => {
-                const lines = nodes.map(node => {
+                const lines = visibleNodes.map(node => {
                     if (node.parentId === null) return null;
                     const parent = nodes.find(n => n.id === node.parentId);
                     if (!parent) return null;
@@ -1067,7 +1177,7 @@
             return (
                 <div className="relative w-screen h-screen overflow-hidden bg-slate-50 font-sans">
                     {/* 工具列 */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm shadow-md px-6 py-3 rounded-2xl flex flex-wrap justify-center gap-3 z-50 items-center border border-slate-200" style={{ maxWidth: 'calc(100vw - 32px)', width: 'max-content' }}>
+                    <div id="mindmap-toolbar" className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm shadow-md px-6 py-3 rounded-2xl flex flex-wrap justify-center gap-3 z-50 items-center border border-slate-200" style={{ maxWidth: 'calc(100vw - 32px)', width: 'max-content' }}>
                         <button onClick={handleSave} className="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition-colors" title="儲存為 JSON">
                             <i data-lucide="save" className="w-5 h-5"></i> <span className="hidden sm:inline text-sm font-medium">儲存</span>
                         </button>
@@ -1125,13 +1235,13 @@
                         </button>
                         <div className="w-px h-5 bg-slate-300"></div>
 
-                        <button onClick={resetView} className="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition-colors" title="重置視角">
+                        <button onClick={resetView} className="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition-colors" title="重設視角：完整顯示心智圖" aria-label="重設視角：完整顯示心智圖">
                             <i data-lucide="maximize" className="w-5 h-5"></i>
                         </button>
                     </div>
 
                     {/* 操作提示 */}
-                    <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow border border-slate-200 z-50 text-xs text-slate-600 space-y-1 pointer-events-none">
+                    <div id="mindmap-hints" className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow border border-slate-200 z-50 text-xs text-slate-600 space-y-1 pointer-events-none">
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">雙擊</kbd> 編輯文字</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Tab</kbd> 新增子節點</p>
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Enter</kbd> 新增同層節點</p>
@@ -1139,6 +1249,7 @@
                         <p><kbd className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded mr-1">Shift＋Enter</kbd> 編輯時換行</p>
                         <p>拖到節點中央：成為子節點；拖到上／下緣：插入之前／之後。</p>
                         <p>上方工具列可上移／下移，或用上一步／下一步復原及重做。</p>
+                        <p>節點旁數字：直屬子單元數量，點擊可摺疊／展開整個分支。</p>
                     </div>
 
                     {/* 提示訊息 */}
@@ -1187,11 +1298,14 @@
                             })()}
 
                             {/* 節點層 */}
-                            {nodes.map(node => (
+                            {visibleNodes.map(node => (
                                 <Node
                                     key={node.id}
                                     node={node}
                                     metrics={nodeMetrics.get(node.id)}
+                                    childCount={childCounts.get(node.id)}
+                                    collapseDirection={branchDirection(node, nodes)}
+                                    onToggleCollapse={toggleCollapse}
                                     isSelected={selectedId === node.id}
                                     isDropTarget={dropTargetId === node.id && dropIntent?.type === 'child'}
                                     isEditing={editingId === node.id}

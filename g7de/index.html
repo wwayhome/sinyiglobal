@@ -403,8 +403,12 @@
 
             <!-- 類別名稱直接編輯列 -->
             <div class="pt-3 border-t border-slate-100">
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="text-xs font-semibold text-slate-500">⚙️ 類別名稱自訂 (直接點擊修改名稱，拖曳區塊可調整排序)：</span>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <span class="text-xs font-semibold text-slate-500">⚙️ 類別管理 (點擊名稱可直接修改、點擊圓點可換色、拖曳可排序)：</span>
+                    <button type="button" onclick="addCategory()" class="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors border border-blue-200/80 shadow-2xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        新增類別
+                    </button>
                 </div>
                 <div id="category-editor" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                     <!-- 動態生成類別輸入框 -->
@@ -1115,6 +1119,93 @@
             calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-20"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>`
         });
 
+        const CATEGORY_COLOR_PALETTE = [
+            'bg-blue-500', 'bg-purple-500', 'bg-emerald-500', 'bg-orange-500',
+            'bg-pink-500', 'bg-indigo-600', 'bg-rose-500', 'bg-amber-500',
+            'bg-teal-600', 'bg-cyan-600', 'bg-violet-600', 'bg-slate-500'
+        ];
+
+        window.addCategory = function() {
+            const existingKeys = Object.keys(categories);
+            const usedColors = Object.values(categories).map(c => c.color);
+            const nextColor = CATEGORY_COLOR_PALETTE.find(c => !usedColors.includes(c))
+                || CATEGORY_COLOR_PALETTE[existingKeys.length % CATEGORY_COLOR_PALETTE.length];
+
+            let newKey = 'cat_' + Date.now();
+            while (categories[newKey]) {
+                newKey = 'cat_' + (Date.now() + Math.floor(Math.random() * 1000));
+            }
+
+            const nextIndex = existingKeys.length + 1;
+            categories[newKey] = {
+                name: `新類別${nextIndex}`,
+                color: nextColor
+            };
+
+            renderCategories('task-category');
+            renderCategories('edit-task-category');
+            renderGantt();
+            recordHistory();
+
+            // 自動聚焦並選取新增的類別名稱方便直接輸入
+            const newInput = document.querySelector(`#category-editor input[data-key="${newKey}"]`);
+            if (newInput) {
+                newInput.focus();
+                newInput.select();
+            }
+            showMessage(`已新增「新類別${nextIndex}」`);
+        };
+
+        window.cycleCategoryColor = function(key, e) {
+            if (e) e.stopPropagation();
+            const cat = categories[key];
+            if (!cat) return;
+            const currentIdx = CATEGORY_COLOR_PALETTE.indexOf(cat.color);
+            const nextIdx = (currentIdx + 1) % CATEGORY_COLOR_PALETTE.length;
+            cat.color = CATEGORY_COLOR_PALETTE[nextIdx];
+
+            renderCategories('task-category');
+            renderCategories('edit-task-category');
+            renderGantt();
+            recordHistory();
+        };
+
+        window.removeCategory = function(key, e) {
+            if (e) e.stopPropagation();
+            const keys = Object.keys(categories);
+            if (keys.length <= 1) {
+                showMessage("至少需保留一個類別！");
+                return;
+            }
+
+            const removedCat = categories[key];
+            if (!removedCat) return;
+
+            const fallbackKey = keys.find(k => k !== key);
+            const fallbackName = categories[fallbackKey].name;
+            let affectedCount = 0;
+
+            tasks.forEach(task => {
+                if (task.category === key) {
+                    task.category = fallbackKey;
+                    affectedCount++;
+                }
+            });
+
+            delete categories[key];
+
+            renderCategories('task-category');
+            renderCategories('edit-task-category');
+            renderGantt();
+            recordHistory();
+
+            if (affectedCount > 0) {
+                showMessage(`已刪除「${removedCat.name}」，並將 ${affectedCount} 個項目歸類至「${fallbackName}」`);
+            } else {
+                showMessage(`已刪除類別「${removedCat.name}」`);
+            }
+        };
+
         function renderCategories(selectElementId = 'task-category') {
             const selectEl = document.getElementById(selectElementId);
             if (!selectEl) return;
@@ -1131,15 +1222,23 @@
             if(selectElementId === 'task-category') {
                 const editorEl = document.getElementById('category-editor');
                 editorEl.innerHTML = '';
+                const totalCats = Object.keys(categories).length;
                 Object.entries(categories).forEach(([key, cat]) => {
                     const div = document.createElement('div');
-                    div.className = "flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 cursor-move transition-colors";
+                    div.className = "group/cat flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-move transition-colors";
                     div.draggable = true;
                     div.dataset.categoryKey = key;
-                    div.innerHTML = `<div class="text-slate-400 shrink-0">${getIcons().grip}</div><span class="w-2.5 h-2.5 rounded-full shrink-0 ${cat.color}"></span><input type="text" data-key="${escapeHtml(key)}" value="${escapeHtml(cat.name)}" class="bg-transparent font-semibold text-xs text-slate-700 focus:outline-none w-full border-b border-transparent focus:border-slate-400 py-0.5">`;
+                    div.innerHTML = `
+                        <div class="text-slate-400 shrink-0" title="拖曳調整類別順序">${getIcons().grip}</div>
+                        <button type="button" onclick="cycleCategoryColor('${escapeHtml(key)}', event)" class="w-3 h-3 rounded-full shrink-0 ${cat.color} ring-offset-1 hover:ring-2 hover:ring-slate-400 transition-all cursor-pointer" title="點擊切換類別顏色"></button>
+                        <input type="text" data-key="${escapeHtml(key)}" value="${escapeHtml(cat.name)}" class="bg-transparent font-semibold text-xs text-slate-700 focus:outline-none w-full min-w-0 border-b border-transparent focus:border-slate-400 py-0.5">
+                        <button type="button" onclick="removeCategory('${escapeHtml(key)}', event)" class="${totalCats <= 1 ? 'hidden' : 'opacity-40 group-hover/cat:opacity-100'} text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded p-0.5 transition-all shrink-0" title="刪除此類別">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    `;
                     
                     div.addEventListener('dragstart', function(e) {
-                        if(e.target.tagName === 'INPUT') { e.preventDefault(); return; }
+                        if(e.target.tagName === 'INPUT' || e.target.closest('button')) { e.preventDefault(); return; }
                         categoryDragSrcEl = this;
                         e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', key);

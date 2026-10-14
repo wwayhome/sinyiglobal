@@ -15,10 +15,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', 'Noto Sans TC', 'Segoe UI', sans-serif; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: #f8fafc; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         .hidden { display: none !important; }
         
@@ -29,24 +30,50 @@
         
         /* 拖曳時的視覺回饋指示線 */
         .drag-over-top {
-            box-shadow: inset 0 2px 0 0 #3b82f6 !important;
-            background-color: #eff6ff !important; /* bg-blue-50 */
+            box-shadow: inset 0 2px 0 0 #4f46e5 !important;
+            background-color: #eef2ff !important;
         }
         .drag-over-bottom {
-            box-shadow: inset 0 -2px 0 0 #3b82f6 !important;
-            background-color: #eff6ff !important;
+            box-shadow: inset 0 -2px 0 0 #4f46e5 !important;
+            background-color: #eef2ff !important;
         }
 
-        /* 進階版連線 */
+        /* 任務色塊現代化漸層與光澤 */
+        .gantt-bar {
+            background-image: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.06) 100%);
+            box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.14), 0 1px 2px -1px rgba(15, 23, 42, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+            transition: box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .gantt-bar:hover {
+            filter: brightness(1.04);
+            box-shadow: 0 6px 14px -2px rgba(15, 23, 42, 0.22), 0 2px 4px -1px rgba(15, 23, 42, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+        }
+
+        /* 進階版連線與微動畫 */
+        .dependency-line-bg {
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
         .dependency-line {
-            stroke-dasharray: 4;
+            stroke-dasharray: 5 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            animation: dashFlow 24s linear infinite;
+            transition: stroke-width 0.15s ease, stroke 0.15s ease;
+        }
+        .dependency-line.is-active {
+            stroke-dasharray: none;
+            animation: none;
+        }
+        @keyframes dashFlow {
+            to { stroke-dashoffset: -180; }
         }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 p-4 md:p-8 relative min-h-screen">
+<body class="bg-slate-100/80 text-slate-800 p-4 md:p-8 relative min-h-screen">
 
     <!-- 自訂訊息提示框 -->
-    <div id="message-box" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 transition-opacity duration-300 opacity-0 pointer-events-none hidden">
+    <div id="message-box" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[250] bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 transition-opacity duration-300 opacity-0 pointer-events-none hidden">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
         <span id="message-text" class="text-sm font-medium">訊息</span>
     </div>
@@ -345,7 +372,7 @@
             </div>
         </div>
 
-        <div id="chart-export-area" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col relative" style="min-height: 300px;">
+        <div id="chart-export-area" class="bg-white rounded-2xl shadow-md shadow-slate-200/70 border border-slate-200/90 overflow-hidden flex flex-col relative" style="min-height: 320px;">
             <!-- 圖表內容由 JavaScript 動態生成 -->
         </div>
 
@@ -514,7 +541,9 @@
         let inputMode = 'absolute'; 
         let msgTimeout = null;
         let categoryDragSrcEl = null; 
-        const LEFT_COLUMN_WIDTH = "w-[300px]";
+        let hoveredTaskId = null;
+        const LEFT_COLUMN_WIDTH = "w-[380px]";
+        const LEFT_COLUMN_PX = 380;
         const HISTORY_LIMIT = 80;
         let undoStack = [];
         let redoStack = [];
@@ -699,7 +728,7 @@
         // ==========================================
         let pendingModeSwitchFrom = null;
 
-        function switchAppMode(mode) {
+        window.switchAppMode = function(mode) {
             if (appMode === mode) return;
             const previousMode = appMode;
             appMode = mode;
@@ -906,10 +935,12 @@
 
         const getIcons = () => ({
             // 更新：改為三條水平線(Hamburger)樣式，代表可以上下拖拉排序
-            grip: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>`,
-            copy: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>`,
-            trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>`,
-            pencil: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`,
+            grip: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>`,
+            copy: `<svg xmlns="http://www.w3.org/2000/svg" width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>`,
+            trash: `<svg xmlns="http://www.w3.org/2000/svg" width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>`,
+            pencil: `<svg xmlns="http://www.w3.org/2000/svg" width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`,
+            link: `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`,
+            lock: `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
             calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-20"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>`
         });
 
@@ -1085,17 +1116,59 @@
         }
 
         // ==========================================
-        // 修正後的 SVG 連線繪製函式 (直角轉折 + 正確座標對齊)
+        // 升級版 SVG 連線繪製函式 (圓角轉折 + 節點圓點 + Lag 膠囊標籤 + 互動高亮)
         // ==========================================
+        function buildRoundedOrthogonalPath(points, radius = 7) {
+            if (points.length < 2) return '';
+            let d = `M ${points[0].x} ${points[0].y}`;
+            for (let i = 1; i < points.length - 1; i++) {
+                const prev = points[i - 1];
+                const curr = points[i];
+                const next = points[i + 1];
+
+                const v1x = curr.x - prev.x;
+                const v1y = curr.y - prev.y;
+                const len1 = Math.hypot(v1x, v1y);
+
+                const v2x = next.x - curr.x;
+                const v2y = next.y - curr.y;
+                const len2 = Math.hypot(v2x, v2y);
+
+                if (len1 < 1 || len2 < 1) {
+                    d += ` L ${curr.x} ${curr.y}`;
+                    continue;
+                }
+
+                const r = Math.min(radius, len1 / 2, len2 / 2);
+                const startCornerX = curr.x - (v1x / len1) * r;
+                const startCornerY = curr.y - (v1y / len1) * r;
+                const endCornerX = curr.x + (v2x / len2) * r;
+                const endCornerY = curr.y + (v2y / len2) * r;
+
+                d += ` L ${startCornerX.toFixed(1)} ${startCornerY.toFixed(1)} Q ${curr.x.toFixed(1)} ${curr.y.toFixed(1)} ${endCornerX.toFixed(1)} ${endCornerY.toFixed(1)}`;
+            }
+            const last = points[points.length - 1];
+            d += ` L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
+            return d;
+        }
+
         function drawDependencyLines() {
             const svgLayer = document.getElementById('dependency-svg');
             if (!svgLayer) return;
 
-            // 將 arrow 的 path 修改為兩條線段(開放箭頭)，並加上 stroke 設定
             let svgContent = `<defs>
-                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <marker id="arrow-normal" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+                    <path d="M 1.5 1.5 L 8.5 5 L 1.5 8.5 z" fill="#6366f1" />
                 </marker>
+                <marker id="arrow-overlap" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+                    <path d="M 1.5 1.5 L 8.5 5 L 1.5 8.5 z" fill="#f59e0b" />
+                </marker>
+                <marker id="arrow-active" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M 1.5 1.5 L 8.5 5 L 1.5 8.5 z" fill="#4338ca" />
+                </marker>
+                <filter id="pill-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0f172a" flood-opacity="0.14"/>
+                </filter>
             </defs>`;
 
             if (appMode !== 'advanced') {
@@ -1103,8 +1176,10 @@
                 return;
             }
 
-            // 取得 SVG 畫布本身相對於視窗的座標，作為絕對的計算基準點
             const svgRect = svgLayer.getBoundingClientRect();
+            const backgroundPaths = [];
+            const foregroundPaths = [];
+            const badges = [];
 
             tasks.forEach(task => {
                 if (task.predecessor && task.predecessor.taskId) {
@@ -1115,40 +1190,92 @@
                         const predRect = predEl.getBoundingClientRect();
                         const curRect = curEl.getBoundingClientRect();
 
-                        // 座標計算：拿色塊的螢幕位置減掉 SVG 畫布的螢幕位置，完美對齊座標系！
                         const startX = predRect.right - svgRect.left;
                         const startY = predRect.top - svgRect.top + (predRect.height / 2);
                         
                         const endX = curRect.left - svgRect.left;
                         const endY = curRect.top - svgRect.top + (curRect.height / 2);
 
-                        // 繪製直角轉折的虛線 (Orthogonal Lines)
-                        let pathD = `M ${startX} ${startY} `;
-                        
-                        if (startX <= endX - 30) {
-                            // 正常的由左至右 (直角轉折：向右 -> 垂直向下/上 -> 向右)
-                            const midX = startX + 15; 
-                            pathD += `L ${midX} ${startY} L ${midX} ${endY} L ${endX - 2} ${endY}`;
+                        const lag = task.predecessor.lag !== undefined && task.predecessor.lag !== '' ? parseInt(task.predecessor.lag) : 0;
+                        const isOverlap = lag < 0;
+                        const isRelatedToHover = hoveredTaskId && (hoveredTaskId == task.id || hoveredTaskId == task.predecessor.taskId);
+                        const isDimmed = hoveredTaskId && !isRelatedToHover;
+
+                        let points = [];
+                        let badgeX = 0;
+                        let badgeY = 0;
+
+                        if (startX <= endX - 24) {
+                            const midX = startX + Math.max(14, (endX - startX) / 2);
+                            points = [
+                                { x: startX, y: startY },
+                                { x: midX, y: startY },
+                                { x: midX, y: endY },
+                                { x: endX - 3, y: endY }
+                            ];
+                            badgeX = midX;
+                            badgeY = (startY + endY) / 2;
                         } else {
-                            // 向後回繞的線 (前置任務結束時間晚於後續任務的開始時間)
-                            // 增加轉折的長度，讓箭頭後方有比較長的水平線 (turnLeftX 往左延伸 30px)
-                            const dropY = startY + 28; 
-                            const turnLeftX = Math.max(0, endX - 30); 
-                            
-                            pathD += `L ${startX + 15} ${startY} `;
-                            pathD += `L ${startX + 15} ${dropY} `;
-                            pathD += `L ${turnLeftX} ${dropY} `;
-                            pathD += `L ${turnLeftX} ${endY} `;
-                            pathD += `L ${endX - 2} ${endY}`;
+                            // 當前置結束晚於後續開始（例如負數 Lag 重疊排程）時的優雅繞道折線
+                            const stepOutX = startX + 14;
+                            const dropY = startY < endY ? startY + (predRect.height / 2) + 9 : startY - (predRect.height / 2) - 9;
+                            const turnLeftX = Math.max(6, endX - 18);
+                            points = [
+                                { x: startX, y: startY },
+                                { x: stepOutX, y: startY },
+                                { x: stepOutX, y: dropY },
+                                { x: turnLeftX, y: dropY },
+                                { x: turnLeftX, y: endY },
+                                { x: endX - 3, y: endY }
+                            ];
+                            badgeX = (stepOutX + turnLeftX) / 2;
+                            badgeY = dropY;
                         }
 
-                        // 將計算好的線段加入 SVG 中
-                        svgContent += `<path d="${pathD}" fill="none" stroke="#4f46e5" stroke-width="1.5" class="dependency-line" marker-end="url(#arrow)" />`;
+                        const pathD = buildRoundedOrthogonalPath(points, 6);
+                        const strokeColor = isRelatedToHover ? '#4338ca' : (isOverlap ? '#f59e0b' : '#6366f1');
+                        const markerId = isRelatedToHover ? 'arrow-active' : (isOverlap ? 'arrow-overlap' : 'arrow-normal');
+                        const opacity = isDimmed ? '0.22' : (isRelatedToHover ? '1' : '0.88');
+                        const strokeWidth = isRelatedToHover ? '2.2' : '1.65';
+                        const activeClass = isRelatedToHover ? 'is-active' : '';
+
+                        const pathGroup = `
+                            <g style="opacity: ${opacity}; transition: opacity 0.2s ease;">
+                                <!-- 白色光暈底線，讓線條跨過深色色塊或格線時依然清晰 -->
+                                <path d="${pathD}" fill="none" stroke="#ffffff" stroke-width="4.2" class="dependency-line-bg" opacity="0.85" />
+                                <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" class="dependency-line ${activeClass}" marker-end="url(#${markerId})" />
+                                <!-- 起點實心加白邊節點 -->
+                                <circle cx="${startX}" cy="${startY}" r="${isRelatedToHover ? 4 : 3.2}" fill="#ffffff" stroke="${strokeColor}" stroke-width="2" />
+                            </g>
+                        `;
+
+                        if (isRelatedToHover) {
+                            foregroundPaths.push(pathGroup);
+                        } else {
+                            backgroundPaths.push(pathGroup);
+                        }
+
+                        // 若有設定非 0 的 Lag（例如重疊 -6d 或延遲 +2d），或滑鼠懸停時，繪製精緻膠囊標籤
+                        if (lag !== 0 || isRelatedToHover) {
+                            const lagText = lag > 0 ? `+${lag}d` : (lag < 0 ? `${lag}d` : `FS`);
+                            const pillW = lagText.length * 6.2 + 12;
+                            const pillH = 16;
+                            const pillBg = isOverlap ? '#fffbeb' : '#eef2ff';
+                            const pillBorder = isRelatedToHover ? '#4338ca' : (isOverlap ? '#f59e0b' : '#818cf8');
+                            const pillText = isOverlap ? '#b45309' : '#4338ca';
+
+                            badges.push(`
+                                <g transform="translate(${badgeX}, ${badgeY})" style="opacity: ${isDimmed ? '0.18' : '1'}; transition: opacity 0.2s ease;" filter="url(#pill-shadow)">
+                                    <rect x="${-pillW / 2}" y="${-pillH / 2}" width="${pillW}" height="${pillH}" rx="8" fill="${pillBg}" stroke="${pillBorder}" stroke-width="1" />
+                                    <text x="0" y="3.5" text-anchor="middle" fill="${pillText}" font-size="9.5" font-weight="700" font-family="Inter, sans-serif">${lagText}</text>
+                                </g>
+                            `);
+                        }
                     }
                 }
             });
 
-            svgLayer.innerHTML = svgContent;
+            svgLayer.innerHTML = svgContent + backgroundPaths.join('') + foregroundPaths.join('') + badges.join('');
         }
 
         // --- 新增：雙擊重新命名任務功能 ---
@@ -1203,6 +1330,13 @@
             input.select();
         };
 
+        window.highlightTaskConnections = function(taskId) {
+            if (appMode !== 'advanced') return;
+            if (hoveredTaskId === taskId) return;
+            hoveredTaskId = taskId;
+            drawDependencyLines();
+        };
+
         function renderGantt() {
             recalculateDates(); 
 
@@ -1210,46 +1344,163 @@
             const icons = getIcons();
             if (tasks.length === 0) { container.innerHTML = `<div class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 min-h-[250px]">${icons.calendar}<p class="text-base">目前沒有工作項目</p></div>`; return; }
             const { timelineStart, timelineEnd, totalDays, timeHeaders } = computeTimeline();
-            const headersHtml = timeHeaders.map(h => `<div class="border-r border-slate-200 flex items-center justify-center text-[11px] font-medium text-slate-500 py-1.5" style="width: ${(h.days / totalDays) * 100}%">${escapeHtml(h.label)}</div>`).join('');
-            const gridHtml = timeHeaders.map(h => `<div class="border-r border-slate-100 h-full" style="width: ${(h.days / totalDays) * 100}%"></div>`).join('');
             
+            const headersHtml = timeHeaders.map(h => `<div class="border-r border-slate-200/80 flex items-center justify-center text-[11px] font-semibold text-slate-600 py-2.5 tracking-wide select-none" style="width: ${(h.days / totalDays) * 100}%">${escapeHtml(h.label)}</div>`).join('');
+            const gridHtml = timeHeaders.map((h, idx) => `<div class="border-r border-slate-200/60 h-full ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}" style="width: ${(h.days / totalDays) * 100}%"></div>`).join('');
+            
+            // 計算「今日線 (Today Line)」位置
+            const todayDate = parseUtcDate(todayStr);
+            let todayLineHtml = '';
+            if (todayDate >= timelineStart && todayDate <= timelineEnd) {
+                const todayOffsetPercent = ((Math.round((todayDate - timelineStart) / DAY_MS) + 0.5) / totalDays) * 100;
+                todayLineHtml = `
+                    <div class="absolute top-0 bottom-0 pointer-events-none z-10" style="left: ${todayOffsetPercent}%;">
+                        <div class="w-px h-full border-l border-dashed border-rose-400/80"></div>
+                        <div class="absolute -top-6 -translate-x-1/2 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm whitespace-nowrap">今日</div>
+                    </div>
+                `;
+            }
+
             const fallbackCategory = Object.values(categories)[0] || { name: '未知類別', color: 'bg-slate-500' };
             
-            const tasksHtml = tasks.map(task => {
+            const tasksHtml = tasks.map((task, idx) => {
+                const rowNumber = idx + 1;
                 const style = getTaskStyle(task.startDate, task.endDate, timelineStart, timelineEnd, totalDays);
                 const catConfig = categories[task.category] || fallbackCategory;
                 const safeTaskName = escapeHtml(task.name);
                 const safeCatName = escapeHtml(catConfig.name);
                 
+                // 檢查是否有前置任務，並組合關聯膠囊徽章
+                const hasPredecessor = appMode === 'advanced' && task.predecessor && task.predecessor.taskId;
+                let depBadgeHtml = '';
+                if (hasPredecessor) {
+                    const predIndex = tasks.findIndex(t => t.id == task.predecessor.taskId);
+                    const predTask = tasks[predIndex];
+                    if (predTask) {
+                        const lagVal = task.predecessor.lag !== undefined && task.predecessor.lag !== '' ? parseInt(task.predecessor.lag) : 0;
+                        const lagStr = lagVal > 0 ? `+${lagVal}d` : (lagVal < 0 ? `${lagVal}d` : '');
+                        const badgeColors = lagVal < 0
+                            ? 'bg-amber-50 text-amber-700 border-amber-200/90'
+                            : 'bg-indigo-50 text-indigo-700 border-indigo-200/90';
+                        depBadgeHtml = `
+                            <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${badgeColors} shrink-0 whitespace-nowrap" title="前置任務：#${predIndex + 1} ${escapeHtml(predTask.name)} (Lag: ${lagVal} 天)">
+                                ${icons.link}
+                                <span>#${predIndex + 1}${lagStr ? ` (${lagStr})` : ''}</span>
+                            </span>
+                        `;
+                    }
+                }
+
+                // 格式化簡短日期 (MM/DD)
+                const shortStart = task.startDate ? task.startDate.slice(5).replace('-', '/') : '';
+                const shortEnd = task.endDate ? task.endDate.slice(5).replace('-', '/') : '';
+                const durationDays = task.duration || diffDays(task.startDate, task.endDate);
+
                 // 決定是否顯示「禁止平移」游標
-                const cursorMoveClass = (appMode === 'advanced' && task.predecessor && task.predecessor.taskId) ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing';
+                const cursorMoveClass = hasPredecessor ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing';
+                const widthNum = parseFloat(style.width) || 0;
+                const isNarrowBar = widthNum < 10;
                 
-                return `<div data-id="${task.id}" class="task-row flex border-b border-slate-100 hover:bg-slate-50 group relative transition-colors">
-                    <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-3 px-2 border-r border-slate-200 bg-white flex items-center justify-between z-10 relative">
+                return `<div data-id="${task.id}" onmouseenter="highlightTaskConnections(${task.id})" onmouseleave="highlightTaskConnections(null)" class="task-row flex border-b border-slate-100 hover:bg-indigo-50/40 group relative transition-colors">
+                    <!-- 左側固定任務資訊欄 -->
+                    <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-2.5 px-3 border-r border-slate-200/90 bg-white group-hover:bg-slate-50/90 flex items-center justify-between z-10 relative shadow-[4px_0_10px_-6px_rgba(15,23,42,0.08)] transition-colors">
                         <div class="flex items-center gap-2 w-full pr-1 overflow-hidden">
-                            <div class="drag-handle text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded cursor-grab opacity-40 group-hover:opacity-100 transition-all flex items-center justify-center" title="按住此處上下拖曳調整排序">
+                            <div class="drag-handle text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded cursor-grab opacity-60 group-hover:opacity-100 transition-all flex items-center justify-center shrink-0" title="按住此處上下拖曳調整排序">
                                 ${icons.grip}
                             </div>
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-sm text-white shrink-0 ${catConfig.color}">${safeCatName}</span>
-                            <div class="text-sm font-medium text-slate-800 truncate flex-1 cursor-text hover:text-blue-600 transition-colors" ondblclick="editTaskNameInline(this, ${task.id})" title="雙擊滑鼠左鍵可直接修改名稱">${safeTaskName}</div>
+                            <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-bold flex items-center justify-center shrink-0 border border-slate-200/80">${rowNumber}</span>
+                            <div class="flex flex-col min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white shrink-0 shadow-xs ${catConfig.color}">${safeCatName}</span>
+                                    <div class="text-sm font-semibold text-slate-800 truncate flex-1 cursor-text hover:text-indigo-600 transition-colors" ondblclick="editTaskNameInline(this, ${task.id})" title="雙擊滑鼠左鍵可直接修改名稱">${safeTaskName}</div>
+                                </div>
+                                <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-400 font-medium whitespace-nowrap overflow-hidden">
+                                    <span class="shrink-0">${shortStart} - ${shortEnd}</span>
+                                    <span class="shrink-0">·</span>
+                                    <span class="text-slate-500 font-semibold shrink-0">${durationDays}天</span>
+                                    ${depBadgeHtml}
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button onclick="duplicateTask(${task.id})" class="text-slate-400 hover:text-emerald-600 p-1" title="複製工作項目">${icons.copy}</button>
-                            <button onclick="openEditModal(${task.id})" class="text-slate-400 hover:text-blue-500 p-1" title="編輯工作項目">${icons.pencil}</button>
-                            <button onclick="removeTask(${task.id})" class="text-slate-400 hover:text-red-500 p-1" title="刪除工作項目">${icons.trash}</button>
+                        <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity shrink-0 bg-white/95 backdrop-blur-xs px-1 py-0.5 rounded-lg shadow-sm border border-slate-200/80 z-20">
+                            <button onclick="duplicateTask(${task.id})" class="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1.5 rounded-md transition-colors" title="複製工作項目">${icons.copy}</button>
+                            <button onclick="openEditModal(${task.id})" class="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded-md transition-colors" title="編輯工作項目">${icons.pencil}</button>
+                            <button onclick="removeTask(${task.id})" class="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-md transition-colors" title="刪除工作項目">${icons.trash}</button>
                         </div>
                     </div>
-                    <div class="flex-1 relative py-3 px-1 z-0">
-                        <div class="absolute h-8 rounded shadow-sm flex items-center text-white text-sm font-medium hover:ring-2 ring-black/10 ${catConfig.color} task-bar-element ${cursorMoveClass}" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：${safeTaskName}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;工期：${task.duration} 天">
-                            <span class="whitespace-nowrap pointer-events-none select-none z-10 pl-2 pr-1" style="text-shadow: -1px -1px 0 rgba(0,0,0,0.6), 1px -1px 0 rgba(0,0,0,0.6), -1px 1px 0 rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,0.6);">${safeTaskName}</span>
-                            <div class="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-black/20 resize-handle rounded-r z-20" data-task-id="${task.id}" title="拖曳調整工期"></div>
+
+                    <!-- 右側甘特圖時間軸橫條區 -->
+                    <div class="flex-1 relative py-3.5 px-0 z-0 min-h-[54px]">
+                        <div class="absolute h-8 rounded-lg flex items-center text-white text-xs font-semibold gantt-bar ${catConfig.color} task-bar-element ${cursorMoveClass}" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：#${rowNumber} ${safeTaskName}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;工期：${durationDays} 天">
+                            <!-- 左側前置連接錨點 (進階模式有前置任務時顯示) -->
+                            ${hasPredecessor ? `<span class="ml-1.5 text-white/85 shrink-0 pointer-events-none" title="受前置任務連動排程">${icons.lock}</span>` : ''}
+                            
+                            <!-- 橫條內文字 (若橫條太窄則自動改為顯示在橫條右側外部，避免擠壓破版) -->
+                            ${!isNarrowBar ? `
+                                <div class="flex items-center justify-between w-full px-2.5 overflow-hidden pointer-events-none select-none z-10">
+                                    <span class="truncate drop-shadow-xs">${safeTaskName}</span>
+                                    <span class="text-[10px] font-bold bg-black/20 text-white/95 px-1.5 py-0.5 rounded-full ml-1.5 shrink-0">${durationDays}d</span>
+                                </div>
+                            ` : `
+                                <div class="absolute left-full ml-2 flex items-center gap-1 whitespace-nowrap pointer-events-none select-none z-20">
+                                    <span class="text-xs font-semibold text-slate-700 bg-white/90 px-1.5 py-0.5 rounded shadow-xs border border-slate-200/80">${safeTaskName} <span class="text-[10px] text-slate-400 font-bold">(${durationDays}d)</span></span>
+                                </div>
+                            `}
+
+                            <!-- 右側拉長工期把手 -->
+                            <div class="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-black/20 resize-handle rounded-r-lg z-20 flex items-center justify-center group/handle" data-task-id="${task.id}" title="拖曳調整工期">
+                                <span class="w-0.5 h-3.5 bg-white/60 group-hover/handle:bg-white rounded-full pointer-events-none"></span>
+                            </div>
                         </div>
                     </div>
                 </div>`;
             }).join('');
             
-            // 重要：高度設定 h-full 確保 SVG 不會塌陷
-            container.innerHTML = `<div class="flex flex-col w-full overflow-x-auto relative pb-2 chart-scroll-container"><div class="min-w-[800px] chart-content-wrapper"><div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10"><div class="${LEFT_COLUMN_WIDTH} shrink-0 p-2 border-r border-slate-200 font-bold text-slate-600 text-sm">工作項目</div><div class="flex-1 relative flex">${headersHtml}</div></div><div class="relative" id="tasks-list"><div class="absolute top-0 bottom-0 right-0 flex pointer-events-none" style="left: 300px;">${gridHtml}</div><svg id="dependency-svg" class="absolute top-0 left-0 pointer-events-none z-20 h-full" style="left: 300px; width: calc(100% - 300px);"></svg>${tasksHtml}</div></div></div>`;
+            // 圖表底部圖例列 (進階模式顯示連線圖例說明)
+            const legendHtml = appMode === 'advanced' ? `
+                <div class="bg-slate-50/90 border-t border-slate-200/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <span class="font-semibold text-slate-600 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 關聯排程圖例：
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span class="w-5 border-t-2 border-dashed border-indigo-500 inline-block"></span> 正常銜接 (FS)
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span class="w-5 border-t-2 border-dashed border-amber-500 inline-block"></span> 提前重疊 (Lag &lt; 0)
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">#1 (-6d)</span> 前置任務編號與延遲天數
+                        </span>
+                    </div>
+                    <span class="text-[11px] text-slate-400">💡 提示：將滑鼠移至任務列可高亮顯示其前後置關聯路線</span>
+                </div>
+            ` : '';
+
+            container.innerHTML = `
+                <div class="flex flex-col w-full overflow-x-auto relative chart-scroll-container">
+                    <div class="min-w-[900px] chart-content-wrapper">
+                        <!-- 頂部時間軸表頭 -->
+                        <div class="flex border-b border-slate-200 bg-slate-100/90 backdrop-blur-xs sticky top-0 z-20">
+                            <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-2.5 px-4 border-r border-slate-200/90 font-bold text-slate-600 text-xs uppercase tracking-wider flex items-center justify-between shadow-[4px_0_10px_-6px_rgba(15,23,42,0.06)]">
+                                <span>工作項目 / 起訖與關聯</span>
+                                <span class="text-[11px] font-medium text-slate-400">共 ${tasks.length} 項</span>
+                            </div>
+                            <div class="flex-1 relative flex">${headersHtml}</div>
+                        </div>
+                        <!-- 任務列表與甘特圖畫布 -->
+                        <div class="relative" id="tasks-list">
+                            <div class="absolute top-0 bottom-0 right-0 flex pointer-events-none" style="left: ${LEFT_COLUMN_PX}px;">
+                                ${gridHtml}
+                                ${todayLineHtml}
+                            </div>
+                            <svg id="dependency-svg" class="absolute top-0 pointer-events-none z-20 h-full" style="left: ${LEFT_COLUMN_PX}px; width: calc(100% - ${LEFT_COLUMN_PX}px);"></svg>
+                            ${tasksHtml}
+                        </div>
+                    </div>
+                </div>
+                ${legendHtml}
+            `;
             
             setTimeout(drawDependencyLines, 0);
             bindDragEvents();

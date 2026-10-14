@@ -99,7 +99,7 @@
             <!-- 更新日期與紀錄按鈕 -->
             <div class="mt-3 flex items-center justify-center gap-3 text-sm">
                 <span class="text-gray-500 bg-gray-100 px-3 py-1 rounded-full font-medium shadow-inner border border-gray-200">
-                    最後更新：2026/9/30
+                    最後更新：2026/10/12
                 </span>
                 <button onclick="openHistoryModal()" class="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full font-bold transition-colors shadow-sm border border-blue-200">
                     <i data-lucide="history" class="w-4 h-4"></i>更新紀錄
@@ -116,7 +116,7 @@
                     <i data-lucide="calculator" class="w-6 h-6 text-white"></i>
                     <h2 class="text-xl font-extrabold text-white">計算類</h2>
                 </div>
-                <div class="flex flex-col gap-3 p-5 flex-1">
+                <div class="flex flex-col gap-3 p-5">
                     <a href="https://wwayhome.github.io/sinyiglobal/dcab/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition-all cursor-pointer">
                         <div class="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors shadow-sm">
                             <i data-lucide="ruler" class="w-6 h-6"></i>
@@ -141,8 +141,8 @@
                         </div>
                         <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-violet-700 tracking-wide">敏感矩陣</span>
                     </a>
-                    <!-- 新增：價格拆算 -->
-                    <a href="https://wwayhome.github.io/sinyiglobal/cacu/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-yellow-50 border border-transparent hover:border-yellow-100 transition-all cursor-pointer mt-auto">
+                    <!-- 新增：價格拆算 (移除 mt-auto 以正常往上排列) -->
+                    <a href="https://wwayhome.github.io/sinyiglobal/cacu/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-yellow-50 border border-transparent hover:border-yellow-100 transition-all cursor-pointer">
                         <div class="p-2.5 bg-yellow-100 text-yellow-600 rounded-xl group-hover:bg-yellow-500 group-hover:text-white transition-colors shadow-sm">
                             <i data-lucide="calculator" class="w-6 h-6"></i>
                         </div>
@@ -204,6 +204,12 @@
                         </div>
                         <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-pink-700 tracking-wide">地圖編輯</span>
                     </a>
+                    <a href="https://wwayhome.github.io/sinyiglobal/bs47/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-slate-100 text-slate-600 rounded-xl group-hover:bg-slate-500 group-hover:text-white transition-colors shadow-sm">
+                            <i data-lucide="network" class="w-6 h-6"></i>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-slate-700 tracking-wide">心 智 圖</span>
+                    </a>
                 </div>
             </div>
 
@@ -242,7 +248,7 @@
                         </div>
                         <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-fuchsia-700 tracking-wide">建物清冊</span>
                     </a>
-                    <a href="https://wwayhome.github.io/sinyiglobal/b57t/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-zinc-50 border border-transparent hover:border-zinc-100 transition-all cursor-pointer">
+                    <a href="https://wwayhome.github.io/sinyiglobal/b57t/index.html" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-zinc-50 border border-transparent hover:border-zinc-100 transition-all cursor-pointer">
                         <div class="p-2.5 bg-zinc-100 text-zinc-600 rounded-xl group-hover:bg-zinc-500 group-hover:text-white transition-colors shadow-sm">
                             <i data-lucide="printer" class="w-6 h-6"></i>
                         </div>
@@ -288,18 +294,36 @@
         <!-- Content (Scrollable) -->
         <div class="p-6 overflow-y-auto modal-scrollbar flex-1 space-y-8">
             
-            <!-- 2026/9/30 (最新) -->
+            <!-- 2026/10/12 (最新) -->
             <div class="relative pl-6 border-l-2 border-blue-400">
                 <div class="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 shadow-[0_0_0_4px_rgba(59,130,246,0.2)]"></div>
                 <h4 class="text-lg font-bold text-blue-600 mb-3 flex items-center gap-2">
-                    2026/9/30 更新
+                    2026/10/12 更新
                     <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">最新</span>
                 </h4>
                 <div class="space-y-4 text-sm text-gray-700 leading-relaxed">
                     <ul class="space-y-3 list-none">
-                        <li><strong class="text-gray-900">16.標籤列印產生器 (新增)：</strong><span class="text-blue-600 font-medium">可匯入EXCEL名單後，快速列印8*3的標籤樣式，建議可從工業區土地應用系統網站篩選後產出EXCEL名單，並銜接製作標籤，並支援信利達戳記及部門編號註記。</span></li>
+                        <li><strong class="text-gray-900">17.心智圖 (新增)：</strong><span class="text-blue-600 font-medium">類似市面上心智圖工具網站，但不須登入也沒有專案數量限制，可支援另存紀錄接續使用。 心智圖可選擇左右排列或右側排列，並支援自動排列對齊，並可收折項目較多的子項目，方便閱讀。</span></li>
                     </ul>
                 </div>
+            </div>
+
+            <!-- 2026/9/30 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/9/30 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">16.標籤列印產生器 (新增)：</strong>可匯入EXCEL名單後，快速列印8*3的標籤樣式，建議可從工業區土地應用系統網站篩選後產出EXCEL名單，並銜接製作標籤。</li>
+                        </ul>
+                    </div>
+                </details>
             </div>
 
             <!-- 2026/9/15 -->

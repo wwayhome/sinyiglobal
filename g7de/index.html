@@ -1375,22 +1375,22 @@
                         let points = [];
                         let badgeX = 0;
                         let badgeY = 0;
-
-                        // 統一採用「0 延遲天數」的標準 S 型轉折位置：
-                        // 從最右側固定伸出 12px 後，立即轉到色塊下方(或上方)的列間通道，避免橫向穿過同列後方的文字
+                        // 統一採用「0 延遲天數」的標準 S 型回退走法：
+                        // 從最右側伸出 12px 轉入列間通道 (dropY) 後，一律先往左微退一段距離 (backtrackX)，
+                        // 再垂直跨列至目標列，避免垂直線直接切穿下一排緊接開始的工作項目色塊與文字
                         const stepOutX = startX + 12;
                         const dropY = startY <= endY ? startY + (predRect.height / 2) + 8 : startY - (predRect.height / 2) - 8;
-                        const turnLeftX = Math.max(6, endX - 14);
+                        const backtrackX = Math.max(6, Math.min(startX - 14, endX - 14));
 
                         points = [
                             { x: startX, y: startY },
                             { x: stepOutX, y: startY },
                             { x: stepOutX, y: dropY },
-                            { x: turnLeftX, y: dropY },
-                            { x: turnLeftX, y: endY },
+                            { x: backtrackX, y: dropY },
+                            { x: backtrackX, y: endY },
                             { x: endX - 3, y: endY }
                         ];
-                        badgeX = (stepOutX + turnLeftX) / 2;
+                        badgeX = (stepOutX + backtrackX) / 2;
                         badgeY = dropY;
 
                         const pathD = buildRoundedOrthogonalPath(points, 6);

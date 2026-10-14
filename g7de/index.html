@@ -1376,32 +1376,22 @@
                         let badgeX = 0;
                         let badgeY = 0;
 
-                        if (startX <= endX - 24) {
-                            const midX = startX + Math.max(14, (endX - startX) / 2);
-                            points = [
-                                { x: startX, y: startY },
-                                { x: midX, y: startY },
-                                { x: midX, y: endY },
-                                { x: endX - 3, y: endY }
-                            ];
-                            badgeX = midX;
-                            badgeY = (startY + endY) / 2;
-                        } else {
-                            // 當前置結束晚於後續開始（例如負數 Lag 重疊排程）時的優雅繞道折線
-                            const stepOutX = startX + 14;
-                            const dropY = startY < endY ? startY + (predRect.height / 2) + 9 : startY - (predRect.height / 2) - 9;
-                            const turnLeftX = Math.max(6, endX - 18);
-                            points = [
-                                { x: startX, y: startY },
-                                { x: stepOutX, y: startY },
-                                { x: stepOutX, y: dropY },
-                                { x: turnLeftX, y: dropY },
-                                { x: turnLeftX, y: endY },
-                                { x: endX - 3, y: endY }
-                            ];
-                            badgeX = (stepOutX + turnLeftX) / 2;
-                            badgeY = dropY;
-                        }
+                        // 統一採用「0 延遲天數」的標準 S 型轉折位置：
+                        // 從最右側固定伸出 12px 後，立即轉到色塊下方(或上方)的列間通道，避免橫向穿過同列後方的文字
+                        const stepOutX = startX + 12;
+                        const dropY = startY <= endY ? startY + (predRect.height / 2) + 8 : startY - (predRect.height / 2) - 8;
+                        const turnLeftX = Math.max(6, endX - 14);
+
+                        points = [
+                            { x: startX, y: startY },
+                            { x: stepOutX, y: startY },
+                            { x: stepOutX, y: dropY },
+                            { x: turnLeftX, y: dropY },
+                            { x: turnLeftX, y: endY },
+                            { x: endX - 3, y: endY }
+                        ];
+                        badgeX = (stepOutX + turnLeftX) / 2;
+                        badgeY = dropY;
 
                         const pathD = buildRoundedOrthogonalPath(points, 6);
                         const strokeColor = isRelatedToHover ? '#4338ca' : (isOverlap ? '#f59e0b' : '#6366f1');

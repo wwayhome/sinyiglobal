@@ -422,6 +422,12 @@
                 <!-- 隱藏的檔案上傳欄位 -->
                 <input type="file" id="file-import" accept=".json" class="hidden">
 
+                <!-- 進階模式：顯示/隱藏關聯線開關 -->
+                <button id="btn-toggle-lines" onclick="toggleDependencyLines()" class="hidden items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 px-3 py-2 shadow-sm font-medium transition-colors text-sm" title="切換顯示或隱藏甘特圖上的任務關聯線（截圖匯出時亦會套用）">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    <span id="toggle-lines-text">顯示連線：開</span>
+                </button>
+
                 <div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" title="檢視模式">
                     <div class="bg-slate-100 p-1 rounded-lg flex text-sm" id="view-mode-container">
                         <button data-mode="day" class="view-btn px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:bg-slate-200">日</button>
@@ -628,6 +634,7 @@
         let msgTimeout = null;
         let categoryDragSrcEl = null; 
         let hoveredTaskId = null;
+        let showDependencyLines = true;
         let leftColumnPx = 450;
         const TIER_FULL_PX = 420;    // >= 420px: 完整顯示 (含關聯徽章 + 起訖日期 + 工期)
         const TIER_MEDIUM_PX = 320;  // 320px ~ 419px: 中等顯示 (隱藏關聯徽章，保留起訖日期 + 工期)
@@ -718,12 +725,46 @@
                 appMode,
                 inputMode,
                 viewMode,
+                showDependencyLines,
                 categories: cloneData(categories),
                 tasks: cloneData(tasks),
                 projStartDate: document.getElementById('proj-start-date').value,
                 taskAdvStartDate: document.getElementById('task-adv-start').value
             };
         }
+
+        function updateToggleLinesButtonUi() {
+            const btn = document.getElementById('btn-toggle-lines');
+            const txt = document.getElementById('toggle-lines-text');
+            if (!btn || !txt) return;
+
+            if (appMode === 'advanced') {
+                btn.classList.remove('hidden');
+                btn.classList.add('flex');
+            } else {
+                btn.classList.add('hidden');
+                btn.classList.remove('flex');
+            }
+
+            if (showDependencyLines) {
+                btn.className = `${appMode === 'advanced' ? 'flex' : 'hidden'} items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100 text-indigo-700 px-3 py-2 shadow-sm font-medium transition-colors text-sm`;
+                txt.textContent = '顯示連線：開';
+            } else {
+                btn.className = `${appMode === 'advanced' ? 'flex' : 'hidden'} items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 px-3 py-2 shadow-sm font-medium transition-colors text-sm`;
+                txt.textContent = '顯示連線：關';
+            }
+        }
+
+        window.toggleDependencyLines = function() {
+            showDependencyLines = !showDependencyLines;
+            updateToggleLinesButtonUi();
+            drawDependencyLines();
+            const legendEl = document.getElementById('gantt-advanced-legend');
+            if (legendEl) {
+                legendEl.classList.toggle('hidden', !showDependencyLines);
+            }
+            showMessage(showDependencyLines ? "已開啟關聯線顯示" : "已隱藏關聯線（匯出圖片時亦不會顯示）");
+        };
 
         function statesEqual(a, b) {
             return JSON.stringify(a) === JSON.stringify(b);
@@ -802,6 +843,7 @@
                 simpleArea.classList.add('hidden');
                 advArea.classList.remove('hidden');
             }
+            updateToggleLinesButtonUi();
         }
 
         function applyViewModeUi() {
@@ -818,6 +860,9 @@
             appMode = state.appMode || 'simple';
             inputMode = state.inputMode || 'absolute';
             viewMode = state.viewMode || 'month';
+            if (typeof state.showDependencyLines === 'boolean') {
+                showDependencyLines = state.showDependencyLines;
+            }
             categories = cloneData(state.categories || {});
             tasks = cloneData(state.tasks || []);
             document.getElementById('proj-start-date').value = state.projStartDate || todayStr;
@@ -1297,7 +1342,7 @@
                 </filter>
             </defs>`;
 
-            if (appMode !== 'advanced') {
+            if (appMode !== 'advanced' || !showDependencyLines) {
                 svgLayer.innerHTML = svgContent;
                 return;
             }
@@ -1530,7 +1575,7 @@
                 
                 return `<div data-id="${task.id}" onmouseenter="highlightTaskConnections(${task.id})" onmouseleave="highlightTaskConnections(null)" class="task-row flex border-b border-slate-100 hover:bg-indigo-50/40 group relative transition-colors">
                     <!-- 左側動態寬度任務資訊欄 (方案A：固定單行 + 表格化垂直對齊 + 三層次收合) -->
-                    <div class="left-col-dynamic shrink-0 py-1.5 px-2.5 border-r border-slate-200/90 bg-white group-hover:bg-slate-50/90 flex items-center justify-between z-10 relative shadow-[4px_0_10px_-6px_rgba(15,23,42,0.08)] transition-colors">
+                    <div class="left-col-dynamic shrink-0 py-2.5 px-2.5 border-r border-slate-200/90 bg-white group-hover:bg-slate-50/90 flex items-center justify-between z-10 relative shadow-[4px_0_10px_-6px_rgba(15,23,42,0.08)] transition-colors">
                         <div class="flex items-center gap-1.5 w-full overflow-hidden">
                             <div class="drag-handle text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded cursor-grab opacity-60 group-hover:opacity-100 transition-all flex items-center justify-center shrink-0" title="按住此處上下拖曳調整排序">
                                 ${icons.grip}
@@ -1558,8 +1603,8 @@
                     </div>
 
                     <!-- 右側甘特圖時間軸橫條區 -->
-                    <div class="flex-1 relative py-1.5 px-0 z-0 min-h-[38px]">
-                        <div class="absolute h-7 rounded-md flex items-center text-white text-xs font-semibold gantt-bar ${catConfig.color} task-bar-element ${cursorMoveClass}" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：#${rowNumber} ${safeTaskName}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;工期：${durationDays} 天">
+                    <div class="flex-1 relative py-2.5 px-0 z-0 min-h-[48px]">
+                        <div class="absolute h-8 rounded-md flex items-center text-white text-xs font-semibold gantt-bar ${catConfig.color} task-bar-element ${cursorMoveClass}" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：#${rowNumber} ${safeTaskName}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;工期：${durationDays} 天">
                             <!-- 左側前置連接錨點 (進階模式有前置任務時顯示) -->
                             ${hasPredecessor ? `<span class="ml-1.5 text-white/85 shrink-0 pointer-events-none" title="受前置任務連動排程">${icons.lock}</span>` : ''}
                             
@@ -1586,7 +1631,7 @@
             
             // 圖表底部圖例列 (進階模式顯示連線圖例說明)
             const legendHtml = appMode === 'advanced' ? `
-                <div class="bg-slate-50/90 border-t border-slate-200/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                <div id="gantt-advanced-legend" class="${showDependencyLines ? '' : 'hidden'} bg-slate-50/90 border-t border-slate-200/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                     <div class="flex flex-wrap items-center gap-4">
                         <span class="font-semibold text-slate-600 flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 關聯排程圖例：
@@ -2027,6 +2072,7 @@
                 appMode: appMode,
                 inputMode: inputMode,
                 viewMode: viewMode,
+                showDependencyLines: showDependencyLines,
                 categories: categories,
                 tasks: tasks,
                 projStartDate: document.getElementById('proj-start-date').value,
@@ -2072,6 +2118,7 @@
                             appMode: data.appMode || (hasAdvancedDeps ? 'advanced' : appMode),
                             inputMode: data.inputMode || inputMode,
                             viewMode: data.viewMode || viewMode,
+                            showDependencyLines: typeof data.showDependencyLines === 'boolean' ? data.showDependencyLines : showDependencyLines,
                             categories: data.categories,
                             tasks: data.tasks,
                             projStartDate: data.projStartDate || todayStr,

@@ -49,6 +49,70 @@
             box-shadow: 0 6px 14px -2px rgba(15, 23, 42, 0.22), 0 2px 4px -1px rgba(15, 23, 42, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
         }
 
+        /* 方案A升級：固定單行緊湊表格化對齊，支援三層次智慧收合 (寬版 / 中等 / 精簡) */
+        #chart-export-area {
+            --left-col-width: 450px;
+        }
+        .left-col-dynamic {
+            width: var(--left-col-width);
+        }
+        .right-area-offset {
+            left: var(--left-col-width);
+        }
+        .right-svg-offset {
+            left: var(--left-col-width);
+            width: calc(100% - var(--left-col-width));
+        }
+        .task-info-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            min-width: 0;
+            flex: 1;
+            gap: 0.5rem;
+        }
+        /* 三層次顯示邏輯：
+           1. 寬版 (col-tier-full, >= 420px)：顯示 名稱 + 關聯徽章 + 起訖日期 + 工期
+           2. 中等 (col-tier-medium, 320px ~ 419px)：隱藏關聯徽章，但保留 起訖日期 + 工期
+           3. 精簡 (col-tier-compact, < 320px)：隱藏關聯徽章與起訖日期，只保留 名稱 + 工期 */
+        #chart-export-area:not(.col-tier-full) .col-dep-badge {
+            display: none !important;
+        }
+        #chart-export-area.col-tier-compact .col-date-range {
+            display: none !important;
+        }
+        /* 分隔線拖曳把手樣式 */
+        .col-resizer {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: calc(var(--left-col-width) - 4px);
+            width: 8px;
+            cursor: col-resize;
+            z-index: 35;
+            touch-action: none;
+            transition: background-color 0.15s ease;
+        }
+        .col-resizer:hover,
+        .col-resizer.is-resizing {
+            background-color: rgba(79, 70, 229, 0.35);
+        }
+        .col-resizer::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 3px;
+            width: 2px;
+            background-color: transparent;
+            transition: background-color 0.15s ease;
+        }
+        .col-resizer:hover::after,
+        .col-resizer.is-resizing::after {
+            background-color: #4f46e5;
+        }
+
         /* 進階版連線與微動畫 */
         .dependency-line-bg {
             stroke-linecap: round;
@@ -156,11 +220,22 @@
                             <option value="">無前置任務 (手動設定起始)</option>
                         </select>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate" title="等前置任務完成後，延遲幾天開始">延遲天數 (Lag)</label>
+                    <div class="grid grid-cols-2 gap-4 items-start">
+                        <div class="relative">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <label class="block text-[11px] font-medium text-slate-500 truncate">延遲天數 (Lag)</label>
+                                <div class="relative inline-flex items-center group/laghelp">
+                                    <button type="button" onclick="toggleLagPopover(event, this)" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-600 text-[10px] font-bold transition-colors focus:outline-none">?</button>
+                                    <div class="lag-popover hidden group-hover/laghelp:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-slate-800 text-white text-[11px] rounded-xl shadow-xl z-50 pointer-events-none leading-relaxed">
+                                        <div class="font-bold text-indigo-300 mb-1">延遲天數 (Lag) 說明</div>
+                                        <div>• <span class="font-semibold text-white">0</span>：前置結束後隔天開始</div>
+                                        <div>• <span class="font-semibold text-amber-300">-1</span>：提前重疊 1 天</div>
+                                        <div>• <span class="font-semibold text-emerald-300">1</span>：中間空 1 天再開始</div>
+                                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                    </div>
+                                </div>
+                            </div>
                             <input type="number" id="edit-task-lag" value="0" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
-                            <p class="text-[10px] text-slate-400 mt-1 leading-relaxed">0=隔天開始，-1=重疊 1 天，1=空 1 天</p>
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate">工期天數 (Duration)</label>
@@ -296,10 +371,21 @@
                             <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate text-amber-600">手動開始日</label>
                             <input type="date" id="task-adv-start" class="w-full border border-amber-300 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 outline-none text-slate-700 text-sm px-1">
                         </div>
-                        <div class="col-span-1 hidden" id="adv-lag-container">
-                            <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate">延遲天數</label>
+                        <div class="col-span-1 hidden relative" id="adv-lag-container">
+                            <div class="flex items-center gap-1 mb-1">
+                                <label class="text-[11px] font-medium text-slate-500 truncate">延遲天數</label>
+                                <div class="relative inline-flex items-center group/laghelp">
+                                    <button type="button" onclick="toggleLagPopover(event, this)" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-600 text-[10px] font-bold transition-colors focus:outline-none">?</button>
+                                    <div class="lag-popover hidden group-hover/laghelp:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-slate-800 text-white text-[11px] rounded-xl shadow-xl z-50 pointer-events-none leading-relaxed">
+                                        <div class="font-bold text-indigo-300 mb-1">延遲天數 (Lag) 說明</div>
+                                        <div>• <span class="font-semibold text-white">0</span>：前置結束後隔天開始</div>
+                                        <div>• <span class="font-semibold text-amber-300">-1</span>：提前重疊 1 天</div>
+                                        <div>• <span class="font-semibold text-emerald-300">1</span>：中間空 1 天再開始</div>
+                                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                    </div>
+                                </div>
+                            </div>
                             <input type="number" id="task-adv-lag" value="0" class="w-full border border-indigo-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-indigo-50">
-                            <p class="text-[10px] text-slate-400 mt-1 leading-relaxed">0=隔天開始，-1=重疊 1 天，1=空 1 天</p>
                         </div>
                         <div class="col-span-1">
                             <label class="block text-[11px] font-medium text-slate-500 mb-1 truncate">工期(天)</label>
@@ -542,11 +628,36 @@
         let msgTimeout = null;
         let categoryDragSrcEl = null; 
         let hoveredTaskId = null;
-        const LEFT_COLUMN_WIDTH = "w-[380px]";
-        const LEFT_COLUMN_PX = 380;
+        let leftColumnPx = 450;
+        const TIER_FULL_PX = 420;    // >= 420px: 完整顯示 (含關聯徽章 + 起訖日期 + 工期)
+        const TIER_MEDIUM_PX = 320;  // 320px ~ 419px: 中等顯示 (隱藏關聯徽章，保留起訖日期 + 工期)
+                                     // < 320px: 精簡顯示 (只保留名稱 + 工期)
+        const MIN_LEFT_COL_PX = 240;
+        const MAX_LEFT_COL_PX = 720;
         const HISTORY_LIMIT = 80;
         let undoStack = [];
         let redoStack = [];
+
+        function getLeftColTierLabel(px) {
+            if (px >= TIER_FULL_PX) return '完整顯示';
+            if (px >= TIER_MEDIUM_PX) return '標準顯示 (含日期)';
+            return '精簡顯示';
+        }
+
+        function applyLeftColumnWidth(px) {
+            leftColumnPx = Math.max(MIN_LEFT_COL_PX, Math.min(MAX_LEFT_COL_PX, Math.round(px)));
+            const chartArea = document.getElementById('chart-export-area');
+            if (!chartArea) return;
+            chartArea.style.setProperty('--left-col-width', `${leftColumnPx}px`);
+            chartArea.classList.remove('col-tier-full', 'col-tier-medium', 'col-tier-compact');
+            if (leftColumnPx >= TIER_FULL_PX) {
+                chartArea.classList.add('col-tier-full');
+            } else if (leftColumnPx >= TIER_MEDIUM_PX) {
+                chartArea.classList.add('col-tier-medium');
+            } else {
+                chartArea.classList.add('col-tier-compact');
+            }
+        }
 
         function showMessage(msg) {
             const msgBox = document.getElementById('message-box');
@@ -775,6 +886,21 @@
                 lagContainer.classList.add('hidden');
             }
         };
+
+        window.toggleLagPopover = function(e, btn) {
+            e.stopPropagation();
+            const popover = btn.nextElementSibling;
+            if (!popover) return;
+            const isForceShown = !popover.classList.contains('hidden');
+            document.querySelectorAll('.lag-popover').forEach(el => el.classList.add('hidden'));
+            if (!isForceShown) {
+                popover.classList.remove('hidden');
+            }
+        };
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.lag-popover').forEach(el => el.classList.add('hidden'));
+        });
 
         function wouldCreateDependencyCycle(taskId, predecessorId) {
             if (!taskId || !predecessorId) return false;
@@ -1341,6 +1467,7 @@
             recalculateDates(); 
 
             const container = document.getElementById('chart-export-area');
+            applyLeftColumnWidth(leftColumnPx);
             const icons = getIcons();
             if (tasks.length === 0) { container.innerHTML = `<div class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 min-h-[250px]">${icons.calendar}<p class="text-base">目前沒有工作項目</p></div>`; return; }
             const { timelineStart, timelineEnd, totalDays, timeHeaders } = computeTimeline();
@@ -1396,46 +1523,47 @@
                 const shortEnd = task.endDate ? task.endDate.slice(5).replace('-', '/') : '';
                 const durationDays = task.duration || diffDays(task.startDate, task.endDate);
 
-                // 決定是否顯示「禁止平移」游標
+                // 決定是否顯示「禁止平移」游標，並將窄色塊外推門檻設定為 10%
                 const cursorMoveClass = hasPredecessor ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing';
                 const widthNum = parseFloat(style.width) || 0;
                 const isNarrowBar = widthNum < 10;
                 
                 return `<div data-id="${task.id}" onmouseenter="highlightTaskConnections(${task.id})" onmouseleave="highlightTaskConnections(null)" class="task-row flex border-b border-slate-100 hover:bg-indigo-50/40 group relative transition-colors">
-                    <!-- 左側固定任務資訊欄 -->
-                    <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-2.5 px-3 border-r border-slate-200/90 bg-white group-hover:bg-slate-50/90 flex items-center justify-between z-10 relative shadow-[4px_0_10px_-6px_rgba(15,23,42,0.08)] transition-colors">
-                        <div class="flex items-center gap-2 w-full pr-1 overflow-hidden">
+                    <!-- 左側動態寬度任務資訊欄 (方案A：固定單行 + 表格化垂直對齊 + 三層次收合) -->
+                    <div class="left-col-dynamic shrink-0 py-1.5 px-2.5 border-r border-slate-200/90 bg-white group-hover:bg-slate-50/90 flex items-center justify-between z-10 relative shadow-[4px_0_10px_-6px_rgba(15,23,42,0.08)] transition-colors">
+                        <div class="flex items-center gap-1.5 w-full overflow-hidden">
                             <div class="drag-handle text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded cursor-grab opacity-60 group-hover:opacity-100 transition-all flex items-center justify-center shrink-0" title="按住此處上下拖曳調整排序">
                                 ${icons.grip}
                             </div>
-                            <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-bold flex items-center justify-center shrink-0 border border-slate-200/80">${rowNumber}</span>
-                            <div class="flex flex-col min-w-0 flex-1">
-                                <div class="flex items-center gap-1.5 min-w-0">
+                            <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold flex items-center justify-center shrink-0 border border-slate-200/80 tabular-nums">${rowNumber}</span>
+                            <div class="task-info-container">
+                                <!-- 主欄位：類別 + 名稱 + 前置關聯徽章 -->
+                                <div class="flex items-center gap-1.5 min-w-0 flex-1">
                                     <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white shrink-0 shadow-xs ${catConfig.color}">${safeCatName}</span>
-                                    <div class="text-sm font-semibold text-slate-800 truncate flex-1 cursor-text hover:text-indigo-600 transition-colors" ondblclick="editTaskNameInline(this, ${task.id})" title="雙擊滑鼠左鍵可直接修改名稱">${safeTaskName}</div>
+                                    <div class="text-[13px] font-semibold text-slate-800 truncate cursor-text hover:text-indigo-600 transition-colors" ondblclick="editTaskNameInline(this, ${task.id})" title="雙擊滑鼠左鍵可直接修改名稱">${safeTaskName}</div>
+                                    ${depBadgeHtml ? `<div class="col-dep-badge flex items-center shrink-0 ml-0.5">${depBadgeHtml}</div>` : ''}
                                 </div>
-                                <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-400 font-medium whitespace-nowrap overflow-hidden">
-                                    <span class="shrink-0">${shortStart} - ${shortEnd}</span>
-                                    <span class="shrink-0">·</span>
-                                    <span class="text-slate-500 font-semibold shrink-0">${durationDays}天</span>
-                                    ${depBadgeHtml}
+                                <!-- 右側固定寬度數據欄：加寬起訖日期(104px)與工期(54px)並強化內距，徹底消除文字與分隔線重疊 -->
+                                <div class="flex items-center text-[11px] font-medium whitespace-nowrap shrink-0">
+                                    <span class="col-date-range w-[104px] text-slate-400 tabular-nums tracking-tight shrink-0 text-right px-2.5 border-l border-slate-100">${shortStart} - ${shortEnd}</span>
+                                    <span class="w-[54px] text-slate-600 font-semibold tabular-nums shrink-0 text-right border-l border-slate-200/80 pl-2 pr-1">${durationDays} 天</span>
                                 </div>
                             </div>
                         </div>
                         <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity shrink-0 bg-white/95 backdrop-blur-xs px-1 py-0.5 rounded-lg shadow-sm border border-slate-200/80 z-20">
-                            <button onclick="duplicateTask(${task.id})" class="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1.5 rounded-md transition-colors" title="複製工作項目">${icons.copy}</button>
-                            <button onclick="openEditModal(${task.id})" class="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded-md transition-colors" title="編輯工作項目">${icons.pencil}</button>
-                            <button onclick="removeTask(${task.id})" class="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-md transition-colors" title="刪除工作項目">${icons.trash}</button>
+                            <button onclick="duplicateTask(${task.id})" class="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1 rounded-md transition-colors" title="複製工作項目">${icons.copy}</button>
+                            <button onclick="openEditModal(${task.id})" class="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1 rounded-md transition-colors" title="編輯工作項目">${icons.pencil}</button>
+                            <button onclick="removeTask(${task.id})" class="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-colors" title="刪除工作項目">${icons.trash}</button>
                         </div>
                     </div>
 
                     <!-- 右側甘特圖時間軸橫條區 -->
-                    <div class="flex-1 relative py-3.5 px-0 z-0 min-h-[54px]">
-                        <div class="absolute h-8 rounded-lg flex items-center text-white text-xs font-semibold gantt-bar ${catConfig.color} task-bar-element ${cursorMoveClass}" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：#${rowNumber} ${safeTaskName}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;工期：${durationDays} 天">
+                    <div class="flex-1 relative py-1.5 px-0 z-0 min-h-[38px]">
+                        <div class="absolute h-7 rounded-md flex items-center text-white text-xs font-semibold gantt-bar ${catConfig.color} task-bar-element ${cursorMoveClass}" data-task-id="${task.id}" style="left: ${style.left}; width: ${style.width}; top: 50%; transform: translateY(-50%);" title="項目：#${rowNumber} ${safeTaskName}&#10;期間：${task.startDate} ~ ${task.endDate}&#10;工期：${durationDays} 天">
                             <!-- 左側前置連接錨點 (進階模式有前置任務時顯示) -->
                             ${hasPredecessor ? `<span class="ml-1.5 text-white/85 shrink-0 pointer-events-none" title="受前置任務連動排程">${icons.lock}</span>` : ''}
                             
-                            <!-- 橫條內文字 (若橫條太窄則自動改為顯示在橫條右側外部，避免擠壓破版) -->
+                            <!-- 橫條內文字 (若橫條小於 10% 則自動改為顯示在橫條右側外部) -->
                             ${!isNarrowBar ? `
                                 <div class="flex items-center justify-between w-full px-2.5 overflow-hidden pointer-events-none select-none z-10">
                                     <span class="truncate drop-shadow-xs">${safeTaskName}</span>
@@ -1473,28 +1601,34 @@
                             <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">#1 (-6d)</span> 前置任務編號與延遲天數
                         </span>
                     </div>
-                    <span class="text-[11px] text-slate-400">💡 提示：將滑鼠移至任務列可高亮顯示其前後置關聯路線</span>
+                    <span class="text-[11px] text-slate-400">💡 提示：可左右拖曳欄位分隔線調整寬度，滑鼠移至任務列可高亮關聯路線</span>
                 </div>
             ` : '';
 
             container.innerHTML = `
                 <div class="flex flex-col w-full overflow-x-auto relative chart-scroll-container">
-                    <div class="min-w-[900px] chart-content-wrapper">
+                    <div class="min-w-[900px] chart-content-wrapper relative">
+                        <!-- 可左右拖曳的欄位分隔線 -->
+                        <div id="col-resizer" class="col-resizer" title="左右拖曳調整欄位寬度（支援三段式智慧顯示）"></div>
+
                         <!-- 頂部時間軸表頭 -->
                         <div class="flex border-b border-slate-200 bg-slate-100/90 backdrop-blur-xs sticky top-0 z-20">
-                            <div class="${LEFT_COLUMN_WIDTH} shrink-0 py-2.5 px-4 border-r border-slate-200/90 font-bold text-slate-600 text-xs uppercase tracking-wider flex items-center justify-between shadow-[4px_0_10px_-6px_rgba(15,23,42,0.06)]">
-                                <span>工作項目 / 起訖與關聯</span>
-                                <span class="text-[11px] font-medium text-slate-400">共 ${tasks.length} 項</span>
+                            <div class="left-col-dynamic shrink-0 py-2 px-2.5 border-r border-slate-200/90 font-bold text-slate-600 text-[11px] uppercase tracking-wider flex items-center justify-between shadow-[4px_0_10px_-6px_rgba(15,23,42,0.06)]">
+                                <span class="truncate pl-1">工作項目 (共 ${tasks.length} 項)</span>
+                                <div class="flex items-center shrink-0 text-[10px] font-semibold text-slate-400">
+                                    <span class="col-date-range w-[104px] text-right px-2.5 border-l border-slate-200/60">起訖日期</span>
+                                    <span class="w-[54px] text-right pl-2 pr-1 border-l border-slate-200/80">工期</span>
+                                </div>
                             </div>
                             <div class="flex-1 relative flex">${headersHtml}</div>
                         </div>
                         <!-- 任務列表與甘特圖畫布 -->
                         <div class="relative" id="tasks-list">
-                            <div class="absolute top-0 bottom-0 right-0 flex pointer-events-none" style="left: ${LEFT_COLUMN_PX}px;">
+                            <div class="right-area-offset absolute top-0 bottom-0 right-0 flex pointer-events-none">
                                 ${gridHtml}
                                 ${todayLineHtml}
                             </div>
-                            <svg id="dependency-svg" class="absolute top-0 pointer-events-none z-20 h-full" style="left: ${LEFT_COLUMN_PX}px; width: calc(100% - ${LEFT_COLUMN_PX}px);"></svg>
+                            <svg id="dependency-svg" class="right-svg-offset absolute top-0 pointer-events-none z-20 h-full"></svg>
                             ${tasksHtml}
                         </div>
                     </div>
@@ -1957,6 +2091,7 @@
         let initialStartDate = null; let initialEndDate = null;
         let activeTaskBarEl = null; let initialWidthPx = 0; let initialLeftPx = 0; let pixelsPerDay = 0;
         let hasDraggedBar = false;
+        let initialColWidthPx = 380;
 
         const dragTooltip = document.getElementById('drag-tooltip');
         function updateDragTooltip(x, y, text) {
@@ -1966,9 +2101,22 @@
         }
 
         document.addEventListener('mousedown', (e) => {
+            const colResizer = e.target.closest('#col-resizer');
             const resizeHandle = e.target.closest('.resize-handle');
             const taskBar = e.target.closest('.task-bar-element');
             const dragHandle = e.target.closest('.drag-handle');
+
+            if (colResizer) {
+                e.stopPropagation(); e.preventDefault();
+                dragAction = 'col-resize';
+                startX = e.pageX;
+                initialColWidthPx = leftColumnPx;
+                colResizer.classList.add('is-resizing');
+                document.body.style.cursor = 'col-resize';
+                dragTooltip.classList.remove('hidden');
+                updateDragTooltip(e.clientX, e.clientY, `欄寬: ${leftColumnPx}px (${getLeftColTierLabel(leftColumnPx)})`);
+                return;
+            }
 
             if (resizeHandle) {
                 e.stopPropagation(); e.preventDefault(); 
@@ -2020,6 +2168,14 @@
             if (!dragAction) return;
             e.preventDefault();
             const deltaX = e.pageX - startX;
+
+            if (dragAction === 'col-resize') {
+                applyLeftColumnWidth(initialColWidthPx + deltaX);
+                updateDragTooltip(e.clientX, e.clientY, `欄寬: ${leftColumnPx}px (${getLeftColTierLabel(leftColumnPx)})`);
+                if (appMode === 'advanced') drawDependencyLines();
+                return;
+            }
+
             if (Math.abs(deltaX) > 2) hasDraggedBar = true;
             let deltaDays = Math.round(deltaX / pixelsPerDay);
             if (dragAction === 'resize') {
@@ -2047,6 +2203,17 @@
 
         document.addEventListener('mouseup', (e) => {
             if (!dragAction) return;
+
+            if (dragAction === 'col-resize') {
+                dragAction = null;
+                document.body.style.cursor = '';
+                const colResizer = document.getElementById('col-resizer');
+                if (colResizer) colResizer.classList.remove('is-resizing');
+                dragTooltip.classList.add('hidden');
+                if (appMode === 'advanced') drawDependencyLines();
+                return;
+            }
+
             const deltaX = e.pageX - startX; let deltaDays = Math.round(deltaX / pixelsPerDay);
             const task = tasks.find(t => t.id === activeTaskId);
             let dateChanged = false;

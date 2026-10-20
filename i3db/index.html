@@ -14,7 +14,17 @@
 .area-legend{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-height:23px;margin-bottom:5px}.unit-switch{display:inline-flex;background:#f0f4ed;border:1px solid #d6e1d2;border-radius:5px;padding:1px}.unit-switch button{font-size:11px;line-height:1.4;padding:2px 6px;background:transparent;color:#65805e;border:0;border-radius:3px}.unit-switch button.active{background:var(--green);color:#fff}.unit-switch button:focus-visible{outline-offset:2px}.fields fieldset .range input{height:42px}
 
 .header-meta #result-area-unit{border:0;padding:0;margin:0}
-</style></head>
+</style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-5YQY4RT9H2');
+</script>
+</head>
 <body><header><div class="brand"><span class="mark" aria-hidden="true">田</span><div><h1>工業土地查詢</h1><span class="brand-subtitle">土地與工廠整合工作台</span></div><span class="version">V2</span></div><div class="header-meta">資料匯入 <time datetime="2026-10-20">2026.10.20</time><span>結果面積：<span id="result-area-unit">坪</span></span></div></header><main>
 <section class="overview" aria-label="全資料總覽"><span class="overview-label">全資料</span><span>土地 <b id="all-land">—</b> 筆</span><span>公司／工廠 <b id="all-company">—</b> 個名稱</span><span>園區／範圍 <b id="all-park">—</b> 處</span><details class="source-popover"><summary>資料說明</summary><p><span id="source-summary">正在載入資料說明…</span></p></details></section>
 <section class="search-panel" aria-labelledby="search-title"><div class="panel-title"><h2 id="search-title">搜尋條件</h2><span>縣市 → 行政區 → 地段 → 園區</span></div><form id="search"><div class="fields"><label>縣市<select id="county"><option value="">全部縣市</option></select></label>
@@ -255,7 +265,7 @@ function render(){
 }
 $('search').addEventListener('submit',e=>{e.preventDefault();runSearch();});
 $('area-mode').addEventListener('change',()=>{updateScopeHelp();markPending();});
-$('reset').addEventListener('click',()=>{$('search').reset();areaInputUnit='ping';areaInputCache.min=null;areaInputCache.max=null;updateAreaUnitControls();updateDistricts();updateSections();updateParks();runSearch();});
+$('reset').addEventListener('click',()=>{HTMLFormElement.prototype.reset.call($('search'));areaInputUnit='ping';areaInputCache.min=null;areaInputCache.max=null;updateAreaUnitControls();updateDistricts();updateSections();updateParks();runSearch();});
 $('active-filters').addEventListener('click',e=>{
   const button=e.target.closest('[data-remove]');if(!button)return;
   const f={...state.filters},key=button.dataset.remove;

@@ -205,7 +205,7 @@
                 </div>
                 
                 <!-- 簡易模式欄位 -->
-                <div class="grid grid-cols-2 gap-4 edit-simple-fields">
+                <div class="grid grid-cols-3 gap-3 edit-simple-fields">
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1">開始日期</label>
                         <input type="date" id="edit-task-start" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
@@ -213,6 +213,10 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1">結束日期</label>
                         <input type="date" id="edit-task-end" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">工期 (天)</label>
+                        <input type="number" id="edit-task-simple-duration" min="1" value="1" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700 font-semibold">
                     </div>
                 </div>
 
@@ -1330,8 +1334,24 @@
                 start.setUTCDate(start.getUTCDate() - 3);
                 end.setUTCDate(end.getUTCDate() + 3);
             } else if (viewMode === 'month') {
-                start = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
-                end = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0));
+                // 智慧優化月初與月底留白：若第一個項目位於月中或月底，僅往前預留 3 天緩衝（若離月初 <= 4 天則直接對齊月初）
+                const bufferedStart = new Date(start.getTime());
+                bufferedStart.setUTCDate(bufferedStart.getUTCDate() - 3);
+                if (bufferedStart.getUTCDate() <= 5) {
+                    start = new Date(Date.UTC(bufferedStart.getUTCFullYear(), bufferedStart.getUTCMonth(), 1));
+                } else {
+                    start = bufferedStart;
+                }
+
+                // 結尾往後預留 7 天緩衝（容納右側外推文字），若離月底 <= 5 天則對齊月底
+                const bufferedEnd = new Date(end.getTime());
+                bufferedEnd.setUTCDate(bufferedEnd.getUTCDate() + 7);
+                const lastDayOfEndMonth = new Date(Date.UTC(bufferedEnd.getUTCFullYear(), bufferedEnd.getUTCMonth() + 1, 0));
+                if ((lastDayOfEndMonth.getUTCDate() - bufferedEnd.getUTCDate()) <= 5) {
+                    end = lastDayOfEndMonth;
+                } else {
+                    end = bufferedEnd;
+                }
             } else if (viewMode === 'quarter') {
                 const startQuarterMonth = Math.floor(start.getUTCMonth() / 3) * 3;
                 start = new Date(Date.UTC(start.getUTCFullYear(), startQuarterMonth, 1));
@@ -1359,8 +1379,11 @@
                 if (viewMode === 'day') {
                     const year = current.getUTCFullYear();
                     const month = current.getUTCMonth() + 1;
+                    const dayNum = current.getUTCDate();
+                    const dayOfWeek = current.getUTCDay();
+                    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
                     addTopHeader(`${year}年${month}月`, 1);
-                    headers.push({ label: `${current.getUTCDate()}`, days: 1 });
+                    headers.push({ label: `${dayNum}`, dayNum, isWeekend, days: 1 });
                     current.setUTCDate(current.getUTCDate() + 1);
                 } else if (viewMode === 'month') {
                     const year = current.getUTCFullYear();
@@ -1624,12 +1647,41 @@
             if (tasks.length === 0) { container.innerHTML = `<div class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 min-h-[250px]">${icons.calendar}<p class="text-base">目前沒有工作項目</p></div>`; return; }
             const { timelineStart, timelineEnd, totalDays, topHeaders, timeHeaders } = computeTimeline();
             
+            // 針對「日」檢視模式的智慧防擁擠優化：
+            // 1. 動態撐開畫布最小寬度，給予每日刻度合理空間（最多擴展至 2600px，可平滑橫向捲動）
+            // 2. 若總天數極長，自動抽樣顯示日期數字（如每 2 天、每 5 天顯示一次），徹底防止數字重疊擠壓
+            let wrapperMinWidthPx = 900;
+            let dayLabelStep = 1;
+            if (viewMode === 'day') {
+                const idealDayPx = totalDays <= 45 ? 26 : (totalDays <= 90 ? 20 : 14);
+                wrapperMinWidthPx = Math.max(900, Math.min(2800, leftColumnPx + totalDays * idealDayPx));
+                const estimatedDayWidth = (Math.max(window.innerWidth - 64, wrapperMinWidthPx) - leftColumnPx) / totalDays;
+                if (estimatedDayWidth < 11) dayLabelStep = 5;
+                else if (estimatedDayWidth < 16) dayLabelStep = 2;
+            }
+
             const hasTopHeaders = topHeaders && topHeaders.length > 0;
             const topHeadersHtml = hasTopHeaders
                 ? `<div class="flex border-b border-slate-200/80 bg-slate-200/50">${topHeaders.map(th => `<div class="border-r border-slate-200/80 flex items-center justify-center text-[11px] font-bold text-slate-700 py-1 tracking-wider select-none whitespace-nowrap overflow-hidden" style="width: ${(th.days / totalDays) * 100}%">${escapeHtml(th.label)}</div>`).join('')}</div>`
                 : '';
-            const headersHtml = timeHeaders.map(h => `<div class="border-r border-slate-200/80 flex items-center justify-center text-[11px] font-semibold text-slate-600 ${hasTopHeaders ? 'py-1' : 'py-2.5'} tracking-wide select-none whitespace-nowrap overflow-hidden" style="width: ${(h.days / totalDays) * 100}%">${escapeHtml(h.label)}</div>`).join('');
-            const gridHtml = timeHeaders.map((h, idx) => `<div class="border-r border-slate-200/60 h-full ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}" style="width: ${(h.days / totalDays) * 100}%"></div>`).join('');
+            const headersHtml = timeHeaders.map((h, idx) => {
+                if (viewMode === 'day') {
+                    const showText = dayLabelStep === 1
+                        || h.dayNum === 1
+                        || (dayLabelStep === 2 && h.dayNum % 2 === 1)
+                        || (dayLabelStep === 5 && (h.dayNum % 5 === 0 || h.dayNum === 1));
+                    const weekendClass = h.isWeekend ? 'bg-rose-50/50 text-rose-500/90' : 'text-slate-600';
+                    const fontSizeClass = totalDays > 50 ? 'text-[10px] tracking-tighter' : 'text-[11px]';
+                    return `<div class="border-r border-slate-200/70 flex items-center justify-center ${fontSizeClass} font-semibold ${weekendClass} py-1 select-none whitespace-nowrap overflow-hidden" style="width: ${(h.days / totalDays) * 100}%" title="${escapeHtml(h.label)}日">${showText ? escapeHtml(h.label) : ''}</div>`;
+                }
+                return `<div class="border-r border-slate-200/80 flex items-center justify-center text-[11px] font-semibold text-slate-600 ${hasTopHeaders ? 'py-1' : 'py-2.5'} tracking-wide select-none whitespace-nowrap overflow-hidden" style="width: ${(h.days / totalDays) * 100}%">${escapeHtml(h.label)}</div>`;
+            }).join('');
+            const gridHtml = timeHeaders.map((h, idx) => {
+                const bgClass = viewMode === 'day'
+                    ? (h.isWeekend ? 'bg-slate-100/70' : '')
+                    : (idx % 2 === 1 ? 'bg-slate-50/40' : '');
+                return `<div class="border-r border-slate-200/60 h-full ${bgClass}" style="width: ${(h.days / totalDays) * 100}%"></div>`;
+            }).join('');
             
             // 計算「今日線 (Today Line)」位置
             const todayDate = parseUtcDate(todayStr);
@@ -1726,7 +1778,7 @@
                                     <span class="text-[10px] font-bold bg-black/20 text-white/95 px-1.5 py-0.5 rounded-full ml-1.5 shrink-0">${durationDays}d</span>
                                 </div>
                             ` : `
-                                <div class="absolute left-full ml-2 flex items-center gap-1 whitespace-nowrap pointer-events-none select-none z-20">
+                                <div class="bar-outside-label absolute left-full ml-2 flex items-center gap-1 whitespace-nowrap pointer-events-none select-none z-20">
                                     <span class="text-xs font-semibold text-slate-700 bg-white/90 px-1.5 py-0.5 rounded shadow-xs border border-slate-200/80">${safeTaskName} <span class="text-[10px] text-slate-400 font-bold">(${durationDays}d)</span></span>
                                 </div>
                             `}
@@ -1763,7 +1815,7 @@
 
             container.innerHTML = `
                 <div class="flex flex-col w-full overflow-x-auto relative chart-scroll-container">
-                    <div class="min-w-[900px] chart-content-wrapper relative">
+                    <div class="chart-content-wrapper relative" style="min-width: ${wrapperMinWidthPx}px;">
                         <!-- 可左右拖曳的欄位分隔線 -->
                         <div id="col-resizer" class="col-resizer" title="左右拖曳調整欄位寬度（支援三段式智慧顯示）"></div>
 
@@ -1788,6 +1840,8 @@
                                 ${gridHtml}
                                 ${todayLineHtml}
                             </div>
+                            <!-- 拖曳對齊磁吸輔助線圖層 -->
+                            <div id="snap-guide-layer" class="right-area-offset absolute top-0 bottom-0 right-0 pointer-events-none z-30 overflow-visible"></div>
                             <svg id="dependency-svg" class="right-svg-offset absolute top-0 pointer-events-none z-20 h-full"></svg>
                             ${tasksHtml}
                         </div>
@@ -1907,6 +1961,7 @@
                 document.getElementById('edit-task-start').value = task.startDate;
                 document.getElementById('edit-task-end').value = task.endDate;
                 ensureEndNotBeforeStart('edit-task-start', 'edit-task-end');
+                document.getElementById('edit-task-simple-duration').value = diffDays(task.startDate, task.endDate);
             } else {
                 document.querySelectorAll('.edit-simple-fields').forEach(el => el.classList.add('hidden'));
                 document.querySelectorAll('.edit-advanced-fields').forEach(el => el.classList.remove('hidden'));
@@ -1940,6 +1995,33 @@
                 document.getElementById('edit-advanced-start-wrapper').classList.add('hidden');
             } else {
                 document.getElementById('edit-advanced-start-wrapper').classList.remove('hidden');
+            }
+        });
+
+        // 簡易模式編輯視窗：開始日、結束日與工期(天)三向同步連動
+        document.getElementById('edit-task-start').addEventListener('change', () => {
+            ensureEndNotBeforeStart('edit-task-start', 'edit-task-end');
+            const s = document.getElementById('edit-task-start').value;
+            const e = document.getElementById('edit-task-end').value;
+            if (s && e) {
+                document.getElementById('edit-task-simple-duration').value = diffDays(s, e);
+            }
+        });
+
+        document.getElementById('edit-task-end').addEventListener('change', () => {
+            ensureEndNotBeforeStart('edit-task-start', 'edit-task-end');
+            const s = document.getElementById('edit-task-start').value;
+            const e = document.getElementById('edit-task-end').value;
+            if (s && e) {
+                document.getElementById('edit-task-simple-duration').value = diffDays(s, e);
+            }
+        });
+
+        document.getElementById('edit-task-simple-duration').addEventListener('input', () => {
+            const s = document.getElementById('edit-task-start').value;
+            const dur = Math.max(1, parseInt(document.getElementById('edit-task-simple-duration').value) || 1);
+            if (s) {
+                document.getElementById('edit-task-end').value = addDaysToDateString(s, dur - 1);
             }
         });
 
@@ -2064,12 +2146,30 @@
             try {
                 chartArea.classList.add('is-exporting');
                 if (appMode === 'advanced') drawDependencyLines();
-                const fullWidth = contentWrapper.scrollWidth;
+
+                // 計算包含最右側外推浮動文字 (.bar-outside-label) 的實際總寬度，避免截圖時文字被裁切
+                const wrapperRect = contentWrapper.getBoundingClientRect();
+                let maxRightOverhang = 0;
+                contentWrapper.querySelectorAll('.bar-outside-label').forEach(labelEl => {
+                    const labelRect = labelEl.getBoundingClientRect();
+                    const overhang = Math.ceil(labelRect.right - wrapperRect.right);
+                    if (overhang > maxRightOverhang) {
+                        maxRightOverhang = overhang;
+                    }
+                });
+
+                const extraRightPadding = maxRightOverhang > 0 ? (maxRightOverhang + 24) : 0;
+                const fullWidth = contentWrapper.scrollWidth + extraRightPadding;
                 const fullHeight = chartArea.scrollHeight;
                 const originalAreaStyle = chartArea.getAttribute('style') || '';
+                const originalWrapperStyle = contentWrapper.getAttribute('style') || '';
                 const originalContainerClass = scrollContainer.className;
                 const originalAreaClass = chartArea.className;
                 
+                if (extraRightPadding > 0) {
+                    contentWrapper.style.paddingRight = `${extraRightPadding}px`;
+                    contentWrapper.style.backgroundColor = '#ffffff';
+                }
                 chartArea.style.width = `${fullWidth}px`;
                 chartArea.style.height = `${fullHeight}px`;
                 chartArea.style.maxWidth = 'none';
@@ -2077,10 +2177,12 @@
                 scrollContainer.className = scrollContainer.className.replace('overflow-x-auto', 'overflow-visible');
                 
                 await new Promise(resolve => setTimeout(resolve, 150));
+                if (appMode === 'advanced') drawDependencyLines();
                 const dataUrl = await window.htmlToImage.toPng(chartArea, { backgroundColor: '#ffffff', pixelRatio: 2, width: fullWidth, height: fullHeight, style: { margin: 0, transform: 'none' } }); 
                 const link = document.createElement('a'); link.download = `專案甘特圖_${new Date().toISOString().slice(0,10)}.png`; link.href = dataUrl; link.click();
                 
                 chartArea.setAttribute('style', originalAreaStyle);
+                contentWrapper.setAttribute('style', originalWrapperStyle);
                 chartArea.className = originalAreaClass;
                 chartArea.classList.remove('is-exporting');
                 scrollContainer.className = originalContainerClass;
@@ -2254,18 +2356,131 @@
             reader.readAsText(file, 'UTF-8');
         });
 
-        // 拖曳互動與 Tooltip 邏輯
+        // 拖曳互動、智慧磁吸輔助線 (Snap Guideline) 與 Tooltip 邏輯
         let dragAction = null; let activeTaskId = null; let startX = 0;
         let initialStartDate = null; let initialEndDate = null;
         let activeTaskBarEl = null; let initialWidthPx = 0; let initialLeftPx = 0; let pixelsPerDay = 0;
         let hasDraggedBar = false;
         let initialColWidthPx = 380;
+        let currentSnappedDeltaDays = 0;
+        let dragTimelineStart = null;
+        let dragTotalDays = 1;
 
         const dragTooltip = document.getElementById('drag-tooltip');
         function updateDragTooltip(x, y, text) {
             dragTooltip.style.left = x + 'px';
             dragTooltip.style.top = (y - 15) + 'px';
             dragTooltip.innerHTML = text;
+        }
+
+        function clearSnapGuide() {
+            const layer = document.getElementById('snap-guide-layer');
+            if (layer) layer.innerHTML = '';
+        }
+
+        function renderSnapGuide(boundaryDateStr, isAfterEnd, labelText) {
+            const layer = document.getElementById('snap-guide-layer');
+            if (!layer || !dragTimelineStart) return;
+            const d = parseUtcDate(boundaryDateStr);
+            const dayOffset = Math.round((d - dragTimelineStart) / DAY_MS) + (isAfterEnd ? 1 : 0);
+            const leftPercent = (dayOffset / dragTotalDays) * 100;
+
+            layer.innerHTML = `
+                <div class="absolute top-0 bottom-0 pointer-events-none" style="left: ${leftPercent}%;">
+                    <div class="w-0.5 h-full border-l-2 border-dashed border-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.55)]"></div>
+                    <div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap flex items-center gap-1 z-40">
+                        <span>🧲 ${escapeHtml(labelText)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 計算拖曳時的磁吸與貼齊檢測（支援：緊接前/後一天、對齊同日開始/結束）
+        function evaluateDragSnap(action, rawDeltaX) {
+            const rawDaysFloat = rawDeltaX / pixelsPerDay;
+            let bestDeltaDays = Math.round(rawDaysFloat);
+            let bestMatch = null;
+            let bestDistPx = Infinity;
+            // 縮小磁吸感應範圍：最高僅 5px（且不超過單日寬度的 35%），讓手動微調天數與位置更自由順手
+            const SNAP_THRESHOLD_PX = Math.min(5, Math.max(2.5, pixelsPerDay * 0.35));
+            const taskDuration = diffDays(initialStartDate, initialEndDate);
+
+            const otherTasks = tasks.filter(t => t.id !== activeTaskId);
+
+            const checkCandidate = (candidateDeltaDays, matchInfo, priorityBonus = 0) => {
+                // resize 時不可讓結束日早於開始日
+                if (action === 'resize') {
+                    const candidateEnd = addDaysToDateString(initialEndDate, candidateDeltaDays);
+                    if (parseUtcDate(candidateEnd) < parseUtcDate(initialStartDate)) return;
+                }
+                const candidatePx = candidateDeltaDays * pixelsPerDay;
+                const rawDistPx = Math.abs(rawDeltaX - candidatePx);
+                const distPx = rawDistPx - priorityBonus;
+                // 僅在游標真正接近對齊點 (<= SNAP_THRESHOLD_PX) 時才觸發磁吸，不再強制鎖死整數格
+                if (rawDistPx <= SNAP_THRESHOLD_PX && distPx < bestDistPx) {
+                    bestDistPx = distPx;
+                    bestDeltaDays = candidateDeltaDays;
+                    bestMatch = matchInfo;
+                }
+            };
+
+            otherTasks.forEach(other => {
+                if (action === 'move') {
+                    // 1. 緊接在其他任務結束後的「隔天」開始 (Start = Other.End + 1) [最高優先]
+                    const targetStartAfter = addDaysToDateString(other.endDate, 1);
+                    const deltaAfter = Math.round((parseUtcDate(targetStartAfter) - parseUtcDate(initialStartDate)) / DAY_MS);
+                    checkCandidate(deltaAfter, {
+                        boundaryDate: targetStartAfter,
+                        isAfterEnd: false,
+                        label: `緊接「${other.name}」隔天開始 (${targetStartAfter.slice(5).replace('-', '/')})`
+                    }, 2);
+
+                    // 2. 結束日在其他任務開始的「前一天」完成 (End = Other.Start - 1) [最高優先]
+                    const targetEndBefore = addDaysToDateString(other.startDate, -1);
+                    const targetStartBefore = addDaysToDateString(targetEndBefore, -(taskDuration - 1));
+                    const deltaBefore = Math.round((parseUtcDate(targetStartBefore) - parseUtcDate(initialStartDate)) / DAY_MS);
+                    checkCandidate(deltaBefore, {
+                        boundaryDate: other.startDate,
+                        isAfterEnd: false,
+                        label: `貼齊「${other.name}」前一天結束 (${targetEndBefore.slice(5).replace('-', '/')})`
+                    }, 2);
+
+                    // 3. 與其他任務「同一天開始」 (Start = Other.Start)
+                    const deltaSameStart = Math.round((parseUtcDate(other.startDate) - parseUtcDate(initialStartDate)) / DAY_MS);
+                    checkCandidate(deltaSameStart, {
+                        boundaryDate: other.startDate,
+                        isAfterEnd: false,
+                        label: `對齊「${other.name}」開始日 (${other.startDate.slice(5).replace('-', '/')})`
+                    }, 0);
+
+                    // 4. 與其他任務「同一天結束」 (End = Other.End)
+                    const deltaSameEnd = Math.round((parseUtcDate(other.endDate) - parseUtcDate(initialEndDate)) / DAY_MS);
+                    checkCandidate(deltaSameEnd, {
+                        boundaryDate: other.endDate,
+                        isAfterEnd: true,
+                        label: `對齊「${other.name}」結束日 (${other.endDate.slice(5).replace('-', '/')})`
+                    }, 0);
+                } else if (action === 'resize') {
+                    // 1. 拉長/縮短工期至其他任務開始的「前一天」結束 (End = Other.Start - 1)
+                    const targetEndBefore = addDaysToDateString(other.startDate, -1);
+                    const deltaBefore = Math.round((parseUtcDate(targetEndBefore) - parseUtcDate(initialEndDate)) / DAY_MS);
+                    checkCandidate(deltaBefore, {
+                        boundaryDate: other.startDate,
+                        isAfterEnd: false,
+                        label: `貼齊「${other.name}」前一天結束 (${targetEndBefore.slice(5).replace('-', '/')})`
+                    }, 2);
+
+                    // 2. 拉長/縮短工期至與其他任務「同一天結束」 (End = Other.End)
+                    const deltaSameEnd = Math.round((parseUtcDate(other.endDate) - parseUtcDate(initialEndDate)) / DAY_MS);
+                    checkCandidate(deltaSameEnd, {
+                        boundaryDate: other.endDate,
+                        isAfterEnd: true,
+                        label: `對齊「${other.name}」結束日 (${other.endDate.slice(5).replace('-', '/')})`
+                    }, 1);
+                }
+            });
+
+            return { deltaDays: bestDeltaDays, snapMatch: bestMatch };
         }
 
         document.addEventListener('mousedown', (e) => {
@@ -2290,11 +2505,14 @@
                 e.stopPropagation(); e.preventDefault(); 
                 dragAction = 'resize'; activeTaskId = parseInt(resizeHandle.dataset.taskId);
                 hasDraggedBar = false;
+                currentSnappedDeltaDays = 0;
                 activeTaskBarEl = resizeHandle.closest('.task-bar-element'); startX = e.pageX;
                 const task = tasks.find(t => t.id === activeTaskId);
                 initialStartDate = task.startDate; initialEndDate = task.endDate;
                 initialWidthPx = activeTaskBarEl.getBoundingClientRect().width;
-                const { totalDays } = computeTimeline();
+                const { timelineStart, totalDays } = computeTimeline();
+                dragTimelineStart = timelineStart;
+                dragTotalDays = totalDays;
                 pixelsPerDay = activeTaskBarEl.parentElement.clientWidth / totalDays;
                 document.body.style.cursor = 'ew-resize';
                 
@@ -2313,12 +2531,15 @@
                 e.stopPropagation(); e.preventDefault(); 
                 dragAction = 'move'; activeTaskId = task.id;
                 hasDraggedBar = false;
+                currentSnappedDeltaDays = 0;
                 activeTaskBarEl = taskBar; startX = e.pageX;
                 initialStartDate = task.startDate; initialEndDate = task.endDate;
                 const containerRect = activeTaskBarEl.parentElement.getBoundingClientRect();
                 const barRect = activeTaskBarEl.getBoundingClientRect();
                 initialLeftPx = barRect.left - containerRect.left;
-                const { totalDays } = computeTimeline();
+                const { timelineStart, totalDays } = computeTimeline();
+                dragTimelineStart = timelineStart;
+                dragTotalDays = totalDays;
                 pixelsPerDay = containerRect.width / totalDays;
                 document.body.style.cursor = 'grabbing'; activeTaskBarEl.style.cursor = 'grabbing';
                 
@@ -2345,26 +2566,47 @@
             }
 
             if (Math.abs(deltaX) > 2) hasDraggedBar = true;
-            let deltaDays = Math.round(deltaX / pixelsPerDay);
+
+            const { deltaDays: evaluatedDays, snapMatch } = evaluateDragSnap(dragAction, deltaX);
+            let deltaDays = evaluatedDays;
+
             if (dragAction === 'resize') {
                 let tempEndDate = addDaysToDateString(initialEndDate, deltaDays);
                 if (parseUtcDate(tempEndDate) < parseUtcDate(initialStartDate)) {
                     deltaDays = diffDays(initialEndDate, initialStartDate) - 1; 
                     tempEndDate = initialStartDate;
                 }
-                const newWidthPx = Math.max(initialWidthPx + (deltaDays * pixelsPerDay), 10);
+                currentSnappedDeltaDays = deltaDays;
+                const effectivePx = snapMatch ? (deltaDays * pixelsPerDay) : deltaX;
+                const newWidthPx = Math.max(initialWidthPx + effectivePx, 10);
                 activeTaskBarEl.style.width = `${newWidthPx}px`;
                 
+                if (snapMatch) {
+                    renderSnapGuide(snapMatch.boundaryDate, snapMatch.isAfterEnd, snapMatch.label);
+                } else {
+                    clearSnapGuide();
+                }
+
                 const diffD = diffDays(initialStartDate, tempEndDate);
-                updateDragTooltip(e.clientX, e.clientY, `結束日: ${tempEndDate} (共 ${diffD} 天)`);
+                const snapHint = snapMatch ? ` <span class="text-indigo-300 font-bold ml-1">｜🧲 ${escapeHtml(snapMatch.label)}</span>` : '';
+                updateDragTooltip(e.clientX, e.clientY, `結束日: ${tempEndDate} (共 ${diffD} 天)${snapHint}`);
                 if (appMode === 'advanced') drawDependencyLines();
             } else if (dragAction === 'move') {
-                const newLeftPx = initialLeftPx + deltaX;
+                currentSnappedDeltaDays = deltaDays;
+                const effectivePx = snapMatch ? (deltaDays * pixelsPerDay) : deltaX;
+                const newLeftPx = initialLeftPx + effectivePx;
                 activeTaskBarEl.style.left = `${newLeftPx}px`;
                 
+                if (snapMatch) {
+                    renderSnapGuide(snapMatch.boundaryDate, snapMatch.isAfterEnd, snapMatch.label);
+                } else {
+                    clearSnapGuide();
+                }
+
                 let tempStart = addDaysToDateString(initialStartDate, deltaDays);
                 let tempEnd = addDaysToDateString(initialEndDate, deltaDays);
-                updateDragTooltip(e.clientX, e.clientY, `${tempStart} ~ ${tempEnd}`);
+                const snapHint = snapMatch ? ` <span class="text-indigo-300 font-bold ml-1">｜🧲 ${escapeHtml(snapMatch.label)}</span>` : '';
+                updateDragTooltip(e.clientX, e.clientY, `${tempStart} ~ ${tempEnd}${snapHint}`);
                 if (appMode === 'advanced') drawDependencyLines();
             }
         });
@@ -2382,7 +2624,8 @@
                 return;
             }
 
-            const deltaX = e.pageX - startX; let deltaDays = Math.round(deltaX / pixelsPerDay);
+            clearSnapGuide();
+            const deltaDays = currentSnappedDeltaDays;
             const task = tasks.find(t => t.id === activeTaskId);
             let dateChanged = false;
 

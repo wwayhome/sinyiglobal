@@ -1,0 +1,2834 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商辦大樓實價登錄視覺化工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"function"==typeof define&&define.amd?define(["exports"],e):e((t="undefined"!=typeof globalThis?globalThis:t||self).htmlToImage={})}(this,(function(t){"use strict";function e(t,e,n,r){return new(n||(n=Promise))((function(i,o){function u(t){try{a(r.next(t))}catch(t){o(t)}}function c(t){try{a(r.throw(t))}catch(t){o(t)}}function a(t){var e;t.done?i(t.value):(e=t.value,e instanceof n?e:new n((function(t){t(e)}))).then(u,c)}a((r=r.apply(t,e||[])).next())}))}function n(t,e){var n,r,i,o,u={label:0,sent:function(){if(1&i[0])throw i[1];return i[1]},trys:[],ops:[]};return o={next:c(0),throw:c(1),return:c(2)},"function"==typeof Symbol&&(o[Symbol.iterator]=function(){return this}),o;function c(c){return function(a){return function(c){if(n)throw new TypeError("Generator is already executing.");for(;o&&(o=0,c[0]&&(u=0)),u;)try{if(n=1,r&&(i=2&c[0]?r.return:c[0]?r.throw||((i=r.return)&&i.call(r),0):r.next)&&!(i=i.call(r,c[1])).done)return i;switch(r=0,i&&(c=[2&c[0],i.value]),c[0]){case 0:case 1:i=c;break;case 4:return u.label++,{value:c[1],done:!1};case 5:u.label++,r=c[1],c=[0];continue;case 7:c=u.ops.pop(),u.trys.pop();continue;default:if(!(i=u.trys,(i=i.length>0&&i[i.length-1])||6!==c[0]&&2!==c[0])){u=0;continue}if(3===c[0]&&(!i||c[1]>i[0]&&c[1]<i[3])){u.label=c[1];break}if(6===c[0]&&u.label<i[1]){u.label=i[1],i=c;break}if(i&&u.label<i[2]){u.label=i[2],u.ops.push(c);break}i[2]&&u.ops.pop(),u.trys.pop();continue}c=e.call(t,u)}catch(t){c=[6,t],r=0}finally{n=i=0}if(5&c[0])throw c[1];return{value:c[0]?c[1]:void 0,done:!0}}([c,a])}}}var r,i=(r=0,function(){return r+=1,"u".concat("0000".concat((Math.random()*Math.pow(36,4)<<0).toString(36)).slice(-4)).concat(r)});function o(t){for(var e=[],n=0,r=t.length;n<r;n++)e.push(t[n]);return e}var u=null;function c(t){return void 0===t&&(t={}),u||(u=t.includeStyleProperties?t.includeStyleProperties:o(window.getComputedStyle(document.documentElement)))}function a(t,e){var n=(t.ownerDocument.defaultView||window).getComputedStyle(t).getPropertyValue(e);return n?parseFloat(n.replace("px","")):0}function s(t,e){void 0===e&&(e={});var n,r,i,o=e.width||(r=a(n=t,"border-left-width"),i=a(n,"border-right-width"),n.clientWidth+r+i),u=e.height||function(t){var e=a(t,"border-top-width"),n=a(t,"border-bottom-width");return t.clientHeight+e+n}(t);return{width:o,height:u}}var l=16384;function f(t,e){return void 0===e&&(e={}),t.toBlob?new Promise((function(n){t.toBlob(n,e.type?e.type:"image/png",e.quality?e.quality:1)})):new Promise((function(n){for(var r=window.atob(t.toDataURL(e.type?e.type:void 0,e.quality?e.quality:void 0).split(",")[1]),i=r.length,o=new Uint8Array(i),u=0;u<i;u+=1)o[u]=r.charCodeAt(u);n(new Blob([o],{type:e.type?e.type:"image/png"}))}))}function h(t){return new Promise((function(e,n){var r=new Image;r.onload=function(){r.decode().then((function(){requestAnimationFrame((function(){return e(r)}))}))},r.onerror=n,r.crossOrigin="anonymous",r.decoding="async",r.src=t}))}function d(t){return e(this,void 0,void 0,(function(){return n(this,(function(e){return[2,Promise.resolve().then((function(){return(new XMLSerializer).serializeToString(t)})).then(encodeURIComponent).then((function(t){return"data:image/svg+xml;charset=utf-8,".concat(t)}))]}))}))}function v(t,r,i){return e(this,void 0,void 0,(function(){var e,o,u;return n(this,(function(n){return e="http://www.w3.org/2000/svg",o=document.createElementNS(e,"svg"),u=document.createElementNS(e,"foreignObject"),o.setAttribute("width","".concat(r)),o.setAttribute("height","".concat(i)),o.setAttribute("viewBox","0 0 ".concat(r," ").concat(i)),u.setAttribute("width","100%"),u.setAttribute("height","100%"),u.setAttribute("x","0"),u.setAttribute("y","0"),u.setAttribute("externalResourcesRequired","true"),o.appendChild(u),u.appendChild(t),[2,d(o)]}))}))}var p=function(t,e){if(t instanceof e)return!0;var n=Object.getPrototypeOf(t);return null!==n&&(n.constructor.name===e.name||p(n,e))};function g(t,e,n,r){var i=".".concat(t,":").concat(e),o=n.cssText?function(t){var e=t.getPropertyValue("content");return"".concat(t.cssText," content: '").concat(e.replace(/'|"/g,""),"';")}(n):function(t,e){return c(e).map((function(e){var n=t.getPropertyValue(e),r=t.getPropertyPriority(e);return"".concat(e,": ").concat(n).concat(r?" !important":"",";")})).join(" ")}(n,r);return document.createTextNode("".concat(i,"{").concat(o,"}"))}function m(t,e,n,r){var o=window.getComputedStyle(t,n),u=o.getPropertyValue("content");if(""!==u&&"none"!==u){var c=i();try{e.className="".concat(e.className," ").concat(c)}catch(t){return}var a=document.createElement("style");a.appendChild(g(c,n,o,r)),e.appendChild(a)}}var w="application/font-woff",y="image/jpeg",b={woff:w,woff2:w,ttf:"application/font-truetype",eot:"application/vnd.ms-fontobject",png:"image/png",jpg:y,jpeg:y,gif:"image/gif",tiff:"image/tiff",svg:"image/svg+xml",webp:"image/webp"};function S(t){var e=function(t){var e=/\.([^./]*?)$/g.exec(t);return e?e[1]:""}(t).toLowerCase();return b[e]||""}function E(t){return-1!==t.search(/^(data:)/)}function x(t,e){return"data:".concat(e,";base64,").concat(t)}function C(t,r,i){return e(this,void 0,void 0,(function(){var e,o;return n(this,(function(n){switch(n.label){case 0:return[4,fetch(t,r)];case 1:if(404===(e=n.sent()).status)throw new Error('Resource "'.concat(e.url,'" not found'));return[4,e.blob()];case 2:return o=n.sent(),[2,new Promise((function(t,n){var r=new FileReader;r.onerror=n,r.onloadend=function(){try{t(i({res:e,result:r.result}))}catch(t){n(t)}},r.readAsDataURL(o)}))]}}))}))}var P={};function R(t,r,i){return e(this,void 0,void 0,(function(){var e,o,u,c,a;return n(this,(function(n){switch(n.label){case 0:if(e=function(t,e,n){var r=t.replace(/\?.*/,"");return n&&(r=t),/ttf|otf|eot|woff2?/i.test(r)&&(r=r.replace(/.*\//,"")),e?"[".concat(e,"]").concat(r):r}(t,r,i.includeQueryParams),null!=P[e])return[2,P[e]];i.cacheBust&&(t+=(/\?/.test(t)?"&":"?")+(new Date).getTime()),n.label=1;case 1:return n.trys.push([1,3,,4]),[4,C(t,i.fetchRequestInit,(function(t){var e=t.res,n=t.result;return r||(r=e.headers.get("Content-Type")||""),function(t){return t.split(/,/)[1]}(n)}))];case 2:return u=n.sent(),o=x(u,r),[3,4];case 3:return c=n.sent(),o=i.imagePlaceholder||"",a="Failed to fetch resource: ".concat(t),c&&(a="string"==typeof c?c:c.message),a&&console.warn(a),[3,4];case 4:return P[e]=o,[2,o]}}))}))}function T(t){return e(this,void 0,void 0,(function(){var e;return n(this,(function(n){return"data:,"===(e=t.toDataURL())?[2,t.cloneNode(!1)]:[2,h(e)]}))}))}function A(t,r){return e(this,void 0,void 0,(function(){var e,i,o,u;return n(this,(function(n){switch(n.label){case 0:return t.currentSrc?(e=document.createElement("canvas"),i=e.getContext("2d"),e.width=t.clientWidth,e.height=t.clientHeight,null==i||i.drawImage(t,0,0,e.width,e.height),[2,h(e.toDataURL())]):(o=t.poster,u=S(o),[4,R(o,u,r)]);case 1:return[2,h(n.sent())]}}))}))}function k(t,r){var i;return e(this,void 0,void 0,(function(){return n(this,(function(e){switch(e.label){case 0:return e.trys.push([0,3,,4]),(null===(i=null==t?void 0:t.contentDocument)||void 0===i?void 0:i.body)?[4,I(t.contentDocument.body,r,!0)]:[3,2];case 1:return[2,e.sent()];case 2:return[3,4];case 3:return e.sent(),[3,4];case 4:return[2,t.cloneNode(!1)]}}))}))}var L=function(t){return null!=t.tagName&&"SVG"===t.tagName.toUpperCase()};function N(t,e,n){return p(e,Element)&&(function(t,e,n){var r=e.style;if(r){var i=window.getComputedStyle(t);i.cssText?(r.cssText=i.cssText,r.transformOrigin=i.transformOrigin):c(n).forEach((function(n){var o=i.getPropertyValue(n);if("font-size"===n&&o.endsWith("px")){var u=Math.floor(parseFloat(o.substring(0,o.length-2)))-.1;o="".concat(u,"px")}p(t,HTMLIFrameElement)&&"display"===n&&"inline"===o&&(o="block"),"d"===n&&e.getAttribute("d")&&(o="path(".concat(e.getAttribute("d"),")")),r.setProperty(n,o,i.getPropertyPriority(n))}))}}(t,e,n),function(t,e,n){m(t,e,":before",n),m(t,e,":after",n)}(t,e,n),function(t,e){p(t,HTMLTextAreaElement)&&(e.innerHTML=t.value),p(t,HTMLInputElement)&&e.setAttribute("value",t.value)}(t,e),function(t,e){if(p(t,HTMLSelectElement)){var n=e,r=Array.from(n.children).find((function(e){return t.value===e.getAttribute("value")}));r&&r.setAttribute("selected","")}}(t,e)),e}function I(t,r,i){return e(this,void 0,void 0,(function(){return n(this,(function(u){return i||!r.filter||r.filter(t)?[2,Promise.resolve(t).then((function(t){return function(t,r){return e(this,void 0,void 0,(function(){return n(this,(function(e){return p(t,HTMLCanvasElement)?[2,T(t)]:p(t,HTMLVideoElement)?[2,A(t,r)]:p(t,HTMLIFrameElement)?[2,k(t,r)]:[2,t.cloneNode(L(t))]}))}))}(t,r)})).then((function(i){return function(t,r,i){var u,c;return e(this,void 0,void 0,(function(){var e;return n(this,(function(n){switch(n.label){case 0:return L(r)?[2,r]:(e=[],0===(e=null!=(a=t).tagName&&"SLOT"===a.tagName.toUpperCase()&&t.assignedNodes?o(t.assignedNodes()):p(t,HTMLIFrameElement)&&(null===(u=t.contentDocument)||void 0===u?void 0:u.body)?o(t.contentDocument.body.childNodes):o((null!==(c=t.shadowRoot)&&void 0!==c?c:t).childNodes)).length||p(t,HTMLVideoElement)?[2,r]:[4,e.reduce((function(t,e){return t.then((function(){return I(e,i)})).then((function(t){t&&r.appendChild(t)}))}),Promise.resolve())]);case 1:return n.sent(),[2,r]}var a}))}))}(t,i,r)})).then((function(e){return N(t,e,r)})).then((function(t){return function(t,r){return e(this,void 0,void 0,(function(){var e,i,o,u,c,a,s,l,f,h,d,v,p;return n(this,(function(n){switch(n.label){case 0:if(0===(e=t.querySelectorAll?t.querySelectorAll("use"):[]).length)return[2,t];i={},p=0,n.label=1;case 1:return p<e.length?(o=e[p],(u=o.getAttribute("xlink:href"))?(c=t.querySelector(u),a=document.querySelector(u),c||!a||i[u]?[3,3]:(s=i,l=u,[4,I(a,r,!0)])):[3,3]):[3,4];case 2:s[l]=n.sent(),n.label=3;case 3:return p++,[3,1];case 4:if((f=Object.values(i)).length){for(h="http://www.w3.org/1999/xhtml",(d=document.createElementNS(h,"svg")).setAttribute("xmlns",h),d.style.position="absolute",d.style.width="0",d.style.height="0",d.style.overflow="hidden",d.style.display="none",v=document.createElementNS(h,"defs"),d.appendChild(v),p=0;p<f.length;p++)v.appendChild(f[p]);t.appendChild(d)}return[2,t]}}))}))}(t,r)}))]:[2,null]}))}))}var D=/url\((['"]?)([^'"]+?)\1\)/g,H=/url\([^)]+\)\s*format\((["']?)([^"']+)\1\)/g,M=/src:\s*(?:url\([^)]+\)\s*format\([^)]+\)[,;]\s*)+/g;function F(t,r,i,o,u){return e(this,void 0,void 0,(function(){var e,c,a,s;return n(this,(function(n){switch(n.label){case 0:return n.trys.push([0,5,,6]),e=i?function(t,e){if(t.match(/^[a-z]+:\/\//i))return t;if(t.match(/^\/\//))return window.location.protocol+t;if(t.match(/^[a-z]+:/i))return t;var n=document.implementation.createHTMLDocument(),r=n.createElement("base"),i=n.createElement("a");return n.head.appendChild(r),n.body.appendChild(i),e&&(r.href=e),i.href=t,i.href}(r,i):r,c=S(r),a=void 0,u?[4,u(e)]:[3,2];case 1:return s=n.sent(),a=x(s,c),[3,4];case 2:return[4,R(e,c,o)];case 3:a=n.sent(),n.label=4;case 4:return[2,t.replace((l=r,f=l.replace(/([.*+?^${}()|\[\]\/\\])/g,"\\$1"),new RegExp("(url\\(['\"]?)(".concat(f,")(['\"]?\\))"),"g")),"$1".concat(a,"$3"))];case 5:return n.sent(),[3,6];case 6:return[2,t]}var l,f}))}))}function V(t){return-1!==t.search(D)}function q(t,r,i){return e(this,void 0,void 0,(function(){var e,o;return n(this,(function(n){return V(t)?(e=function(t,e){var n=e.preferredFontFormat;return n?t.replace(M,(function(t){for(;;){var e=H.exec(t)||[],r=e[0],i=e[2];if(!i)return"";if(i===n)return"src: ".concat(r,";")}})):t}(t,i),o=function(t){var e=[];return t.replace(D,(function(t,n,r){return e.push(r),t})),e.filter((function(t){return!E(t)}))}(e),[2,o.reduce((function(t,e){return t.then((function(t){return F(t,e,r,i)}))}),Promise.resolve(e))]):[2,t]}))}))}function U(t,r,i){var o;return e(this,void 0,void 0,(function(){var e,u;return n(this,(function(n){switch(n.label){case 0:return(e=null===(o=r.style)||void 0===o?void 0:o.getPropertyValue(t))?[4,q(e,null,i)]:[3,2];case 1:return u=n.sent(),r.style.setProperty(t,u,r.style.getPropertyPriority(t)),[2,!0];case 2:return[2,!1]}}))}))}function j(t,r){return e(this,void 0,void 0,(function(){var e,i;return n(this,(function(n){switch(n.label){case 0:return[4,U("background",t,r)];case 1:return n.sent()?[3,3]:[4,U("background-image",t,r)];case 2:n.sent(),n.label=3;case 3:return[4,U("mask",t,r)];case 4:return(i=n.sent())?[3,6]:[4,U("-webkit-mask",t,r)];case 5:i=n.sent(),n.label=6;case 6:return(e=i)?[3,8]:[4,U("mask-image",t,r)];case 7:e=n.sent(),n.label=8;case 8:return e?[3,10]:[4,U("-webkit-mask-image",t,r)];case 9:n.sent(),n.label=10;case 10:return[2]}}))}))}function O(t,r){return e(this,void 0,void 0,(function(){var e,i,o;return n(this,(function(n){switch(n.label){case 0:return(e=p(t,HTMLImageElement))&&!E(t.src)||p(t,SVGImageElement)&&!E(t.href.baseVal)?[4,R(i=e?t.src:t.href.baseVal,S(i),r)]:[2];case 1:return o=n.sent(),[4,new Promise((function(n,i){t.onload=n,t.onerror=r.onImageErrorHandler?function(){for(var t=[],e=0;e<arguments.length;e++)t[e]=arguments[e];try{n(r.onImageErrorHandler.apply(r,t))}catch(t){i(t)}}:i;var u=t;u.decode&&(u.decode=n),"lazy"===u.loading&&(u.loading="eager"),e?(t.srcset="",t.src=o):t.href.baseVal=o}))];case 2:return n.sent(),[2]}}))}))}function B(t,r){return e(this,void 0,void 0,(function(){var e,i;return n(this,(function(n){switch(n.label){case 0:return e=o(t.childNodes),i=e.map((function(t){return z(t,r)})),[4,Promise.all(i).then((function(){return t}))];case 1:return n.sent(),[2]}}))}))}function z(t,r){return e(this,void 0,void 0,(function(){return n(this,(function(e){switch(e.label){case 0:return p(t,Element)?[4,j(t,r)]:[3,4];case 1:return e.sent(),[4,O(t,r)];case 2:return e.sent(),[4,B(t,r)];case 3:e.sent(),e.label=4;case 4:return[2]}}))}))}var W={};function $(t){return e(this,void 0,void 0,(function(){var e,r;return n(this,(function(n){switch(n.label){case 0:return null!=(e=W[t])?[2,e]:[4,fetch(t)];case 1:return[4,n.sent().text()];case 2:return r=n.sent(),e={url:t,cssText:r},W[t]=e,[2,e]}}))}))}function G(t,r){return e(this,void 0,void 0,(function(){var i,o,u,c,a=this;return n(this,(function(s){return i=t.cssText,o=/url\(["']?([^"')]+)["']?\)/g,u=i.match(/url\([^)]+\)/g)||[],c=u.map((function(u){return e(a,void 0,void 0,(function(){var e;return n(this,(function(n){return(e=u.replace(o,"$1")).startsWith("https://")||(e=new URL(e,t.url).href),[2,C(e,r.fetchRequestInit,(function(t){var e=t.result;return i=i.replace(u,"url(".concat(e,")")),[u,e]}))]}))}))})),[2,Promise.all(c).then((function(){return i}))]}))}))}function _(t){if(null==t)return[];for(var e=[],n=t.replace(/(\/\*[\s\S]*?\*\/)/gi,""),r=new RegExp("((@.*?keyframes [\\s\\S]*?){([\\s\\S]*?}\\s*?)})","gi");;){if(null===(u=r.exec(n)))break;e.push(u[0])}n=n.replace(r,"");for(var i=/@import[\s\S]*?url\([^)]*\)[\s\S]*?;/gi,o=new RegExp("((\\s*?(?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*?@media[\\s\\S]*?){([\\s\\S]*?)}\\s*?})|(([\\s\\S]*?){([\\s\\S]*?)})","gi");;){var u;if(null===(u=i.exec(n))){if(null===(u=o.exec(n)))break;i.lastIndex=o.lastIndex}else o.lastIndex=i.lastIndex;e.push(u[0])}return e}function J(t,r){return e(this,void 0,void 0,(function(){var e,i;return n(this,(function(n){return e=[],i=[],t.forEach((function(e){if("cssRules"in e)try{o(e.cssRules||[]).forEach((function(t,n){if(t.type===CSSRule.IMPORT_RULE){var o=n+1,u=$(t.href).then((function(t){return G(t,r)})).then((function(t){return _(t).forEach((function(t){try{e.insertRule(t,t.startsWith("@import")?o+=1:e.cssRules.length)}catch(e){console.error("Error inserting rule from remote css",{rule:t,error:e})}}))})).catch((function(t){console.error("Error loading remote css",t.toString())}));i.push(u)}}))}catch(o){var n=t.find((function(t){return null==t.href}))||document.styleSheets[0];null!=e.href&&i.push($(e.href).then((function(t){return G(t,r)})).then((function(t){return _(t).forEach((function(t){n.insertRule(t,n.cssRules.length)}))})).catch((function(t){console.error("Error loading remote stylesheet",t)}))),console.error("Error inlining remote css file",o)}})),[2,Promise.all(i).then((function(){return t.forEach((function(t){if("cssRules"in t)try{o(t.cssRules||[]).forEach((function(t){e.push(t)}))}catch(e){console.error("Error while reading CSS rules from ".concat(t.href),e)}})),e}))]}))}))}function Q(t){return t.filter((function(t){return t.type===CSSRule.FONT_FACE_RULE})).filter((function(t){return V(t.style.getPropertyValue("src"))}))}function X(t,r){return e(this,void 0,void 0,(function(){return n(this,(function(e){switch(e.label){case 0:if(null==t.ownerDocument)throw new Error("Provided element is not within a Document");return[4,J(o(t.ownerDocument.styleSheets),r)];case 1:return[2,Q(e.sent())]}}))}))}function K(t){return t.trim().replace(/["']/g,"")}function Y(t,r){return e(this,void 0,void 0,(function(){var e,i;return n(this,(function(n){switch(n.label){case 0:return[4,X(t,r)];case 1:return e=n.sent(),i=function(t){var e=new Set;return function t(n){(n.style.fontFamily||getComputedStyle(n).fontFamily).split(",").forEach((function(t){e.add(K(t))})),Array.from(n.children).forEach((function(e){e instanceof HTMLElement&&t(e)}))}(t),e}(t),[4,Promise.all(e.filter((function(t){return i.has(K(t.style.fontFamily))})).map((function(t){var e=t.parentStyleSheet?t.parentStyleSheet.href:null;return q(t.cssText,e,r)})))];case 2:return[2,n.sent().join("\n")]}}))}))}function Z(t,r){return e(this,void 0,void 0,(function(){var e,i,o,u,c;return n(this,(function(n){switch(n.label){case 0:return null==r.fontEmbedCSS?[3,1]:(i=r.fontEmbedCSS,[3,5]);case 1:return r.skipFonts?(o=null,[3,4]):[3,2];case 2:return[4,Y(t,r)];case 3:o=n.sent(),n.label=4;case 4:i=o,n.label=5;case 5:return(e=i)&&(u=document.createElement("style"),c=document.createTextNode(e),u.appendChild(c),t.firstChild?t.insertBefore(u,t.firstChild):t.appendChild(u)),[2]}}))}))}function tt(t,r){return void 0===r&&(r={}),e(this,void 0,void 0,(function(){var e,i,o,u;return n(this,(function(n){switch(n.label){case 0:return e=s(t,r),i=e.width,o=e.height,[4,I(t,r,!0)];case 1:return[4,Z(u=n.sent(),r)];case 2:return n.sent(),[4,z(u,r)];case 3:return n.sent(),function(t,e){var n=t.style;e.backgroundColor&&(n.backgroundColor=e.backgroundColor),e.width&&(n.width="".concat(e.width,"px")),e.height&&(n.height="".concat(e.height,"px"));var r=e.style;null!=r&&Object.keys(r).forEach((function(t){n[t]=r[t]}))}(u,r),[4,v(u,i,o)];case 4:return[2,n.sent()]}}))}))}function et(t,r){return void 0===r&&(r={}),e(this,void 0,void 0,(function(){var e,i,o,u,c,a,f,d,v;return n(this,(function(n){switch(n.label){case 0:return e=s(t,r),i=e.width,o=e.height,[4,tt(t,r)];case 1:return[4,h(n.sent())];case 2:return u=n.sent(),c=document.createElement("canvas"),a=c.getContext("2d"),f=r.pixelRatio||function(){var t,e;try{e=process}catch(t){}var n=e&&e.env?e.env.devicePixelRatio:null;return n&&(t=parseInt(n,10),Number.isNaN(t)&&(t=1)),t||window.devicePixelRatio||1}(),d=r.canvasWidth||i,v=r.canvasHeight||o,c.width=d*f,c.height=v*f,r.skipAutoScale||function(t){(t.width>l||t.height>l)&&(t.width>l&&t.height>l?t.width>t.height?(t.height*=l/t.width,t.width=l):(t.width*=l/t.height,t.height=l):t.width>l?(t.height*=l/t.width,t.width=l):(t.width*=l/t.height,t.height=l))}(c),c.style.width="".concat(d),c.style.height="".concat(v),r.backgroundColor&&(a.fillStyle=r.backgroundColor,a.fillRect(0,0,c.width,c.height)),a.drawImage(u,0,0,c.width,c.height),[2,c]}}))}))}t.getFontEmbedCSS=function(t,r){return void 0===r&&(r={}),e(this,void 0,void 0,(function(){return n(this,(function(e){return[2,Y(t,r)]}))}))},t.toBlob=function(t,r){return void 0===r&&(r={}),e(this,void 0,void 0,(function(){return n(this,(function(e){switch(e.label){case 0:return[4,et(t,r)];case 1:return[4,f(e.sent())];case 2:return[2,e.sent()]}}))}))},t.toCanvas=et,t.toJpeg=function(t,r){return void 0===r&&(r={}),e(this,void 0,void 0,(function(){return n(this,(function(e){switch(e.label){case 0:return[4,et(t,r)];case 1:return[2,e.sent().toDataURL("image/jpeg",r.quality||1)]}}))}))},t.toPixelData=function(t,r){return void 0===r&&(r={}),e(this,void 0,void 0,(function(){var e,i,o,u;return n(this,(function(n){switch(n.label){case 0:return e=s(t,r),i=e.width,o=e.height,[4,et(t,r)];case 1:return u=n.sent(),[2,u.getContext("2d").getImageData(0,0,i,o).data]}}))}))},t.toPng=function(t,r){return void 0===r&&(r={}),e(this,void 0,void 0,(function(){return n(this,(function(e){switch(e.label){case 0:return[4,et(t,r)];case 1:return[2,e.sent().toDataURL()]}}))}))},t.toSvg=tt}));
+
+</script>
+
+    <style>
+        :root {
+            --bg-main: #f1f5f9;
+            --bg-canvas: #ffffff;
+            --bg-card: #f8fafc;
+            --bg-card-hover: #f1f5f9;
+            --text-main: #0f172a;
+            --text-sub: #475569;
+            --text-muted: #94a3b8;
+            --border-color: #e2e8f0;
+            --accent: #2563eb;
+            --accent-light: #dbeafe;
+            --accent-text: #1d4ed8;
+            --badge-car-bg: #dcfce7;
+            --badge-car-text: #15803d;
+            --badge-warn-bg: #fef3c7;
+            --badge-warn-text: #b45309;
+            --heat-low: #eff6ff;
+            --heat-mid: #3b82f6;
+            --heat-high: #1e40af;
+            --heat-text-high: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-main: #020617;
+            --bg-canvas: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --text-main: #f8fafc;
+            --text-sub: #cbd5e1;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --accent: #38bdf8;
+            --accent-light: rgba(56, 189, 248, 0.15);
+            --accent-text: #7dd3fc;
+            --badge-car-bg: rgba(34, 197, 94, 0.2);
+            --badge-car-text: #4ade80;
+            --badge-warn-bg: rgba(245, 158, 11, 0.2);
+            --badge-warn-text: #fbbf24;
+            --heat-low: #1e293b;
+            --heat-mid: #0284c7;
+            --heat-high: #38bdf8;
+            --heat-text-high: #0f172a;
+        }
+
+        [data-theme="gold"] {
+            --bg-main: #ece8e1;
+            --bg-canvas: #faf8f5;
+            --bg-card: #f3efe6;
+            --bg-card-hover: #e8e2d5;
+            --text-main: #292524;
+            --text-sub: #57534e;
+            --text-muted: #a8a29e;
+            --border-color: #dcd6c8;
+            --accent: #b45309;
+            --accent-light: #fef3c7;
+            --accent-text: #92400e;
+            --badge-car-bg: #e0e7ff;
+            --badge-car-text: #3730a3;
+            --badge-warn-bg: #fee2e2;
+            --badge-warn-text: #991b1b;
+            --heat-low: #f5f5f4;
+            --heat-mid: #d97706;
+            --heat-high: #78350f;
+            --heat-text-high: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .ppt-canvas {
+            background-color: var(--bg-canvas);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+            transition: all 0.25s ease;
+        }
+
+        .ppt-canvas.ratio-16-9 {
+            max-width: 1600px;
+            min-height: 900px;
+        }
+
+        .ppt-canvas.ratio-4-3 {
+            max-width: 1280px;
+            min-height: 960px;
+        }
+
+        .theme-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+        }
+
+        .theme-border {
+            border-color: var(--border-color);
+        }
+
+        .theme-text-sub {
+            color: var(--text-sub);
+        }
+
+        .theme-text-muted {
+            color: var(--text-muted);
+        }
+
+        .theme-accent-bg {
+            background-color: var(--accent);
+            color: #fff;
+        }
+
+        .theme-accent-light {
+            background-color: var(--accent-light);
+            color: var(--accent-text);
+        }
+
+        .export-btn {
+            opacity: 0.25;
+            transition: opacity 0.2s;
+        }
+        .theme-card:hover .export-btn,
+        .ppt-canvas:hover .export-btn {
+            opacity: 1;
+        }
+    header.sticky {background:#dfeaf5;color:#193550;padding:14px 18px;border-color:#acbfd4}
+header.sticky [class*="bg-slate-8"],header.sticky input[type=number],.year-controls select {background:#fff;color:#193550;border-color:#a4b7c9}
+header.sticky [class*="text-slate-"],header.sticky #buildingTitleInput {color:#284661}
+header.sticky .text-xs,header.sticky select,header.sticky input {font-size:14px}
+header.sticky button,header.sticky select {min-height:36px}
+.year-controls {display:flex;align-items:center;gap:8px;font-weight:600}
+.year-controls select {border:1px solid #a4b7c9;padding:4px;border-radius:6px}
+#bubbleChartContainer {display:block}
+#bubbleChartContainer svg {display:block;width:100%;height:auto}
+.price-key {display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}
+.price-key div {border-left:3px solid var(--accent);padding:4px 8px;background:var(--bg-canvas)}
+.price-key strong,.price-key span {display:block}
+.price-key strong {color:var(--accent-text);font-size:18px}
+.price-key small,.price-key span {font-size:12px;color:var(--text-sub)}
+[data-theme="dark"] {--text-muted:#b7c9dd;--border-color:#516880;--heat-mid:#075985;--accent-light:#173957}
+[data-theme="dark"] .theme-accent-bg {color:#082638}
+[data-theme="dark"] .trade-card {background:#172b42;color:#f1f5f9}
+.controls {background:#f5f8fb;color:#223950;border-bottom:1px solid #b8c8d6;padding:0 clamp(12px,3vw,48px)}
+.control-row {max-width:1500px;margin:auto;display:flex;align-items:center;gap:14px;padding:12px 0;flex-wrap:wrap}
+.control-row+.control-row {border-top:1px solid #d1dce4}
+.controls input:not([type=checkbox]),.controls select,.controls button,.upload-action {font:inherit;border-radius:6px}
+.controls select,.controls input:not([type=checkbox]),#toggleLabelsBtn {background:white;color:#253c50;border:1px solid #b3c4d1;padding:6px 9px}
+.controls .title-control {display:flex;align-items:center;gap:10px;flex:1;min-width:220px;font-weight:600}
+.title-control input {min-width:0;flex:1}
+.upload-action,.save-action {padding:8px 15px;cursor:pointer;font-weight:700;background:#155873;color:white}
+.controls .save-action {background:#173b54}
+.settings {font-size:14px;gap:12px 20px}
+.settings>div {display:flex;align-items:center;gap:6px}
+.settings #carPriceInput {width:65px}
+.settings .ratio-btn {padding:6px 8px;color:#243f52;background:#e4ebf1}
+.settings [data-ratio].bg-blue-600 {color:white;background:#255f7a}
+.settings .ratio-btn:first-child {border-radius:5px}
+.bubble-tip {position:absolute;z-index:5;pointer-events:none;transform:translate(-50%,-100%);padding:6px 9px;border-radius:6px;background:#102d42;color:white;font-size:13px;white-space:nowrap}
+#module2 {align-self:start}
+#bubbleChartContainer {position:relative;height:360px;min-height:0;flex:none}
+#bubbleChartContainer.split {height:auto}
+.band-chart:empty {display:grid;place-items:center;color:var(--text-sub)}
+.band-chart:empty::after {content:"此組無成交紀錄"}
+#bubbleChartContainer svg {position:absolute;inset:0;width:100%;height:100%}
+.annual-control {align-self:flex-start;font-size:14px;font-weight:600;margin:6px 0}
+#module2.annual .theme-text-sub:has(.rounded-full) {display:none}
+.floor-more {width:100%;font-size:13px;color:var(--accent-text)}
+.floor-more summary {cursor:pointer;padding:4px}
+.floor-more[open] .closed-label,.floor-more:not([open]) .open-label {display:none}
+.band-chart {position:relative;height:280px;width:100%}
+#bubbleChartContainer > strong {display:block;margin:8px 0 2px;color:var(--accent-text)}
+#module4.hide-building .building-detail {display:none}
+.floor-mean {font-size:18px;font-weight:800;line-height:1.3;font-variant-numeric:tabular-nums}
+.door-label {display:inline-block;border:1px solid currentColor;border-radius:5px;padding:1px 5px;font-size:14px;font-weight:700;color:var(--text-main)}
+#doorFilters {display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:13px}
+#doorFilters button {padding:3px 9px;border:1px solid var(--border-color);border-radius:7px;color:var(--text-main)}
+#doorFilters button[aria-pressed=true] {background:var(--accent-text);color:var(--bg-canvas)}
+#module3 .floor-mean {font-size:17px;line-height:1.15;margin:4px 0 2px}
+#module3 .trade-card {min-width:min(100%,285px);overflow-x:auto}
+.trade-lines {white-space:nowrap}
+.trade-head {display:flex;align-items:center;gap:6px;font-size:12px}
+.trade-head strong {font-size:20px}
+.trade-head small,.trade-facts {font-size:11px}
+.trade-head .door-label {font-size:11px;padding:0 4px}
+/* Keep the report at a readable print width, independent of the toolbar. */
+main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
+#pptCanvas {min-width:1220px;margin-inline:auto;container-type:inline-size;padding:24px;gap:18px;transition:none;font-family:Inter,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-variant-numeric:tabular-nums;line-height:1.45}
+#pptCanvas.ratio-16-9 {width:1600px}
+#pptCanvas.ratio-4-3 {width:1280px}
+#pptCanvas:not(.ratio-16-9):not(.ratio-4-3) {max-width:1760px}
+#module1 > div:first-child > div {display:grid;gap:9px;width:100%}
+#displayBuildingTitle {font-size:28px;line-height:1.3;letter-spacing:-.02em;text-wrap:balance;overflow-wrap:anywhere}
+#buildingProfileBadges {gap:6px}
+#buildingProfileBadges span {line-height:1.55}
+#kpiGrid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+#kpiGrid > div {padding:14px 16px;gap:5px;border-radius:10px}
+#kpiGrid .text-3xl {font-size:clamp(22px,1.85cqw,30px);line-height:1.15;white-space:nowrap}
+#kpiGrid > div > div:last-child {flex-wrap:wrap;column-gap:8px;row-gap:3px}
+#kpiGrid > div > div:last-child span {white-space:nowrap}
+#pptCanvas > .grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+#module2,#module3 {grid-column:auto}
+#pptCanvas :is(#module2,#module3,#module4) {padding:16px;min-width:0;border-radius:12px}
+#pptCanvas h2 {font-size:17px;line-height:1.4}
+#module2 > div:first-child,#module3 > div:first-child {align-items:flex-start;flex-wrap:wrap;gap:6px 12px}
+#pptCanvas .annual-control {margin:5px 0}
+#doorFilters {gap:5px;margin:8px 0 12px}
+#doorFilters button,#module4 button,.settings label,.settings button {white-space:nowrap}
+#stackingPlanContainer {gap:8px;justify-content:flex-start}
+#stackingPlanContainer > div {padding:6px;gap:8px}
+#stackingPlanContainer > div > div:first-child {width:82px}
+#module3 .trade-card {flex:1 1 242px;min-width:min(100%,242px);padding:7px 9px}
+.trade-head {gap:6px}
+.trade-facts {line-height:1.55}
+#module4 > div:first-child {gap:8px 16px}
+#module4 table {font-size:12px;line-height:1.5}
+#module4 th,#module4 td {padding:8px 5px;vertical-align:middle}
+#module4 th {font-size:11px;letter-spacing:0;background:var(--bg-canvas);color:var(--text-sub)}
+#module4 td {border-bottom:1px solid var(--border-color)}
+#module4 tr:last-child td {border-bottom:none}
+#module4 td:nth-child(2) {max-width:15em;overflow-wrap:anywhere}
+#module4 td:nth-child(4) span {display:block;width:fit-content;white-space:nowrap}
+#module4 td:nth-child(5),#module4 td:nth-child(6),#module4 td:nth-child(7) {font-variant-numeric:tabular-nums}
+[data-theme="dark"] #pptCanvas {--text-muted:#b7c5d6}
+.control-row {gap:10px 16px}
+.controls .settings {row-gap:7px}
+.controls .settings input[type=checkbox],.annual-control input {accent-color:#1f6383}
+#module4 table {font-size:14px}
+#module4 th {font-size:13px}
+#module4 tbody td {font-size:14px}
+#module4 tbody td [class*="text-[1"], #module4 tbody td.building-detail {font-size:12px}
+#module4 > div:first-child > div {flex-wrap:wrap}
+.detail-switch {font-size:14px;white-space:nowrap;margin-right:8px}
+.full-actions {display:flex;gap:6px;flex-wrap:wrap}.full-actions button {white-space:nowrap}
+#copyDialog {position:fixed;inset:0;margin:auto;padding:24px;width:min(340px,90vw);border:1px solid #9bb1c5;border-radius:14px;color:#19344b;background:white;box-shadow:0 14px 54px #13273a40}
+#copyDialog::backdrop {background:#142b414f}
+#copyHeading {font-size:19px}
+#copyStage {margin:8px 0 14px}
+#copyProgress {width:100%;accent-color:#16749b}
+#copyProgress {appearance:none;border:0;border-radius:8px;overflow:hidden;height:9px;background:#dce6ed;color:#16749b}
+#copyProgress::-webkit-progress-bar {background:#dce6ed}
+#copyProgress::-webkit-progress-value {background:repeating-linear-gradient(110deg,#197caa 0 9px,#3399be 9px 18px);background-size:38px 100%;animation:copy-moving 1s linear infinite}
+#copyProgress::-moz-progress-bar {background:#197caa}
+@keyframes copy-moving {to {background-position:38px 0}}
+#copyDialog[data-state="success"] strong {color:#147245}
+#copyDialog[data-state="success"] progress::-webkit-progress-value {background:#198754;animation:none}
+#copyDialog[data-state="success"] progress::-moz-progress-bar {background:#198754}
+@media(prefers-reduced-motion:reduce){#copyProgress::-webkit-progress-value{animation:none}}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- 頂部控制列 -->
+    <header class="controls">
+      <div class="control-row">
+        <label class="upload-action">匯入 Excel<input type="file" id="excelUpload" accept=".xls,.xlsx" hidden></label>
+        <label class="title-control">簡報標題<input id="buildingTitleInput" value="中央商業｜松山區復興北路１８１號｜實價登錄行情分析"></label>
+        <div class="full-actions"><button class="save-action" onclick="exportElement('pptCanvas','實價登錄簡報圖表')">匯出全頁 PNG</button> <button type="button" class="save-action" onclick="copyImage('pptCanvas')" title="複製全頁圖片">複製全頁圖片</button></div>
+      </div>
+      <div class="control-row settings">
+        <div><label>民國年份 <select id="fromYear"></select></label> 至 <select aria-label="民國迄年" id="toYear"></select></div>
+        <div><label>成交樓層 <select aria-label="起始樓層" id="fromFloor"></select></label> 至 <select aria-label="截止樓層" id="toFloor"></select></div>
+        <div><label title="限車位價格未拆且車位面積大於零的案件"><input type="checkbox" id="deductCarToggle" checked> 推估車位價</label> <input aria-label="每個車位預設價" type="number" id="carPriceInput" min="0" step="1"> 萬／個</div>
+        <label><input type="checkbox" id="excludeFirstFloor" checked> 排除一樓</label>
+        <div><button id="toggleLabelsBtn"><i class="fa-solid fa-tag"></i> <span>數據標籤: 顯示</span></button></div>
+        <div class="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700 text-xs">
+                    <button data-ratio="16-9" class="ratio-btn px-2 py-1 rounded-md bg-blue-600 text-white font-medium">16:9</button>
+                    <button data-ratio="4-3" class="ratio-btn px-2 py-1 rounded-md text-slate-300 hover:text-white">4:3</button>
+                    <button data-ratio="auto" class="ratio-btn px-2 py-1 rounded-md text-slate-300 hover:text-white">自適應</button>
+                </div>
+
+                <select id="themeSelect" class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-white focus:outline-none cursor-pointer">
+                    <option value="light">專業商務白</option>
+                    <option value="dark">深邃科技藍</option>
+                    <option value="gold">溫潤大地金</option>
+                </select>
+      </div>
+    </header>
+    <dialog id="copyDialog" aria-labelledby="copyHeading">
+        <strong id="copyHeading">正在複製圖片</strong>
+        <p id="copyStage" role="status"></p>
+        <progress id="copyProgress" aria-label="產圖進度"></progress>
+    </dialog>
+
+    <!-- 狀態通知 Toast -->
+    <div id="statusToast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-lg border border-slate-700 text-sm flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="statusToastText">已載入資料</span>
+    </div>
+
+    <!-- PPT 簡報主畫布 -->
+    <main class="flex-1 p-4 md:p-6 flex justify-center items-start overflow-x-auto">
+        <div id="pptCanvas" class="ppt-canvas ratio-16-9 w-full rounded-2xl p-6 md:p-8 flex flex-col gap-5 relative">
+
+            <!-- 模組 1：頂部標題與 4 大核心 KPI 卡 -->
+            <section id="module1" class="flex flex-col gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b theme-border">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h1 id="displayBuildingTitle" class="text-2xl md:text-3xl font-black tracking-tight">
+                            中央商業｜松山區復興北路１８１號｜實價登錄行情分析
+                        </h1>
+                        <div id="buildingProfileBadges" class="flex items-center gap-2 flex-wrap text-xs font-semibold"></div>
+                    </div>
+                </div>
+
+                <!-- 4 張精簡 KPI 卡 -->
+                <div id="kpiGrid" class="grid grid-cols-2 lg:grid-cols-4 gap-3.5"></div>
+            </section>
+
+            <!-- 中段雙欄：模組 2 (歷年走勢與坪數氣泡圖) + 模組 3 (垂直樓層行情剖面圖) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+
+                <!-- 模組 2：歷年價格走勢與面積氣泡圖 (佔 6 欄) -->
+                <section id="module2" class="lg:col-span-6 theme-card rounded-xl p-4 flex flex-col justify-between relative">
+                    <div class="flex items-center justify-between mb-1">
+                        <h2 class="text-base font-extrabold tracking-tight flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-blue-500"></i>
+                            <span>歷年成交單價走勢與坪數氣泡圖</span>
+                        </h2>
+                        <div class="flex items-center gap-3 text-xs">
+                            <span class="flex items-center gap-1 font-medium theme-text-sub">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span>高樓層
+                            </span>
+                            <span class="flex items-center gap-1 font-medium theme-text-sub">
+                                <span class="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block"></span>中樓層
+                            </span>
+                            <span class="flex items-center gap-1 font-medium theme-text-sub">
+                                <span class="w-2.5 h-2.5 rounded-full bg-teal-500 inline-block"></span>低樓層
+                            </span>
+                            <button onclick="exportElement('module2', '歷年價格走勢氣泡圖')" title="匯出此圖表 PNG" class="export-btn px-2 py-0.5 rounded border theme-border">
+                                <i class="fa-solid fa-download"></i>
+                            </button> <button type="button" class="export-btn px-2 py-1 rounded border theme-border" onclick="copyImage('module2')" title="複製此區圖片">複製</button>
+                        </div>
+                    </div>
+
+                    <label class="annual-control"><input type="checkbox" id="annualAverage" checked> 年度平均單價</label> <label class="annual-control"><input type="checkbox" id="splitBands"> 依高、中、低樓層分圖</label>
+                    <div id="bubbleChartContainer" class="w-full flex-1 min-h-[290px] flex items-center justify-center relative"></div>
+                </section>
+
+                <!-- 模組 3：大樓垂直樓層行情剖面圖 (只顯示有成交的樓層) (佔 6 欄) -->
+                <section id="module3" class="lg:col-span-6 theme-card rounded-xl p-4 flex flex-col justify-between relative">
+                    <div class="flex items-center justify-between mb-1">
+                        <h2 class="text-base font-extrabold tracking-tight flex items-center gap-2">
+                            <i class="fa-solid fa-building text-blue-500"></i>
+                            <span>大樓垂直樓層行情剖面圖（依成交樓層排序）</span>
+                        </h2>
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="theme-text-sub font-medium">單價熱力：</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-low); color: var(--text-main); border: 1px solid var(--border-color);">低</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-mid); color: #fff;">中</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-high); color: var(--heat-text-high);">高</span>
+                            <button onclick="exportElement('module3', '垂直樓層行情剖面圖')" title="匯出此圖表 PNG" class="export-btn px-2 py-0.5 rounded border theme-border">
+                                <i class="fa-solid fa-download"></i>
+                            </button> <button type="button" class="export-btn px-2 py-1 rounded border theme-border" onclick="copyImage('module3')" title="複製此區圖片">複製</button>
+                        </div>
+                    </div>
+
+                    <div id="doorFilters" role="group" aria-label="剖面圖門牌篩選"></div>
+                    <div id="stackingPlanContainer" class="flex-1 flex flex-col justify-center gap-2 my-1"></div>
+                </section>
+            </div>
+
+            <!-- 模組 4：四分頁序號關聯明細表 -->
+            <section id="module4" class="hide-building theme-card rounded-xl p-4 flex flex-col gap-2.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-base font-extrabold tracking-tight flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-blue-500"></i>
+                        <span>實價登錄交易明細總表</span>
+                    </h2>
+
+                    <div class="flex items-center gap-1.5 text-xs">
+                        <label class="detail-switch"><input type="checkbox" id="showBuildingDetails"> 顯示建物明細</label>
+                        <span class="theme-text-sub font-medium mr-1">排序：</span>
+                        <button onclick="setSort('seq')" id="sort-seq" class="sort-btn px-2.5 py-1 rounded-md font-bold theme-accent-bg">
+                            序號
+                        </button>
+                        <button onclick="setSort('date')" id="sort-date" class="sort-btn px-2.5 py-1 rounded-md font-semibold border theme-border hover:opacity-80">
+                            交易日期
+                        </button>
+                        <button onclick="setSort('floor')" id="sort-floor" class="sort-btn px-2.5 py-1 rounded-md font-semibold border theme-border hover:opacity-80">
+                            樓層高低
+                        </button>
+                        <button onclick="setSort('unitPrice')" id="sort-unitPrice" class="sort-btn px-2.5 py-1 rounded-md font-semibold border theme-border hover:opacity-80">
+                            成交單價
+                        </button>
+                        <button onclick="exportElement('module4', '實價登錄明細表')" title="匯出明細表 PNG" class="export-btn ml-2 px-2 py-1 rounded border theme-border">
+                            <i class="fa-solid fa-download"></i>
+                        </button> <button type="button" class="export-btn px-2 py-1 rounded border theme-border" onclick="copyImage('module4')" title="複製此區圖片">複製</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b-2 theme-border text-[11px] font-bold uppercase tracking-wider theme-text-sub">
+                                <th class="py-2 px-2 text-center">序號</th>
+                                <th class="py-2 px-2">門牌地址</th>
+                                <th class="py-2 px-2">交易日期</th>
+                                <th class="py-2 px-2">成交樓層</th>
+                                <th class="py-2 px-2 text-right">單價 (萬/坪)</th>
+                                <th class="py-2 px-2 text-right">總價 (萬元)</th>
+                                <th class="py-2 px-2 text-right">建坪總計</th>
+                                <th class="building-detail py-2 px-2 text-right">建物明細（依主要用途加總）</th>
+                                <th class="py-2 px-2 text-right">土地持分 (筆數)</th>
+                                <th class="py-2 px-2">車位明細 (數量 / 類型 / 車位價 / 面積)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody" class="divide-y theme-border text-xs font-medium"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        // =========================================================================
+        // 預設資料取自中央商業.xls 的四個分頁。
+        let currentRawData = {
+  "main": [
+    {
+      "seq": 1,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號九樓之１",
+      "date": "114/10/23",
+      "completeDate": "-",
+      "floorStr": "九層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "76.36%",
+      "totalPriceWan": 5600,
+      "unitPriceWan": 89.34,
+      "totalAreaPing": 62.68,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "1"
+    },
+    {
+      "seq": 2,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號十四樓",
+      "date": "114/04/09",
+      "completeDate": "-",
+      "floorStr": "十四層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "66.53%",
+      "totalPriceWan": 10600,
+      "unitPriceWan": 87.26,
+      "totalAreaPing": 121.47,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "有租約",
+      "code": "2"
+    },
+    {
+      "seq": 3,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號十三樓",
+      "date": "112/09/20",
+      "completeDate": "-",
+      "floorStr": "十三層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "83.18%",
+      "totalPriceWan": 8300,
+      "unitPriceWan": 68.45,
+      "totalAreaPing": 121.26,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 600,
+      "note": "",
+      "code": "3"
+    },
+    {
+      "seq": 4,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號九樓之３",
+      "date": "111/12/12",
+      "completeDate": "-",
+      "floorStr": "九層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "77.35%",
+      "totalPriceWan": 6336,
+      "unitPriceWan": 82.98,
+      "totalAreaPing": 76.35,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "4"
+    },
+    {
+      "seq": 5,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號三樓之２",
+      "date": "111/08/01",
+      "completeDate": "-",
+      "floorStr": "三層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "76.36%",
+      "totalPriceWan": 5407.72,
+      "unitPriceWan": 86.27,
+      "totalAreaPing": 62.68,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "5"
+    },
+    {
+      "seq": 6,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號十二樓",
+      "date": "110/07/02",
+      "completeDate": "-",
+      "floorStr": "十二層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "80.09%",
+      "totalPriceWan": 7700,
+      "unitPriceWan": 76.01,
+      "totalAreaPing": 101.3,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "6"
+    },
+    {
+      "seq": 7,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "復興北路１８１號十樓之２",
+      "date": "109/05/07",
+      "completeDate": "-",
+      "floorStr": "十層",
+      "totalFloors": "15",
+      "buildingCount": 2,
+      "mainAreaShare": "83.64%",
+      "totalPriceWan": 10080,
+      "unitPriceWan": 75.62,
+      "totalAreaPing": 140.25,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 350,
+      "note": "陽臺外推;",
+      "code": "7"
+    },
+    {
+      "seq": 8,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "復興北路１８１號二樓之３",
+      "date": "109/05/11",
+      "completeDate": "-",
+      "floorStr": "二層",
+      "totalFloors": "15",
+      "buildingCount": 2,
+      "mainAreaShare": "78.61%",
+      "totalPriceWan": 10311,
+      "unitPriceWan": 69.74,
+      "totalAreaPing": 147.85,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "8"
+    },
+    {
+      "seq": 9,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號７樓之５",
+      "date": "108/05/11",
+      "completeDate": "-",
+      "floorStr": "七層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "",
+      "totalPriceWan": 3880,
+      "unitPriceWan": 77.67,
+      "totalAreaPing": 49.95,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "含增建或未登記建物。",
+      "code": "9"
+    },
+    {
+      "seq": 10,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號１４樓之３",
+      "date": "105/09/17",
+      "completeDate": "-",
+      "floorStr": "十四層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "",
+      "totalPriceWan": 6100,
+      "unitPriceWan": 79.87,
+      "totalAreaPing": 76.38,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "含增建或未登記建物。含無產權車位。含增建或未登記建物。;",
+      "code": "10"
+    },
+    {
+      "seq": 11,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區松基里復興北路１８１號７樓之２",
+      "date": "104/09/15",
+      "completeDate": "-",
+      "floorStr": "七層",
+      "totalFloors": "15",
+      "buildingCount": 2,
+      "mainAreaShare": "",
+      "totalPriceWan": 4760,
+      "unitPriceWan": 65.51,
+      "totalAreaPing": 72.66,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "親友、員工或其他特殊關係間之交易。親友、員工或其他特殊關係間之交易。;",
+      "code": "11"
+    },
+    {
+      "seq": 12,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號十三樓",
+      "date": "104/07/22",
+      "completeDate": "-",
+      "floorStr": "十三層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "",
+      "totalPriceWan": 8280,
+      "unitPriceWan": 68.28,
+      "totalAreaPing": 121.26,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "12"
+    },
+    {
+      "seq": 13,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號五樓之４",
+      "date": "102/10/29",
+      "completeDate": "-",
+      "floorStr": "五層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "",
+      "totalPriceWan": 5200,
+      "unitPriceWan": 68.1,
+      "totalAreaPing": 76.35,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "13"
+    },
+    {
+      "seq": 14,
+      "primaryUse": "商業用",
+      "community": "中央商業",
+      "address": "松山區復興北路１８１號１２樓",
+      "date": "101/08/22",
+      "completeDate": "-",
+      "floorStr": "十二層",
+      "totalFloors": "15",
+      "buildingCount": 1,
+      "mainAreaShare": "",
+      "totalPriceWan": 6788,
+      "unitPriceWan": 67.01,
+      "totalAreaPing": 101.3,
+      "landAreaPing": 0,
+      "carCountDesc": "",
+      "carAreaPing": 0,
+      "carPriceWan": 0,
+      "note": "",
+      "code": "14"
+    }
+  ],
+  "lands": [
+    {
+      "seq": 1,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 3.94,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 1,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.03,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 1,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 1.48,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 1,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.3,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 2,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 7.05,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 2,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.05,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 2,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 2.56,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 2,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 1.93,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 3,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 7.07,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 3,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.05,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 3,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 2.56,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 3,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 1.93,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 4,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 1.52,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 4,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.07,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 4,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 5,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 4,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.44,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 5,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 2.97,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 5,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 5,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 2.49,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 5,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.04,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 6,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 6.65,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 6,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.03,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 6,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 2.72,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 6,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.3,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 7,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 0.54,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 7,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.04,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 7,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 8.33,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 7,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 3.7,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 8,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 0.06,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區及第參之貳種住宅區)。"
+    },
+    {
+      "seq": 8,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.01,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參之貳種住宅區及第貳種商業區)。"
+    },
+    {
+      "seq": 8,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 13.8,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第貳種商業區)。"
+    },
+    {
+      "seq": 8,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.06,
+      "ratio": "",
+      "zone": "第參種商業區(依都市計畫說明書圖規定辦理，始得作第參種商業區使用)(原屬第參種住宅區)。"
+    },
+    {
+      "seq": 9,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 3.02,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 9,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.03,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 9,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 1.22,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 9,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.3,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 10,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 1.49,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 10,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.07,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 10,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 4.94,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 10,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.43,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 11,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 1.35,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 11,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 11,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 4.18,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 11,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.05,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 12,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 7.07,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 12,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.05,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 12,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 2.56,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 12,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 1.93,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 13,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 1.67,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 13,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.07,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 13,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 4.94,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 13,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.44,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 14,
+      "parcel": "敦化段一小段342地號",
+      "areaPing": 6.65,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 14,
+      "parcel": "敦化段一小段351地號",
+      "areaPing": 0.03,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 14,
+      "parcel": "敦化段一小段352地號",
+      "areaPing": 2.72,
+      "ratio": "",
+      "zone": "商"
+    },
+    {
+      "seq": 14,
+      "parcel": "敦化段一小段361-2地號",
+      "areaPing": 0.3,
+      "ratio": "",
+      "zone": "商"
+    }
+  ],
+  "buildings": [
+    {
+      "seq": 1,
+      "age": "40",
+      "areaPing": 50.48,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "九層,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 1,
+      "age": "40",
+      "areaPing": 12.21,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 2,
+      "age": "39",
+      "areaPing": 80.81,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十四層,十四層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 2,
+      "age": "39",
+      "areaPing": 19.73,
+      "use": "防空避難室兼停車場",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 2,
+      "age": "39",
+      "areaPing": 20.7,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 2,
+      "age": "39",
+      "areaPing": 0.23,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 3,
+      "age": "38",
+      "areaPing": 81.14,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十三層,十三層,十三層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 3,
+      "age": "38",
+      "areaPing": 19.73,
+      "use": "防空避難室兼停車場",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 3,
+      "age": "38",
+      "areaPing": 20.17,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 3,
+      "age": "38",
+      "areaPing": 0.23,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 4,
+      "age": "37",
+      "areaPing": 60.96,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "九層,九層,九層,九層,陽臺,陽臺,陽臺,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 4,
+      "age": "37",
+      "areaPing": 15.39,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 5,
+      "age": "36",
+      "areaPing": 50.48,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "三層,三層,三層,三層,三層,陽臺,陽臺,陽臺,陽臺,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 5,
+      "age": "36",
+      "areaPing": 12.21,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 6,
+      "age": "35",
+      "areaPing": 81.14,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十二層,十二層,十二層,十二層,十二層,十二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 6,
+      "age": "35",
+      "areaPing": 20.17,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽台,陽台,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 7,
+      "age": "34",
+      "areaPing": 53.61,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十層,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 7,
+      "age": "34",
+      "areaPing": 50.48,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十層,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 7,
+      "age": "34",
+      "areaPing": 11.43,
+      "use": "防空避難室兼停車場",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 7,
+      "age": "34",
+      "areaPing": 12.38,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 7,
+      "age": "34",
+      "areaPing": 12.21,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 7,
+      "age": "34",
+      "areaPing": 0.13,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 8,
+      "age": "34",
+      "areaPing": 57.16,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "二層,二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 8,
+      "age": "34",
+      "areaPing": 60.96,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "二層,二層,陽臺,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 8,
+      "age": "34",
+      "areaPing": 14.68,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,二層,三層,四層,五層,六層,七層,八層,九層,十層,十一層,十二層,十三層,十四層,十五層,陽臺,屋頂突出物,騎樓,地下一層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 8,
+      "age": "34",
+      "areaPing": 15.04,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 9,
+      "age": "33",
+      "areaPing": 39.87,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "七層,七層,七層,陽臺,陽臺,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 9,
+      "age": "33",
+      "areaPing": 10.08,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 10,
+      "age": "31",
+      "areaPing": 60.19,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十四層,十四層,十四層,十四層,陽臺,陽臺,陽臺,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 10,
+      "age": "31",
+      "areaPing": 16.19,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 11,
+      "age": "30",
+      "areaPing": 50.48,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "七層,七層,七層,七層,七層,陽臺,陽臺,陽臺,陽臺,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 11,
+      "age": "30",
+      "areaPing": 12.21,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 11,
+      "age": "30",
+      "areaPing": 9.86,
+      "use": "見使用執照",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 11,
+      "age": "30",
+      "areaPing": 0.12,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 12,
+      "age": "29",
+      "areaPing": 81.14,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十三層,十三層,十三層,十三層,十三層,十三層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 12,
+      "age": "29",
+      "areaPing": 20.17,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 12,
+      "age": "29",
+      "areaPing": 19.73,
+      "use": "見使用執照",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 12,
+      "age": "29",
+      "areaPing": 0.23,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 13,
+      "age": "28",
+      "areaPing": 60.96,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "五層,五層,五層,五層,五層,五層,五層,陽臺,陽臺,陽臺,陽臺,陽臺,陽臺,陽臺",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 13,
+      "age": "28",
+      "areaPing": 15.39,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 14,
+      "age": "27",
+      "areaPing": 81.14,
+      "use": "商業用",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "十二層,十二層,十二層,十二層,十二層,十二層,十二層,十二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    },
+    {
+      "seq": 14,
+      "age": "27",
+      "areaPing": 20.17,
+      "use": "共同使用部分",
+      "material": "鋼筋混凝土造",
+      "buildDate": "075/02",
+      "totalFloors": "十五層",
+      "floor": "一層,一層,二層,二層,三層,三層,四層,四層,五層,五層,六層,六層,七層,七層,八層,八層,九層,九層,十層,十層,十一層,十一層,十二層,十二層,十三層,十三層,十四層,十四層,十五層,十五層,陽臺,陽臺,屋頂突出物,屋頂突出物,騎樓,騎樓,地下一層,地下一層,地下二層,地下二層",
+      "subUse": "",
+      "subAreaPing": 0,
+      "pubAreaPing": 0
+    }
+  ],
+  "cars": [
+    {
+      "seq": 2,
+      "type": "坡道平面",
+      "priceWan": 0,
+      "areaPing": 0,
+      "floor": "地下二樓"
+    },
+    {
+      "seq": 2,
+      "type": "坡道平面",
+      "priceWan": 0,
+      "areaPing": 0,
+      "floor": "地下二樓"
+    },
+    {
+      "seq": 3,
+      "type": "坡道平面",
+      "priceWan": 300,
+      "areaPing": 0,
+      "floor": "地下二樓"
+    },
+    {
+      "seq": 3,
+      "type": "坡道平面",
+      "priceWan": 300,
+      "areaPing": 0,
+      "floor": "地下二樓"
+    },
+    {
+      "seq": 7,
+      "type": "坡道平面",
+      "priceWan": 350,
+      "areaPing": 11.57,
+      "floor": "地下二樓"
+    },
+    {
+      "seq": 11,
+      "type": "坡道平面",
+      "priceWan": 0,
+      "areaPing": 9.98,
+      "floor": ""
+    },
+    {
+      "seq": 12,
+      "type": "坡道平面",
+      "priceWan": 0,
+      "areaPing": 0,
+      "floor": ""
+    },
+    {
+      "seq": 12,
+      "type": "坡道平面",
+      "priceWan": 0,
+      "areaPing": 0,
+      "floor": ""
+    }
+  ]
+};
+        let processedRecords = [];
+        let state = {
+            deductCarWhenZero: true,
+            defaultCarPriceWan: 0,
+            showStaticLabels: true,
+            sortBy: 'seq',
+            sortDesc: false
+        };
+
+        // 樓層解析：支援 "12", "08,09", "05,B01", "05", "14" 或中文樓層
+        function parseFloorInfo(floorStr) {
+            const raw = String(floorStr ?? '').trim();
+            const floors = [];
+            const digits = '零一二三四五六七八九';
+            for (const part of raw.normalize('NFKC').split(/[,、/]/)) {
+                const match = part.trim().match(/^(B|地下)?(\d+|[一二三四五六七八九]?十[一二三四五六七八九]?|[一二三四五六七八九])(?:樓|層|F)?$/i);
+                if (!match) continue;
+                const token = match[2];
+                let n = Number(token);
+                if (Number.isNaN(n)) {
+                    const [tens, units] = token.split('十');
+                    n = units === undefined ? digits.indexOf(token)
+                        : (tens ? digits.indexOf(tens) : 1) * 10 + (units ? digits.indexOf(units) : 0);
+                }
+                const floor = match[1] ? -n : n;
+                if (!floors.includes(floor)) floors.push(floor);
+            }
+            return {num: floors[0] ?? null, floors, raw,
+                label: floors.map(n => n < 0 ? 'B' + -n : n + 'F').join('、') || '樓層未明'};
+        }
+
+        // 解析民國日期 "1141114" -> { year: 114, month: 11, day: 14, display: "114/11/14", short: "114/11", sortVal: 1141114 }
+        function parseRocDate(dateVal) {
+            const s = String(dateVal || '').replace(/[^0-9]/g, '').trim();
+            if (s.length === 7) {
+                const y = parseInt(s.slice(0, 3), 10);
+                const m = parseInt(s.slice(3, 5), 10);
+                const d = parseInt(s.slice(5, 7), 10);
+                return {
+                    year: y,
+                    month: m,
+                    day: d,
+                    display: `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`,
+                    short: `${y}/${String(m).padStart(2, '0')}`,
+                    sortVal: parseInt(s, 10),
+                    numericYear: y + (m - 0.5) / 12
+                };
+            }
+            if (s.length === 6) {
+                const y = parseInt(s.slice(0, 2), 10);
+                const m = parseInt(s.slice(2, 4), 10);
+                const d = parseInt(s.slice(4, 6), 10);
+                return {
+                    year: y,
+                    month: m,
+                    day: d,
+                    display: `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`,
+                    short: `${y}/${String(m).padStart(2, '0')}`,
+                    sortVal: parseInt(s, 10),
+                    numericYear: y + (m - 0.5) / 12
+                };
+            }
+            return { year: 110, month: 1, day: 1, display: String(dateVal || '-'), short: '-', sortVal: 0, numericYear: 110 };
+        }
+
+        // =========================================================================
+        // 2. 依「序號」關聯四個分頁並計算欄位
+        // =========================================================================
+        function processAllData(raw) {
+            // 依序號建立土地、建物、車位索引
+            const landBySeq = {};
+            (raw.lands || []).forEach(l => {
+                if (!landBySeq[l.seq]) landBySeq[l.seq] = [];
+                landBySeq[l.seq].push(l);
+            });
+
+            const bldgBySeq = {};
+            (raw.buildings || []).forEach(b => {
+                if (!bldgBySeq[b.seq]) bldgBySeq[b.seq] = [];
+                bldgBySeq[b.seq].push(b);
+            });
+
+            const carBySeq = {};
+            (raw.cars || []).forEach(c => {
+                if (!carBySeq[c.seq]) carBySeq[c.seq] = [];
+                carBySeq[c.seq].push(c);
+            });
+
+            return (raw.main || []).map(item => {
+                const seq = item.seq;
+                const lands = landBySeq[seq] || [];
+                const bldgs = bldgBySeq[seq] || [];
+                const cars = carBySeq[seq] || [];
+
+                const dateInfo = parseRocDate(item.date);
+                const floorInfo = parseFloorInfo(item.floorStr);
+
+                // 統計建物明細 (主建物、陽台、公設)
+                const areaByUse = new Map();
+                let bldgTotalArea = 0;
+                let subAreaPing = 0;
+                let pubAreaPing = 0;
+                bldgs.forEach(b => {
+                    const use = b.use || '用途未列';
+                    areaByUse.set(use, (areaByUse.get(use) || 0) + Number(b.areaPing || 0));
+                    bldgTotalArea += Number(b.areaPing || 0);
+                    subAreaPing += Number(b.subAreaPing || 0);
+                    pubAreaPing += Number(b.pubAreaPing || 0);
+                });
+
+                const totalAreaPing = Number(item.totalAreaPing || bldgTotalArea || 0);
+                const carAreaPing = Number(item.carAreaPing || cars.reduce((s, c) => s + Number(c.areaPing || 0), 0));
+                // 主建物坪數 = 總建坪 - 陽台 - 公設(含車位)
+                const mainAreaPing = Math.max(0, totalAreaPing - subAreaPing - pubAreaPing);
+
+                // 車位統計
+                const carCount = cars.length;
+                const carType = cars.length > 0 ? cars[0].type : (item.carCountDesc && item.carCountDesc !== '0個' ? item.carCountDesc : '');
+                const carFloors = [...new Set(cars.map(c => c.floor).filter(Boolean))].join('、');
+                const recordedCarPriceWan = Number(item.carPriceWan || cars.reduce((s, c) => s + Number(c.priceWan || 0), 0));
+
+                // 單價計算：預設採用表格內的單價 (萬/坪)
+                let finalUnitPriceWan = Number(item.unitPriceWan || 0);
+                let isCarAdjusted = false;
+                let effectiveCarPriceWan = recordedCarPriceWan;
+
+                // 若勾選「車位價格未拆且面積大於零時重算單價」，且該筆有車位但車位價為0
+                if (state.deductCarWhenZero && state.defaultCarPriceWan > 0 && carCount > 0 && carAreaPing > 0 && recordedCarPriceWan === 0) {
+                    effectiveCarPriceWan = state.defaultCarPriceWan * carCount;
+                    const netPriceWan = Math.max(0, Number(item.totalPriceWan) - effectiveCarPriceWan);
+                    const netAreaPing = Math.max(1, totalAreaPing - carAreaPing);
+                    finalUnitPriceWan = netPriceWan / netAreaPing;
+                    isCarAdjusted = true;
+                }
+
+                // 土地持分統計
+                const landAreaPing = Number(item.landAreaPing || lands.reduce((s, l) => s + Number(l.areaPing || 0), 0));
+                const landZone = lands[0]?.zone || '分區未提供';
+
+                return {
+                    seq,
+                    address: item.address,
+                    dateInfo,
+                    completeDate: (item.completeDate && item.completeDate !== '-') ? item.completeDate : bldgs[0]?.buildDate,
+                    areaByUse,
+                    floorInfo,
+                    totalFloors: item.totalFloors || '—',
+                    totalPriceWan: Number(item.totalPriceWan || 0),
+                    origUnitPriceWan: Number(item.unitPriceWan || 0),
+                    unitPriceWan: finalUnitPriceWan,
+                    totalAreaPing,
+                    mainAreaPing,
+                    subAreaPing,
+                    pubAreaPing,
+                    carAreaPing,
+                    landAreaPing,
+                    landCount: lands.length,
+                    landZone,
+                    bldgCount: item.buildingCount ?? bldgs.length,
+                    bldgUse: item.primaryUse || '用途未提供',
+                    bldgMaterial: bldgs[0]?.material || '鋼骨鋼筋混凝土造',
+                    carCount,
+                    carType,
+                    carFloors,
+                    cars,
+                    reportedParkingTotal: Number(item.carPriceWan || 0),
+                    recordedCarPriceWan,
+                    effectiveCarPriceWan,
+                    isCarAdjusted,
+                    note: item.note || ''
+                };
+            });
+        }
+
+        // =========================================================================
+        // 3. 視覺渲染函數 (KPI 卡、氣泡圖、垂直剖面圖、關聯明細表)
+        // =========================================================================
+        const fromYear = document.getElementById('fromYear');
+        const toYear = document.getElementById('toYear');
+        const excludeFirstFloor = document.getElementById('excludeFirstFloor');
+        excludeFirstFloor.addEventListener('change', renderAll);
+        const fromFloor = document.getElementById('fromFloor');
+        const toFloor = document.getElementById('toFloor');
+        function resetYears(raw) {
+            selectedDoors.clear();
+            const years = [...new Set(raw.main.map(row => parseRocDate(row.date))
+                .filter(date => date.sortVal > 0).map(date => date.year))].sort((a,b) => a-b);
+            for (const select of [fromYear, toYear]) {
+                select.replaceChildren(...years.map(year => new Option(year + ' 年', year)));
+                select.disabled = !years.length;
+            }
+            const floors = [...new Set(raw.main.flatMap(row => parseFloorInfo(row.floorStr).floors || []))].sort((a,b) => a-b);
+            for (const select of [fromFloor,toFloor]) {
+                select.replaceChildren(new Option('不限',''), ...floors.map(n => new Option(n < 0 ? 'B' + -n : n + ' 樓', n)));
+            }
+            toYear.selectedIndex = years.length - 1;
+        }
+        for (const [low, high] of [[fromYear,toYear],[fromFloor,toFloor]]) {
+            for (const select of [low, high]) {
+                select.addEventListener('change', () => {
+                    if (low.value && high.value && +low.value > +high.value) {
+                        (select === low ? high : low).value = select.value;
+                    }
+                    renderAll();
+                });
+            }
+        }
+
+        function renderAll() {
+            processedRecords = processAllData(currentRawData).filter(r => !fromYear.value || (r.dateInfo.year >= +fromYear.value && r.dateInfo.year <= +toYear.value));
+            if (excludeFirstFloor.checked) {
+                processedRecords = processedRecords.filter(r => !r.floorInfo.floors.includes(1));
+            }
+            if (fromFloor.value || toFloor.value) {
+                const low = fromFloor.value ? Number(fromFloor.value) : -Infinity;
+                const high = toFloor.value ? Number(toFloor.value) : Infinity;
+                processedRecords = processedRecords.filter(r => r.floorInfo.floors?.some(n => n >= low && n <= high));
+            }
+            if (!processedRecords.length) {
+                for (const id of ['buildingProfileBadges','bubbleChartContainer','doorFilters','stackingPlanContainer','transactionTableBody']) document.getElementById(id).replaceChildren();
+                document.getElementById('kpiGrid').textContent = '所選年份與樓層沒有成交紀錄';
+                return;
+            }
+
+            renderBuildingBadges();
+            renderKPICards();
+            renderBubbleChart();
+            renderStackingPlan();
+            renderTable();
+        }
+
+        function renderBuildingBadges() {
+            const r0 = processedRecords[0];
+            // 計算屋齡 (民國115年 - 建築完成087年 = 28年)
+            let ageStr = '完工年月未提供';
+            const completeRec = processedRecords.find(r => r.completeDate && r.completeDate.length >= 6);
+            if (completeRec) {
+                const cy = parseInt(completeRec.completeDate.slice(0, 3), 10);
+                if (!isNaN(cy)) ageStr = `屋齡約 ${new Date().getFullYear() - 1911 - cy} 年 (${cy}年完工)`;
+            }
+
+            const container = document.getElementById('buildingProfileBadges');
+            container.innerHTML = `
+                <span class="px-2.5 py-1 rounded-full theme-accent-light"><i class="fa-solid fa-location-dot mr-1"></i>${r0.address.match(/^.*?(?:區|鄉|鎮)/)?.[0] || '行政區未提供'}</span>
+                <span class="px-2.5 py-1 rounded-full theme-card">總樓高 ${r0.totalFloors}F</span>
+                <span class="px-2.5 py-1 rounded-full theme-card">${ageStr}</span>
+                <span class="px-2.5 py-1 rounded-full theme-card">${r0.landZone}</span>
+                <span class="px-2.5 py-1 rounded-full theme-card">${r0.bldgMaterial}｜<span data-primary-use></span></span>
+            `;
+            container.querySelector('[data-primary-use]').textContent = r0.bldgUse;
+        }
+
+        function renderKPICards() {
+            const prices = processedRecords.map(r => r.unitPriceWan);
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            const minRec = processedRecords.reduce((prev, curr) => curr.unitPriceWan < prev.unitPriceWan ? curr : prev, processedRecords[0]);
+            const maxRec = processedRecords.reduce((prev, curr) => curr.unitPriceWan > prev.unitPriceWan ? curr : prev, processedRecords[0]);
+            const latestRec = [...processedRecords].sort((a, b) => b.dateInfo.sortVal - a.dateInfo.sortVal)[0];
+
+            const parkingStats = new Map();
+            for (const record of processedRecords) {
+                const oneType = new Set(record.cars.map(car => car.type)).size === 1;
+                const useTotal = oneType && record.recordedCarPriceWan > 0
+                    && record.cars.some(car => !car.priceWan)
+                    && record.reportedParkingTotal > 0;
+                for (const car of record.cars) {
+                    const type = car.type;
+                    if (!parkingStats.has(type)) parkingStats.set(type, {count:0, priced:0, sum:0});
+                    const stats = parkingStats.get(type);
+                    stats.count++;
+                    const price = useTotal ? record.recordedCarPriceWan / record.carCount : car.priceWan;
+                    if (price > 0) {
+                        stats.sum += price;
+                        stats.priced++;
+                    }
+                }
+            }
+            const withCarRecs = processedRecords.filter(r => r.carCount > 0);
+            const pricesWan = processedRecords.map(r => r.totalPriceWan);
+            const areas = processedRecords.map(r => r.totalAreaPing);
+            const years = processedRecords.filter(r => r.dateInfo.sortVal).map(r => r.dateInfo.year);
+            const priceText = wan => wan >= 10000 ? (wan / 10000).toFixed(2) + '億' : wan.toLocaleString('zh-TW') + '萬';
+            const totalCars = processedRecords.reduce((s, r) => s + r.carCount, 0);
+
+            document.getElementById('kpiGrid').innerHTML = `
+                <div class="theme-card rounded-xl p-3.5 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-xs font-bold theme-text-sub">
+                        <span>平均成交單價</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] theme-accent-light">全案 ${processedRecords.length} 筆均價</span>
+                    </div>
+                    <div class="my-1 flex items-baseline gap-1.5">
+                        <span class="text-3xl font-black tracking-tight" style="color: var(--accent)">${avgPrice.toFixed(2)}</span>
+                        <span class="text-xs font-bold theme-text-sub">萬/坪</span>
+                    </div>
+                    <div class="text-[11px] theme-text-sub flex justify-between pt-1.5 border-t theme-border">
+                        <span>最低：${minRec.unitPriceWan.toFixed(2)} 萬 (${minRec.floorInfo.label})</span>
+                        <span>最高：${maxRec.unitPriceWan.toFixed(2)} 萬 (${maxRec.floorInfo.label})</span>
+                    </div>
+                </div>
+
+                <div class="theme-card rounded-xl p-3.5 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-xs font-bold theme-text-sub">
+                        <span>最新成交紀錄（最高單價）</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-600">序號 #${latestRec.seq}｜${latestRec.dateInfo.display}</span>
+                    </div>
+                    <div class="my-1 flex items-baseline gap-1.5">
+                        <span class="text-3xl font-black tracking-tight">${latestRec.unitPriceWan.toFixed(2)}</span>
+                        <span class="text-xs font-bold theme-text-sub">萬/坪</span>
+                        <span class="ml-auto text-sm font-extrabold px-2 py-0.5 rounded theme-accent-light">${latestRec.floorInfo.label}</span>
+                    </div>
+                    <div class="text-[11px] theme-text-sub flex justify-between pt-1.5 border-t theme-border">
+                        <span>總價：${(latestRec.totalPriceWan / 10000).toFixed(2)} 億 (${latestRec.totalPriceWan.toLocaleString()}萬)</span>
+                        <span>建坪：${latestRec.totalAreaPing.toFixed(2)} 坪</span>
+                    </div>
+                </div>
+
+                <div class="theme-card rounded-xl p-3.5 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-xs font-bold theme-text-sub">
+                        <span>交易總額與坪數規模</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] theme-card">${years.length ? Math.min(...years) + '年 ~ ' + Math.max(...years) + '年' : '年份未列'}</span>
+                    </div>
+                    <div class="my-1 flex items-baseline gap-1.5">
+                        <span class="text-3xl font-black tracking-tight">${Math.min(...areas).toFixed(2)} ~ ${Math.max(...areas).toFixed(2)}</span>
+                        <span class="text-xs font-bold theme-text-sub">坪/筆</span>
+                    </div>
+                    <div class="text-[11px] theme-text-sub flex justify-between pt-1.5 border-t theme-border">
+                        <span>總價區間：${priceText(Math.min(...pricesWan))} ~ ${priceText(Math.max(...pricesWan))}</span>
+                        <span>累計面積：${processedRecords.reduce((s, r) => s + r.totalAreaPing, 0).toFixed(2)} 坪</span>
+                    </div>
+                </div>
+
+                <div class="theme-card rounded-xl p-3.5 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-xs font-bold theme-text-sub">
+                        <span>車位明細統計</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px]" style="background:var(--badge-car-bg); color:var(--badge-car-text);">共 ${totalCars} 個車位</span>
+                    </div>
+                    <div class="my-1 flex items-baseline gap-1.5">
+                        <span class="text-2xl font-black tracking-tight">${withCarRecs.length} 筆含車位</span>
+                        <span class="text-xs font-bold theme-text-sub">/ 共 ${processedRecords.length} 筆</span>
+                    </div>
+                    <div id="parkingStats" class="text-[11px] theme-text-sub flex flex-col gap-1 pt-1.5 border-t theme-border">
+                        ${Array.from(parkingStats, ([type, stats]) => {
+                            const name = type.replace('坡道平面','坡平').replace('坡道機械','坡機').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                            const average = stats.priced ? `均 ${Math.round(stats.sum / stats.priced)} 萬／個，${stats.priced} 個有價` : '無登錄價格';
+                            return `<span>${name} ${stats.count} 個（${average}）</span>`;
+                        }).join('') || '無車位'}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 模組 2：歷年價格走勢與面積氣泡圖
+        const bandColors = {'低樓層':'#14b8a6','中樓層':'#0ea5e9','高樓層':'#2563eb','樓層未明':'#64748b'};
+        function floorBand(r) {
+            const height = Number(r.totalFloors);
+            if (!(height > 0) || r.floorInfo.num == null) return '樓層未明';
+            const floor = r.floorInfo.num;
+            if (floor <= height / 3) return '低樓層';
+            if (floor <= height * 2 / 3) return '中樓層';
+            return '高樓層';
+        }
+        function renderBubbleChart() {
+            if (!processedRecords.length) return;
+            const container = document.getElementById('bubbleChartContainer');
+            const annual = document.getElementById('annualAverage').checked;
+            const split = document.getElementById('splitBands').checked;
+            document.getElementById('module2').classList.toggle('annual', annual);
+            container.classList.toggle('split', split);
+            container.replaceChildren();
+            if (!split) {
+                drawPriceChart(container, processedRecords, annual, '');
+                return;
+            }
+            const heights = [...new Set(processedRecords.map(r => Number(r.totalFloors)).filter(h => h > 0))].sort((a,b) => a-b);
+            function definition(band, height) {
+                const low = Math.floor(height / 3);
+                const mid = Math.floor(2 * height / 3);
+                const [start,end] = band === '低樓層' ? [1,low] : band === '中樓層' ? [low+1,mid] : [mid+1,height];
+                let range = start > end ? '' : start === end ? start + ' 樓' : start + '～' + end + ' 樓';
+                if (band === '低樓層') range = range ? range + '（含地下樓層）' : '地下樓層';
+                return height + ' 層大樓：' + (range || '無對應樓層');
+            }
+            for (const band of ['高樓層','中樓層','低樓層','樓層未明']) {
+                const records = processedRecords.filter(r => floorBand(r) === band);
+                if (!records.length && band === '樓層未明') continue;
+                const heading = document.createElement('strong');
+                heading.textContent = band + '（' + records.length + ' 筆）';
+                const ranges = band === '樓層未明' ? '成交樓層或總樓層未提供' : heights.map(h => definition(band,h)).join('；');
+                if (ranges) heading.append('｜' + ranges);
+                container.append(heading);
+                const panel = document.createElement('div');
+                panel.className = 'band-chart';
+                container.append(panel);
+                if (records.length) drawPriceChart(panel, records, annual, band);
+            }
+        }
+
+        function drawPriceChart(container, records, annual, band) {
+            const w = Math.max(220, container.clientWidth), h = Math.max(180, container.clientHeight);
+            const pad = { top: 28, right: 45, bottom: 38, left: 52 };
+            const plotW = w - pad.left - pad.right;
+            const plotH = h - pad.top - pad.bottom;
+
+            let sorted = [...records].sort((a, b) => a.dateInfo.sortVal - b.dateInfo.sortVal);
+            if (annual) {
+                const groups = new Map();
+                for (const r of sorted) {
+                    const year = r.dateInfo.year;
+                    if (!groups.has(year)) groups.set(year, {dateInfo:{year,numericYear:year}, count:0, unitPriceWan:0, totalAreaPing:0});
+                    const group = groups.get(year);
+                    group.count++;
+                    group.unitPriceWan += r.unitPriceWan;
+                    group.totalAreaPing += r.totalAreaPing;
+                }
+                sorted = Array.from(groups.values(), group => ({...group, unitPriceWan:group.unitPriceWan/group.count}));
+            }
+            function pointDetail(r) {
+                const label = annual ? `民國${r.dateInfo.year}年 · ${r.count}筆平均` : `#${r.seq} · ${r.floorInfo.label} · ${r.dateInfo.display}`;
+                return `${label} · ${r.unitPriceWan.toFixed(2)} 萬／坪`;
+            }
+            const years = processedRecords.map(r => annual ? r.dateInfo.year : r.dateInfo.numericYear);
+            const minX = Math.floor(Math.min(...years) - 0.5);
+            const maxX = Math.ceil(Math.max(...years) + 0.5);
+
+            const prices = processedRecords.map(r => r.unitPriceWan);
+            const minY = Math.floor(Math.min(...prices) / 5) * 5 - 5;
+            const maxY = Math.ceil(Math.max(...prices) / 5) * 5 + 8;
+
+            const scaleX = (val) => pad.left + ((val - minX) / Math.max(1, maxX - minX)) * plotW;
+            const scaleY = (val) => pad.top + plotH - ((val - minY) / Math.max(1, maxY - minY)) * plotH;
+
+            // 網格線
+            let gridHtml = '';
+            const yStep = Math.ceil((maxY - minY) / 4 / 5) * 5 || 10;
+            for (let y = minY; y <= maxY; y += yStep) {
+                const py = scaleY(y);
+                gridHtml += `
+                    <line x1="${pad.left}" y1="${py}" x2="${w - pad.right}" y2="${py}" stroke="var(--border-color)" stroke-dasharray="3,3" />
+                    <text x="${pad.left - 8}" y="${py + 4}" text-anchor="end" font-size="11" font-weight="600" fill="var(--text-sub)">${y}</text>
+                `;
+            }
+
+            const yearStep = Math.max(1, Math.round((maxX - minX) / 5));
+            for (let yr = minX; yr <= maxX; yr += yearStep) {
+                const px = scaleX(yr);
+                gridHtml += `
+                    <line x1="${px}" y1="${pad.top}" x2="${px}" y2="${h - pad.bottom}" stroke="var(--border-color)" stroke-dasharray="2,4" />
+                    <text x="${px}" y="${h - pad.bottom + 18}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text-sub)">${yr}年</text>
+                `;
+            }
+
+            // 趨勢連線
+            const pathPts = sorted.map(r => `${scaleX(r.dateInfo.numericYear)},${scaleY(r.unitPriceWan)}`).join(' ');
+            const trendLineHtml = `<polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5,4" points="${pathPts}" opacity="0.65" />`;
+
+            // 氣泡與標籤
+            const labels = [];
+            const points = sorted.map(r => ({x:scaleX(r.dateInfo.numericYear), y:scaleY(r.unitPriceWan), radius:Math.max(9,Math.min(24,Math.sqrt(r.totalAreaPing)*0.85))}));
+            let bubblesHtml = '';
+            sorted.forEach((r, idx) => {
+                const cx = scaleX(r.dateInfo.numericYear);
+                const cy = scaleY(r.unitPriceWan);
+                const radius = Math.max(9, Math.min(24, Math.sqrt(r.totalAreaPing) * 0.85));
+
+                const color = band ? bandColors[band] : annual ? '#2873be' : bandColors[floorBand(r)];
+
+                const price = r.unitPriceWan.toFixed(2);
+                const half = price.length * 4.8 + 3;
+                let best, bestCost = Infinity;
+                for (let y = pad.top; y < h-pad.bottom; y += 12) {
+                    for (let x = pad.left+half; x < w-half; x += 12) {
+                        const overlaps = labels.some(box => Math.abs(box.x-x)<box.half+half && Math.abs(box.y-y)<18);
+                        const hitsPoint = points.some(pt => Math.hypot(Math.max(0,Math.abs(pt.x-x)-half),Math.max(0,Math.abs(pt.y-y)-9)) < pt.radius+2);
+                        const cost = Math.hypot(x-cx,y-cy) + (overlaps ? 10000 : 0) + (hitsPoint ? 1000 : 0);
+                        if (cost < bestCost) { bestCost = cost; best = {x,y,half}; }
+                    }
+                }
+                labels.push(best);
+                bubblesHtml += `
+                    <g class="cursor-pointer bubble-point" tabindex="0" data-index="${idx}" aria-label="${pointDetail(r)}">
+                        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}" fill-opacity="0.78" stroke="#fff" stroke-width="2">
+                            <title>${pointDetail(r)}</title>
+                        </circle>
+                        ${state.showStaticLabels ? `<line x1="${cx}" y1="${cy}" x2="${best.x}" y2="${best.y}" stroke="${color}" />
+                        <text x="${best.x}" y="${best.y}" dy=".35em" text-anchor="middle" font-size="16" font-weight="800" fill="var(--text-main)" stroke="var(--bg-card)" stroke-width="5" paint-order="stroke">${price}</text>` : ''}
+                    </g>
+                `;
+            });
+
+            container.innerHTML = `
+                <svg viewBox="0 0 ${w} ${h}" class="w-full h-full overflow-visible">
+                    <text x="${pad.left - 10}" y="${pad.top - 10}" font-size="10" font-weight="700" fill="var(--text-sub)">萬/坪</text>
+                    ${gridHtml}
+                    ${trendLineHtml}
+                    ${bubblesHtml}
+                </svg>
+                <div class="bubble-tip" hidden></div>
+            `;
+            const tip = container.querySelector('.bubble-tip');
+            for (const point of container.querySelectorAll('.bubble-point')) {
+                const show = () => {
+                    const r = sorted[Number(point.dataset.index)];
+                    tip.textContent = pointDetail(r);
+                    tip.hidden = false;
+                    const rect = point.querySelector('circle').getBoundingClientRect();
+                    const chart = container.getBoundingClientRect();
+                    tip.style.left = Math.max(tip.offsetWidth/2, Math.min(chart.width-tip.offsetWidth/2, rect.left-chart.left+rect.width/2)) + 'px';
+                    tip.style.top = Math.max(tip.offsetHeight, rect.top-chart.top-5) + 'px';
+                };
+                for (const event of ['pointerenter','focus','click']) point.addEventListener(event, show);
+                for (const event of ['pointerleave','blur']) point.addEventListener(event, () => tip.hidden = true);
+            }
+        }
+
+        document.getElementById('annualAverage').addEventListener('change', renderBubbleChart);
+        document.getElementById('splitBands').addEventListener('change', renderBubbleChart);
+        new ResizeObserver(() => {
+            if (processedRecords.length) renderBubbleChart();
+        }).observe(document.getElementById('bubbleChartContainer'));
+
+        // 模組 3：垂直樓層行情剖面圖 (只顯示有交易紀錄的樓層)
+        const selectedDoors = new Set();
+        function doorParts(address) {
+            const text = String(address || '').normalize('NFKC').replace(/\s+/g, '').replace(/臺/g, '台');
+            const key = text.match(/^.*?號(?:之[0-9一二三四五六七八九十]+)?/)?.[0] || text || '門牌未列';
+            const match = key.match(/^(.*(?:路|街|大道)(?:[一二三四五六七八九十0-9]+段)?)(.+號.*)$/);
+            if (!match) return {key, street:'', short:key};
+            const street = match[1].replace(/^.*?[區鄉鎮]/, '').replace(/^.{1,4}?[里村](?=.+(?:路|街|大道))/, '');
+            const canonicalStreet = street.replace(/([一二三四五六七八九十\d]+)段$/, (_, n) => {
+                const digits = '〇一二三四五六七八九';
+                const [tens, units] = n.split('十');
+                const value = /^\d+$/.test(n) ? Number(n) : units === undefined ? digits.indexOf(n)
+                    : (tens ? digits.indexOf(tens) : 1) * 10 + (units ? digits.indexOf(units) : 0);
+                return (value > 0 ? value : n) + '段';
+            });
+            return {key:canonicalStreet + match[2], street:canonicalStreet, short:match[2]};
+        }
+        function renderStackingPlan() {
+            const container = document.getElementById('stackingPlanContainer');
+
+            const doors = new Map();
+            for (const r of processedRecords) {
+                const door = doorParts(r.address);
+                doors.set(door.key, door);
+            }
+            for (const key of selectedDoors) if (!doors.has(key)) selectedDoors.delete(key);
+            const streets = new Set([...doors.values()].map(d => d.street));
+            const short = d => streets.size === 1 ? d.short : d.key;
+            const filters = document.getElementById('doorFilters');
+            filters.replaceChildren();
+            function addButton(label, key) {
+                const button = document.createElement('button');
+                button.textContent = label;
+                button.title = key || '顯示所有門牌';
+                button.setAttribute('aria-pressed', key ? selectedDoors.has(key) : !selectedDoors.size);
+                button.onclick = () => {
+                    if (!key) selectedDoors.clear();
+                    else if (selectedDoors.has(key)) selectedDoors.delete(key);
+                    else selectedDoors.add(key);
+                    if (selectedDoors.size === doors.size) selectedDoors.clear();
+                    renderStackingPlan();
+                };
+                filters.append(button);
+            }
+
+            addButton('全選', '');
+            for (const d of [...doors.values()].sort((a,b)=>a.key.localeCompare(b.key,'zh-TW',{numeric:true}))) addButton(short(d),d.key);
+            const records = processedRecords.filter(r => !selectedDoors.size || selectedDoors.has(doorParts(r.address).key));
+            const groups = {};
+            records.forEach(r => {
+                const key = r.floorInfo.label;
+                if (!groups[key]) {
+                    groups[key] = {
+                        label: key,
+                        sortFloor: r.floorInfo.num,
+                        records: []
+                    };
+                }
+                groups[key].records.push(r);
+            });
+
+            // 由高樓層往低樓層排列
+            const sortedFloors = Object.values(groups).sort((a, b) => b.sortFloor - a.sortFloor);
+
+            const allPrices = processedRecords.map(r => r.unitPriceWan);
+            const minP = Math.min(...allPrices);
+            const maxP = Math.max(...allPrices);
+
+            container.innerHTML = sortedFloors.map(g => {
+                const floorAvg = g.records.reduce((s, r) => s + r.unitPriceWan, 0) / g.records.length;
+                const ratio = (floorAvg - minP) / Math.max(1, maxP - minP);
+
+                let badgeBg = 'var(--heat-low)';
+                let badgeColor = 'var(--text-main)';
+                if (ratio > 0.65) {
+                    badgeBg = 'var(--heat-high)';
+                    badgeColor = 'var(--heat-text-high)';
+                } else if (ratio > 0.25) {
+                    badgeBg = 'var(--heat-mid)';
+                    badgeColor = '#ffffff';
+                }
+
+                const cardsHtml = g.records.map(r => {
+                    const door = short(doorParts(r.address)).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                    return `
+                        <div class="flex-1 min-w-[210px] rounded-lg px-3 py-2 border theme-border trade-card bg-white/75 dark:bg-slate-900/60 flex items-center justify-between gap-2 shadow-sm">
+                            <div class="trade-lines">
+                                <div class="trade-head">
+                                    <span class="text-xs theme-text-sub">#${r.seq}</span>
+                                    <span class="door-label">${door}</span>
+                                    <strong style="color:var(--accent)">${r.unitPriceWan.toFixed(2)} <small>萬/坪</small></strong>
+                                    ${r.carCount > 0 ? `<span aria-label="車位 ${r.carCount} 個">🚗×${r.carCount}</span>` : ''}
+                                </div>
+                                <div class="trade-facts theme-text-sub">${r.dateInfo.display}｜建坪 ${r.totalAreaPing.toFixed(2)} 坪｜總價 ${r.totalPriceWan.toLocaleString('zh-TW')}萬</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                return `
+                    <div class="flex items-stretch gap-2.5 p-1.5 rounded-xl border theme-border">
+                        <div class="w-24 shrink-0 rounded-lg flex flex-col items-center justify-center py-2 px-1.5 text-center shadow-sm"
+                             style="background: ${badgeBg}; color: ${badgeColor};">
+                            <span style="font-size:22px" class="font-black leading-tight">${g.label}</span>
+                            <span class="floor-mean">${floorAvg.toFixed(2)}</span><small>萬／坪</small>
+                        </div>
+                        <div class="flex-1 flex flex-wrap items-center gap-2">
+                            ${cardsHtml.slice(0,2).join('')}
+                            ${cardsHtml.length > 2 ? `<details class="floor-more"><summary><span class="closed-label">展開其餘 ${cardsHtml.length-2} 筆</span><span class="open-label">收合交易</span></summary><div class="flex flex-wrap gap-2">${cardsHtml.slice(2).join('')}</div></details>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 模組 4：四分頁序號關聯明細表
+        document.getElementById('showBuildingDetails').addEventListener('change', event => {
+            document.getElementById('module4').classList.toggle('hide-building', !event.target.checked);
+        });
+
+        function renderTable() {
+            const tbody = document.getElementById('transactionTableBody');
+            const sorted = [...processedRecords].sort((a, b) => {
+                let va, vb;
+                if (state.sortBy === 'seq') { va = a.seq; vb = b.seq; }
+                else if (state.sortBy === 'date') { va = a.dateInfo.sortVal; vb = b.dateInfo.sortVal; }
+                else if (state.sortBy === 'floor') { va = a.floorInfo.num; vb = b.floorInfo.num; }
+                else if (state.sortBy === 'unitPrice') { va = a.unitPriceWan; vb = b.unitPriceWan; }
+                return state.sortDesc ? (vb - va) : (va - vb);
+            });
+
+            tbody.innerHTML = sorted.map(r => {
+                const totalPriceFormatted = `${r.totalPriceWan.toLocaleString("zh-TW")} 萬元`;
+
+                let carBadgeHtml = `<span class="text-slate-400">無車位</span>`;
+                if (r.carCount > 0) {
+                    const priceLabel = r.recordedCarPriceWan > 0
+                        ? `共 ${r.recordedCarPriceWan.toLocaleString()}萬`
+                        : (r.isCarAdjusted ? `預設扣 ${r.effectiveCarPriceWan}萬` : `車位價內含(0萬)`);
+                    const areaLabel = r.carAreaPing > 0 ? `${r.carAreaPing.toFixed(2)}坪` : `面積內含(0坪)`;
+                    carBadgeHtml = `
+                        <div class="flex flex-col gap-0.5">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold w-fit" style="background:var(--badge-car-bg); color:var(--badge-car-text);">
+                                <i class="fa-solid fa-car"></i> ${r.carType} × ${r.carCount}個 (${r.carFloors})
+                            </span>
+                            <span class="text-[11px] theme-text-sub">${priceLabel}｜${areaLabel}</span>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-500/5 transition">
+                        <td class="py-2.5 px-2 text-center">
+                            <span class="inline-block w-6 h-6 leading-6 rounded-full font-black text-xs theme-accent-light">${r.seq}</span>
+                        </td>
+                        <td class="py-2.5 px-2 font-bold">${r.address.replace('臺北市中正區', '')}</td>
+                        <td class="py-2.5 px-2 whitespace-nowrap">${r.dateInfo.display}</td>
+                        <td class="py-2.5 px-2">
+                            <span class="px-2 py-0.5 rounded font-extrabold theme-card">${r.floorInfo.label}</span>
+                            ${r.bldgCount > 1 ? `<span class="text-[10px] theme-text-sub ml-1">(${r.bldgCount}筆建號)</span>` : ''}
+                        </td>
+                        <td class="py-2.5 px-2 text-right whitespace-nowrap">
+                            <span class="text-sm font-black" style="color: var(--accent)">${r.unitPriceWan.toFixed(2)}</span>
+                            ${r.isCarAdjusted ? `<div class="text-[10px] text-amber-600 font-bold">原 ${r.origUnitPriceWan.toFixed(2)}</div>` : ''}
+                        </td>
+                        <td class="py-2.5 px-2 text-right whitespace-nowrap">${totalPriceFormatted}</td>
+                        <td class="py-2.5 px-2 text-right font-extrabold whitespace-nowrap">${r.totalAreaPing.toFixed(2)} 坪</td>
+                        <td class="building-detail py-2.5 px-2 text-right whitespace-nowrap text-[11px] theme-text-sub">
+                            ${Array.from(r.areaByUse, ([use, area]) => {
+                                const characters = Array.from(use);
+                                const shortName = characters.length > 10 ? characters.slice(0,10).join('') + '...' : use;
+                                const name = shortName.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+                                return `<div>${name} <b>${area.toFixed(2)}</b> 坪</div>`;
+                            }).join('') || '無建物明細'}
+                        </td>
+                        <td class="py-2.5 px-2 text-right whitespace-nowrap">
+                            <span class="font-bold">${r.landAreaPing.toFixed(2)} 坪</span>
+                            <span class="text-[10px] theme-text-sub block">(${r.landCount}筆地號)</span>
+                        </td>
+                        <td class="py-2.5 px-2">${carBadgeHtml}</td>
+
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // =========================================================================
+        // 4. 針對「四分頁依序號關聯」與「標準實價登錄」雙相容 Excel 解析器
+        // =========================================================================
+        document.getElementById('excelUpload').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    const parsed = parseUploadedWorkbook(workbook);
+                    if (parsed && parsed.main && parsed.main.length > 0) {
+                        currentRawData = parsed;
+                        resetYears(parsed);
+                        updateParkingSuggestion(parsed);
+                        // 自動更新簡報標題
+                        const firstAddr = parsed.main[0].address || '';
+                        const communities = [...new Set(parsed.main.map(r => r.community).filter(Boolean))];
+                        {
+                            const cleanTitle = [communities.join('、'), firstAddr.replace(/([0-9０-９]+號).*$/, '$1'), '實價登錄行情分析'].filter(Boolean).join('｜');
+                            document.getElementById('buildingTitleInput').value = cleanTitle;
+                            document.getElementById('displayBuildingTitle').textContent = cleanTitle;
+                        }
+                        renderAll();
+                        showToast(`成功解析 ${file.name}：共 ${parsed.main.length} 筆交易、${parsed.lands.length} 筆土地、${parsed.buildings.length} 筆建物、${parsed.cars.length} 筆車位`);
+                    } else {
+                        showToast('無法辨識表格結構，請確認是否包含案件主表、編號或序號，以及門牌或價格欄位', true);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showToast('讀取檔案發生錯誤：' + err.message, true);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function updateParkingSuggestion(raw) {
+            let total = 0;
+            let count = 0;
+            const bySeq = new Map();
+            for (const car of raw.cars) {
+                if (!bySeq.has(car.seq)) bySeq.set(car.seq, []);
+                bySeq.get(car.seq).push(car);
+            }
+            for (const sale of raw.main) {
+                const spaces = bySeq.get(sale.seq) || [];
+                if (sale.carPriceWan > 0 && spaces.length) {
+                    total += sale.carPriceWan;
+                    count += spaces.length;
+                } else {
+                    for (const car of spaces) {
+                        if (car.priceWan > 0) {
+                            total += car.priceWan;
+                            count++;
+                        }
+                    }
+                }
+            }
+            state.defaultCarPriceWan = count ? Math.round(total / count) : 0;
+            document.getElementById('carPriceInput').value = count ? state.defaultCarPriceWan : '';
+        }
+
+        function parseUploadedWorkbook(workbook) {
+            const result = { main: [], lands: [], buildings: [], cars: [] };
+
+            // 輔助函數：在任意二維陣列中尋找包含「序號」的表頭列與其起始欄位偏移量
+            function extractTableBySeq(rows, requiredKeywords, isMain = false) {
+                let headerRowIdx = -1;
+                let seqColIdx = -1;
+                let colMap = {};
+
+                for (let r = 0; r < rows.length; r++) {
+                    const row = rows[r] || [];
+                    const cellStrings = row.map(c => String(c || '').trim());
+                    const foundSeqIdx = cellStrings.includes('序號') ? cellStrings.indexOf('序號') : (isMain ? cellStrings.indexOf('編號') : -1);
+                    const matchKeyword = requiredKeywords.some(kw => cellStrings.some(v => v.includes(kw)));
+
+                    if (foundSeqIdx !== -1 && matchKeyword) {
+                        headerRowIdx = r;
+                        seqColIdx = foundSeqIdx;
+                        cellStrings.forEach((colName, cIdx) => {
+                            if (colName) {
+                                colMap[colName] = cIdx;
+                            }
+                        });
+                        break;
+                    }
+                }
+
+                if (headerRowIdx === -1) return [];
+
+                const records = [];
+                for (let r = headerRowIdx + 1; r < rows.length; r++) {
+                    const row = rows[r] || [];
+                    const id = String(row[seqColIdx] ?? '').trim();
+                    if (!(isMain ? /^\d+$/ : /^\d+(?:-\d+)?$/).test(id)) continue;
+                    const seqVal = Number(id.split('-')[0]);
+
+                    const obj = { seq: seqVal };
+                    Object.entries(colMap).forEach(([k, idx]) => {
+                        obj[k] = row[idx];
+                    });
+                    records.push(obj);
+                }
+                return records;
+            }
+
+            function numberOf(value) {
+                const clean = String(value ?? '').normalize('NFKC').replace(/,/g, '').trim();
+                return Number.parseFloat(clean) || 0;
+            }
+
+            function parkingPriceWan(row) {
+                if (row['車位價格(萬)'] != null) return numberOf(row['車位價格(萬)']);
+                const value = String(row['車位價格'] ?? '');
+                return numberOf(value) / (value.includes('萬') ? 1 : 10000);
+            }
+
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                if (sheetName.includes('買賣') || sheetName.includes('案件列表') || sheetName === workbook.SheetNames[0]) {
+                    const mainRows = extractTableBySeq(rows, ['門牌', '單價', '總價'], true);
+                    mainRows.forEach(r => {
+                        const [floor, height] = String(r['樓別/樓高'] || '').split('/');
+                        const count = String(r['交易筆棟數'] || '').match(/建物\s*[:：]\s*(\d+)/);
+                        result.main.push({
+                            seq: r.seq,
+                            primaryUse: String(r['主要用途'] || '').trim(),
+                            community: String(r['社區簡稱'] || '').trim(),
+                            address: String(r['土地區段位置或建物區門牌'] || r['建物區門牌'] || r['地段位置或門牌'] || ''),
+                            date: String(r['交易年月日'] || r['交易日期'] || ''),
+                            completeDate: String(r['建築完成年月'] || r['建築完成日期'] || '-'),
+                            floorStr: String(r['移轉層次'] || floor || ''),
+                            totalFloors: String(r['總樓層數'] || (height ? (parseFloorInfo(height).num ?? '') : '')),
+                            buildingCount: count ? Number(count[1]) : null,
+                            mainAreaShare: r['主建物佔比'] === undefined ? undefined : String(r['主建物佔比']),
+                            totalPriceWan: numberOf(r['總價(萬)'] || r['總價(萬元)'] || r['總價'] || 0),
+                            unitPriceWan: numberOf(r['單價(萬/坪)'] || r['單價(萬元/坪)'] || r['單價'] || 0),
+                            totalAreaPing: numberOf(r['建坪'] || r['總面積(坪)'] || r['建物移轉面積(坪)'] || r['建物移轉面積'] || 0),
+                            landAreaPing: numberOf(r['地坪'] || 0),
+                            carCountDesc: String(r['車位數量'] || ''),
+                            carAreaPing: numberOf(r['車位面積(坪)'] || r['車位面積'] || 0),
+                            carPriceWan: numberOf(r['車位總價(萬)'] || r['車位總價(萬元)'] || 0),
+                            note: String(r['備註'] || ''),
+                            code: String(r['編號'] || '')
+                        });
+                    });
+                }
+
+                if (sheetName.includes('土地')) {
+                    const landRows = extractTableBySeq(rows, ['土地區段位置', '使用分區', '權利移轉']);
+                    landRows.forEach(r => {
+                        result.lands.push({
+                            seq: r.seq,
+                            parcel: String(r['土地區段位置'] || r['土地位置'] || ''),
+                            areaPing: numberOf(r['土地移轉面積(坪)'] || r['土地移轉面積'] || 0),
+                            ratio: String(r['權利移轉範圍'] || ''),
+                            zone: String(r['使用分區或編定'] || '').replace(/^都市：(?:其他:)?/, '')
+                        });
+                    });
+                }
+
+                if (sheetName.includes('建物')) {
+                    const bldgRows = extractTableBySeq(rows, ['主要用途', '主要建材', '附屬建物']);
+                    bldgRows.forEach(r => {
+                        result.buildings.push({
+                            seq: r.seq,
+                            age: r['屋齡'] || null,
+                            areaPing: numberOf(r['建物移轉面積(坪)'] || r['建物移轉面積'] || 0),
+                            use: String(r['主要用途'] || '').trim(),
+                            material: String(r['主要建材'] || ''),
+                            buildDate: String(r['建築完成年月'] || r['建築完成日期'] || ''),
+                            totalFloors: String(r['總層數'] || ''),
+                            floor: String(r['建物層次'] || r['建物分層'] || ''),
+                            subUse: String(r['附屬建物用途'] || ''),
+                            subAreaPing: numberOf(r['附屬建物面積(坪)'] || 0),
+                            pubAreaPing: numberOf(r['共有部分面積(坪)'] || 0)
+                        });
+                    });
+                }
+
+                if (sheetName.includes('車位')) {
+                    const carRows = extractTableBySeq(rows, ['車位類別', '車位價格', '車位所在樓層']);
+                    carRows.forEach(r => {
+                        result.cars.push({
+                            seq: r.seq,
+                            type: String(r['車位類別'] || '類別未列').trim() || '類別未列',
+                            priceWan: parkingPriceWan(r),
+                            areaPing: numberOf(r['車位面積(坪)'] || r['車位面積'] || 0),
+                            floor: String(r['車位所在樓層'] || r['所在樓層'] || '')
+                        });
+                    });
+                }
+            });
+
+            return result;
+        }
+
+        // =========================================================================
+        // 5. 互動控制與匯出圖片
+        // =========================================================================
+        document.getElementById('buildingTitleInput').addEventListener('input', (e) => {
+            document.getElementById('displayBuildingTitle').textContent = e.target.value;
+        });
+
+        document.getElementById('deductCarToggle').addEventListener('change', (e) => {
+            state.deductCarWhenZero = e.target.checked;
+            renderAll();
+        });
+
+        document.getElementById('carPriceInput').addEventListener('input', (e) => {
+            state.defaultCarPriceWan = parseFloat(e.target.value) || 0;
+            if (state.deductCarWhenZero) renderAll();
+        });
+
+        document.getElementById('toggleLabelsBtn').addEventListener('click', function () {
+            state.showStaticLabels = !state.showStaticLabels;
+            this.querySelector('span').textContent = `數據標籤: ${state.showStaticLabels ? '顯示' : '隱藏'}`;
+            renderBubbleChart();
+        });
+
+        document.querySelectorAll('.ratio-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.ratio-btn').forEach(b => {
+                    b.classList.remove('bg-blue-600', 'text-white');
+                    b.classList.add('text-slate-300');
+                });
+                this.classList.add('bg-blue-600', 'text-white');
+                this.classList.remove('text-slate-300');
+
+                const canvas = document.getElementById('pptCanvas');
+                canvas.classList.remove('ratio-16-9', 'ratio-4-3');
+                const ratio = this.getAttribute('data-ratio');
+                if (ratio === '16-9') canvas.classList.add('ratio-16-9');
+                if (ratio === '4-3') canvas.classList.add('ratio-4-3');
+            });
+        });
+
+        document.getElementById('themeSelect').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'light') document.documentElement.removeAttribute('data-theme');
+            else document.documentElement.setAttribute('data-theme', val);
+            renderAll();
+        });
+
+        function setSort(field) {
+            if (state.sortBy === field) {
+                state.sortDesc = !state.sortDesc;
+            } else {
+                state.sortBy = field;
+                state.sortDesc = (field !== 'seq');
+            }
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.classList.remove('theme-accent-bg', 'font-bold');
+                btn.classList.add('border', 'theme-border', 'font-semibold');
+            });
+            const active = document.getElementById(`sort-${field}`);
+            if (active) {
+                active.classList.add('theme-accent-bg', 'font-bold');
+                active.classList.remove('border', 'theme-border', 'font-semibold');
+            }
+            renderTable();
+        }
+
+        function showToast(msg, isWarn = false) {
+            const toast = document.getElementById('statusToast');
+            const text = document.getElementById('statusToastText');
+            text.textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 4000);
+        }
+
+        async function imageOptions() {
+                await document.fonts.ready;
+                return {
+                    pixelRatio: 2,
+                    filter: node => !node.classList?.contains("export-btn") && !node.classList?.contains("bubble-tip"),
+                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-canvas').trim()
+                };
+        }
+
+        let lastPng;
+        document.fonts.addEventListener('loadingdone', () => { lastPng = null; });
+        async function reportPng(elementId, onSection) {
+            await document.fonts.ready;
+            const el = document.getElementById(elementId);
+            const key = JSON.stringify([el.outerHTML, el.offsetWidth, el.offsetHeight,
+                innerWidth, devicePixelRatio, document.documentElement.dataset.theme,
+                Array.from(el.querySelectorAll('input'), input => [input.checked,input.value])]);
+            if (lastPng?.key === key) return lastPng.blob;
+            const blob = await renderReportPng(elementId, onSection);
+            if (!blob) throw new Error('PNG 編碼失敗');
+            lastPng = {key, blob};
+            return blob;
+        }
+
+        async function renderReportPng(elementId, onSection) {
+            const options = await imageOptions();
+            const el = document.getElementById(elementId);
+            if (elementId !== 'pptCanvas') return htmlToImage.toBlob(el, options);
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const bounds = el.getBoundingClientRect();
+            const parts = Array.from(el.querySelectorAll('section'), node => ({node, rect:node.getBoundingClientRect()}));
+            const width = Math.ceil(Math.max(bounds.width, el.scrollWidth));
+            const height = Math.ceil(Math.max(bounds.height, el.scrollHeight));
+            const scale = Math.min(2, 16384 / Math.max(width,height), Math.sqrt(32000000 / (width*height)));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(width * scale);
+            canvas.height = Math.ceil(height * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = getComputedStyle(el).backgroundColor;
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            options.fontEmbedCSS = (await htmlToImage.getFontEmbedCSS(el)) || ' ';
+            let completed = 0;
+            for (const {node,rect} of parts) {
+                const image = await htmlToImage.toCanvas(node, {
+                    ...options, width:rect.width, height:rect.height, pixelRatio:scale,
+                    style:{margin:'0',position:'relative',top:'0',left:'0',transform:'none',
+                        boxSizing:'border-box',width:rect.width+'px',height:rect.height+'px'}
+                });
+                ctx.drawImage(image, Math.round((rect.left-bounds.left)*scale),
+                    Math.round((rect.top-bounds.top)*scale), Math.round(rect.width*scale), Math.round(rect.height*scale));
+                image.width = image.height = 0;
+                onSection?.(++completed, parts.length);
+            }
+            return new Promise((resolve,reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG 編碼失敗')), 'image/png'));
+        }
+
+        async function copyImage(elementId) {
+            const dialog = document.getElementById('copyDialog');
+            if (dialog.open) return;
+            if (!navigator.clipboard?.write || !window.ClipboardItem) {
+                showToast('此環境無法複製圖片，請使用旁邊的 PNG 下載按鈕。');
+                return;
+            }
+            try {
+                const stage = document.getElementById('copyStage');
+                const bar = document.getElementById('copyProgress');
+                stage.textContent = elementId === 'pptCanvas' ? '正在準備全頁報表…' : '正在產生圖表圖片…';
+                dialog.dataset.state = 'working';
+                document.getElementById('copyHeading').textContent = '正在複製圖片';
+                bar.max = 100;
+                bar.value = 12;
+                dialog.oncancel = event => event.preventDefault();
+                dialog.showModal();
+                const png = new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+                    .then(() => reportPng(elementId, (done,total) => {
+                        stage.textContent = done === total ? '正在編碼 PNG…' : `已產生 ${done}／${total} 個區塊`;
+                        bar.value = 12 + 75 * done / total;
+                    })).then(blob => {
+                        stage.textContent = '正在寫入剪貼簿…';
+                        bar.value = 94;
+                        return blob;
+                    });
+                await navigator.clipboard.write([new ClipboardItem({'image/png': png})]);
+                bar.value = 100;
+                dialog.dataset.state = 'success';
+                document.getElementById('copyHeading').textContent = '圖片已複製';
+                stage.textContent = '可以貼到 PowerPoint 了。';
+                await new Promise(resolve => setTimeout(resolve, 1400));
+            } catch (error) {
+                showToast('複製失敗，請確認瀏覽器剪貼簿權限，或下載 PNG。');
+            } finally {
+                dialog.close();
+            }
+        }
+
+        async function exportElement(elementId, fileName) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            showToast('正在產出高清簡報圖表 PNG...');
+            try {
+                const png = URL.createObjectURL(await reportPng(elementId));
+                const link = document.createElement('a');
+                link.download = `${fileName}.png`;
+                link.href = png;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(png), 1000);
+            } catch (e) {
+                console.error(e);
+                showToast("PNG 匯出失敗，請再試一次。", true);
+            }
+        }
+
+        window.onload = function () {
+            resetYears(currentRawData);
+            updateParkingSuggestion(currentRawData);
+            renderAll();
+        };
+    </script>
+</body>
+</html>

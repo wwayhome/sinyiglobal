@@ -4,6 +4,20 @@
   const editors = ['editor', 'features'];
   const fileInput = byId('draftFile');
   const status = byId('draftStatus');
+  function editorMarkup(field) {
+    const content = document.createElement('div');
+    content.innerHTML = field.innerHTML;
+    for (const item of content.querySelectorAll('[data-item-align]')) {
+      item.removeAttribute('data-item-align');
+    }
+    // Some browsers put the first paragraph's alignment on the editing host.
+    // Store that inherited alignment inside the existing draft HTML format.
+    if (field.style.textAlign) {
+      content.style.textAlign = field.style.textAlign;
+      return content.outerHTML;
+    }
+    return content.innerHTML;
+  }
   const snapshot = () => ({
     type: 'sinyi-fax-draft',
     version: 3,
@@ -14,7 +28,7 @@
     },
     hideIcon: byId('hideIcon').checked,
     hidePrice: byId('hidePrice').checked,
-    editors: Object.fromEntries(editors.map(id => [id, byId(id).innerHTML]))
+    editors: Object.fromEntries(editors.map(id => [id, editorMarkup(byId(id))]))
   });
   let lastSaved = JSON.stringify(snapshot());
 
@@ -48,7 +62,7 @@
       const align = node.style.textAlign || node.getAttribute('align');
       if (['left', 'center', 'right', 'start', 'end'].includes(align)) element.style.textAlign = align;
       if (['bold', 'normal', '700', '400'].includes(node.style.fontWeight)) element.style.fontWeight = node.style.fontWeight;
-      if (['small', 'medium', 'large'].includes(node.style.fontSize)) element.style.fontSize = node.style.fontSize;
+      if (Object.hasOwn(fontLevels, node.style.fontSize)) element.style.fontSize = node.style.fontSize;
       for (const child of node.childNodes) element.append(clean(child));
       return element;
     }
@@ -87,7 +101,11 @@
       }
       byId('hideIcon').checked = draft.hideIcon;
       byId('hidePrice').checked = draft.hidePrice;
-      editors.forEach((id, index) => byId(id).replaceChildren(contents[index]));
+      editors.forEach((id, index) => {
+        const field = byId(id);
+        field.style.removeProperty('text-align');
+        field.replaceChildren(contents[index]);
+      });
       byId('approval').setCustomValidity('');
       render();
       lastSaved = JSON.stringify(snapshot());

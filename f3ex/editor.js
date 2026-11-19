@@ -49,30 +49,26 @@ function renderHeading(){
   $('iconColumn').toggleAttribute('hidden',$('hideIcon').checked);
   $('selectedIcon').setAttribute('href','#icon-'+selectedChoice('product'));
 }
-function alignFacts(){
-  // Split each formatted paragraph at its first colon, preserving inline markup.
-  for(const item of [copy,...copy.querySelectorAll('li,div,p')]){
-    if(item.querySelector('li,div,p,ul,ol'))continue;
-    const walker=document.createTreeWalker(item,NodeFilter.SHOW_TEXT);
-    let node;
-    while(node=walker.nextNode()){
-      const colon=node.data.search(/[:：]/);
-      if(colon<0)continue;
-      const prefix=document.createRange();
-      prefix.selectNodeContents(item);
-      prefix.setEnd(node,colon+1);
-      const label=document.createElement('span');
-      label.append(prefix.extractContents());
-      const value=document.createElement('span');
-      value.append(...Array.from(item.childNodes));
-      const line=document.createElement('span');
-      line.className='factLine';
-      line.append(label,value);
-      item.append(line);
-      break
+const fontLevels = {small: 2, medium: 3, large: 4, '13px': 2, '16px': 3, '18px': 4};
+function elementFontLevel(element) {
+  return fontLevels[element.style.fontSize] || Number(element.getAttribute('size')) || 0;
+}
+
+// Native editing may store alignment on the list item, on its first
+// paragraph, or on an ancestor. Place the marker with that paragraph.
+function positionListItems(field) {
+  for (const item of field.querySelectorAll('li')) {
+    const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+    const paragraph = walker.nextNode()?.parentElement || item;
+    const align = getComputedStyle(paragraph).textAlign;
+    if (align === 'center' || align === 'right' || align === 'end') {
+      item.dataset.itemAlign = align;
+    } else {
+      delete item.dataset.itemAlign;
     }
   }
 }
+
 function render(){
 renderHeading();
 const renting=selectedChoice('transaction')==='rent';
@@ -93,47 +89,100 @@ $('price').textContent=cleaned?(integer||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',
 $('person').textContent=$('agent').value||'＿＿＿';
 $('phoneOut').textContent=$('phone').value||'＿＿＿＿＿＿';
 for(const [source,target] of [[ed,copy],[$('features'),$('featureCopy')]]){
+  positionListItems(source);
+  target.style.textAlign = source.style.textAlign;
   target.replaceChildren(...Array.from(source.childNodes,node=>node.cloneNode(true)));
   const points={2:18,3:22,4:26};
-  const keywords={small:18,medium:22,large:26};
-  for(const node of target.querySelectorAll('font[size],span[style]')){
-    const pt=keywords[node.style.fontSize]||points[node.getAttribute('size')];
+  for(const node of target.querySelectorAll('font[size],[style]')){
+    const pt=points[elementFontLevel(node)];
     if(pt)node.style.fontSize='calc(var(--body-size) * '+pt/22+')'
   }
 }
-alignFacts();stamp();fit()}
+stamp();fit()}
 document.addEventListener('input',event=>{if(!event.isComposing)render()});
 document.addEventListener('compositionend',render);
 for(const block of document.querySelectorAll('.editing')){
   const field=block.querySelector('.editor'),bar=block.querySelector('.bar');
-  let range;
-  function remember(){const sel=getSelection();if(sel.rangeCount && field.contains(sel.anchorNode)&&field.contains(sel.focusNode))range=sel.getRangeAt(0).cloneRange()}
-  document.addEventListener('selectionchange',remember);
   field.addEventListener('paste',e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))});
   field.addEventListener('drop',e=>e.preventDefault());
-  function apply(cmd,step){
-    const sel=getSelection();
-    const local=sel.rangeCount && field.contains(sel.anchorNode) && field.contains(sel.focusNode);
-    const active=local?sel.getRangeAt(0).cloneRange():null;
-    const whole=Boolean(step && (!active || active.collapsed));
-    const target=whole?document.createRange():(active || (!step && range));
-    if(whole)target.selectNodeContents(field);
-    field.focus();
-    if(target && field.contains(target.commonAncestorContainer)){
-      sel.removeAllRanges();
-      sel.addRange(target)
+
+  // A live caret for each selected run also identifies empty paragraphs.
+  function selectedRuns(range) {
+    const walker = document.createTreeWalker(field, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    const runs = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (node.nodeType !== Node.TEXT_NODE && node.nodeName !== 'BR') continue;
+      if (!range.intersectsNode(node)) continue;
+      if (node === range.endContainer && range.endOffset === 0) continue;
+      if (node === range.startContainer && range.startOffset === node.length) continue;
+      const caret = document.createRange();
+      if (node.nodeName === 'BR') caret.setStartBefore(node);
+      else caret.setStart(node, node === range.startContainer ? range.startOffset : 0);
+      caret.collapse(true);
+      runs.push({node, caret});
     }
-    if(step){
-      const current=Number(document.queryCommandValue('fontSize'))||3;
-      const next=Math.max(2,Math.min(4,current+step));
-      document.execCommand('fontSize',false,String(next));
-      if(whole && sel.rangeCount)sel.collapseToEnd()
-    }else{
-      document.execCommand(cmd,false,null)
-    }
-    remember();render()
+    return runs;
   }
-  bar.onmousedown=e=>{remember();if(e.target.closest('button'))e.preventDefault()};
-  bar.onclick=e=>{const button=e.target.closest('button');if(button)apply(button.dataset.c,Number(button.dataset.step))};
+
+  function currentLevel(node) {
+    for (let element = node.parentElement; element && element !== field; element = element.parentElement) {
+      const level = elementFontLevel(element);
+      if (level) return level;
+    }
+    return 3;
+  }
+
+  function toggleList(selection, range, runs) {
+    const inList = node => Boolean(node.parentElement.closest('ul'));
+    if (!runs.some(run => inList(run.node)) || runs.every(run => inList(run.node))) {
+      document.execCommand('insertUnorderedList');
+      return;
+    }
+    // A native toggle on a mixed range inverts each paragraph separately.
+    // Add bullets only to the plain paragraphs, starting at the bottom so
+    // subsequent paragraph joins do not invalidate the earlier live carets.
+    for (const {caret} of runs.reverse()) {
+      selection.removeAllRanges();
+      selection.addRange(caret);
+      if (!document.queryCommandState('insertUnorderedList')) document.execCommand('insertUnorderedList');
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function apply(button) {
+    const selection = window.getSelection();
+    const localSelection = selection.rangeCount &&
+      field.contains(selection.anchorNode) && field.contains(selection.focusNode);
+    const whole = !localSelection || selection.isCollapsed;
+    const range = whole ? document.createRange() : selection.getRangeAt(0).cloneRange();
+    if (whole) range.selectNodeContents(field);
+
+    field.focus({preventScroll: true});
+    selection.removeAllRanges();
+    selection.addRange(range);
+    if (button.dataset.step) {
+      const levels = new Set(selectedRuns(range).map(run => currentLevel(run.node)));
+      const level = levels.size === 1 ? levels.values().next().value : 3;
+      const next = Math.max(2, Math.min(4, level + Number(button.dataset.step)));
+      document.execCommand('fontSize', false, String(next));
+    } else if (button.dataset.c === 'insertUnorderedList') {
+      toggleList(selection, range, selectedRuns(range));
+    } else {
+      document.execCommand(button.dataset.c, false, null);
+    }
+    if (whole && selection.rangeCount) selection.collapseToEnd();
+    render();
+  }
+
+  // Retain the live text selection when the pointer moves onto the toolbar.
+  bar.addEventListener('mousedown', event => {
+    if (event.target.closest('button')) event.preventDefault();
+  });
+  bar.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (button) apply(button);
+  });
 }
 $('printBtn').onclick=async()=>{if($('approval').value&&$('approval').value.length!==10){$('approval').setCustomValidity('核准編號請填滿 10 碼數字');$('approval').reportValidity();return}if(!fit()){$('warning').scrollIntoView();return}await document.fonts.ready;if(!fit()){$('warning').scrollIntoView();return}stamp();window.print()};$('approval').oninput=()=> $('approval').setCustomValidity('');window.addEventListener('beforeprint',()=>{stamp();fit()});new ResizeObserver(fit).observe(details);document.fonts.addEventListener('loadingdone',fit);render();

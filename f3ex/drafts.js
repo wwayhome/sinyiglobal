@@ -20,7 +20,8 @@
   }
   const snapshot = () => ({
     type: 'sinyi-fax-draft',
-    version: 3,
+    version: 4,
+    showOptOut: byId('showOptOut').checked,
     fields: {
       ...Object.fromEntries(fields.map(id => [id, byId(id).value])),
       product: selectedChoice('product'),
@@ -73,11 +74,13 @@
 
   function parseDraft(text) {
     const draft = JSON.parse(text);
-    if (draft?.type !== 'sinyi-fax-draft' || ![1, 2, 3].includes(draft.version) ||
+    if (draft?.type !== 'sinyi-fax-draft' || ![1, 2, 3, 4].includes(draft.version) ||
         typeof draft.hideIcon !== 'boolean' ||
-        (draft.version === 3 && typeof draft.hidePrice !== 'boolean') ||
+        (draft.version === 4 && typeof draft.showOptOut !== 'boolean') ||
+        (draft.version >= 3 && typeof draft.hidePrice !== 'boolean') ||
         !fields.every(id => typeof draft.fields?.[id] === 'string') ||
         !editors.every(id => typeof draft.editors?.[id] === 'string')) throw Error();
+    if (draft.version < 4) draft.showOptOut = true;
     if (draft.version < 3) draft.hidePrice = false;
     const values = draft.fields;
     if (draft.version === 1) values.transaction = 'sale';
@@ -99,6 +102,7 @@
       for (const name of ['product', 'transaction']) {
         for (const radio of document.getElementsByName(name)) radio.checked = radio.value === draft.fields[name];
       }
+      byId('showOptOut').checked = draft.showOptOut;
       byId('hideIcon').checked = draft.hideIcon;
       byId('hidePrice').checked = draft.hidePrice;
       editors.forEach((id, index) => {

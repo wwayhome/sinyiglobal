@@ -29,6 +29,17 @@ function fit(){
   }
   const line=$('person').parentElement;
   fitLine(line,5,line.clientWidth);
+  // Keep the entire opt-out paragraph visible in the two lines below the phone.
+  const notice = $('optOut');
+  if (!notice.hidden && notice.clientWidth) {
+    notice.style.removeProperty('font-size');
+    let noticeSize = parseFloat(getComputedStyle(notice).fontSize);
+    while (noticeSize > 1 && notice.getBoundingClientRect().height >
+           2 * parseFloat(getComputedStyle(notice).lineHeight) + 1) {
+      noticeSize *= 0.98;
+      notice.style.fontSize = noticeSize + 'px';
+    }
+  }
   // Convert 22 print points to a percentage of the 210 mm A4 width.
   let size=22*25.4/72/210*100;
   const overflow=()=>Array.from(details.children).some(col=>col.scrollHeight>col.clientHeight+1);
@@ -70,6 +81,7 @@ function positionListItems(field) {
 }
 
 function render(){
+$('optOut').hidden = !$('showOptOut').checked;
 renderHeading();
 const renting=selectedChoice('transaction')==='rent';
 const hidePrice=$('hidePrice').checked;
@@ -79,7 +91,12 @@ $('amount').disabled=hidePrice;
 $('transactionBadge').textContent=renting?'出租':'出售';
 $('amountLabel').textContent=renting?'每月租金':'出售價格';
 $('inputUnit').textContent=$('printUnit').textContent=renting?'萬元／月':'萬元';
-$('approval').value=$('approval').value.replace(/\D/g,'');$('serial').textContent='核准編號：'+($('approval').value||'＿＿＿＿＿＿');const amount=$('amount');
+const approval = $('approval');
+approval.value = approval.value.replace(/\D/g, '');
+const serial = $('serial');
+serial.hidden = !approval.value;
+serial.textContent = approval.value ? '核准編號：' + approval.value : '';
+const amount=$('amount');
 const normalized=amount.value.normalize('NFKC').replace(/[^0-9.]/g,'');
 const [integer,...decimals]=normalized.split('.');
 const fraction=decimals.length?'.'+decimals.join(''):'';

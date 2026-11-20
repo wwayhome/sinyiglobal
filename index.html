@@ -99,7 +99,7 @@
             <!-- 更新日期與紀錄按鈕 -->
             <div class="mt-3 flex items-center justify-center gap-3 text-sm">
                 <span class="text-gray-500 bg-gray-100 px-3 py-1 rounded-full font-medium shadow-inner border border-gray-200">
-                    最後更新：2026/10/21
+                    最後更新：2026/11/20
                 </span>
                 <button onclick="openHistoryModal()" class="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full font-bold transition-colors shadow-sm border border-blue-200">
                     <i data-lucide="history" class="w-4 h-4"></i>更新紀錄
@@ -147,6 +147,16 @@
                             <i data-lucide="calculator" class="w-6 h-6"></i>
                         </div>
                         <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-yellow-700 tracking-wide">價格拆算</span>
+                    </a>
+                    <!-- 新增：大樓實價 -->
+                    <a href="https://wwayhome.github.io/sinyiglobal/p47d/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-sky-50 border border-transparent hover:border-sky-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-sky-100 text-sky-600 rounded-xl group-hover:bg-sky-500 group-hover:text-white transition-colors shadow-sm flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                <path d="M3 3v18h18" />
+                                <path d="m19 9-5 5-4-4-3 3" />
+                            </svg>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-sky-700 tracking-wide">大樓實價</span>
                     </a>
                 </div>
             </div>
@@ -215,6 +225,23 @@
                             <i data-lucide="network" class="w-6 h-6"></i>
                         </div>
                         <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-slate-700 tracking-wide">心 智 圖</span>
+                    </a>
+                    <!-- 新增：傳真排版 -->
+                    <a href="https://wwayhome.github.io/sinyiglobal/f3ex/" target="_blank" class="group flex items-center p-3 px-4 rounded-2xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all cursor-pointer">
+                        <div class="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl group-hover:bg-indigo-500 group-hover:text-white transition-colors shadow-sm flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                <rect x="2.5" y="7" width="4.5" height="13" rx="1.5" />
+                                <path d="M10 9V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v5" />
+                                <path d="M7 9h12.5a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7" />
+                                <path d="M10.5 13h1" />
+                                <path d="M14 13h1" />
+                                <path d="M17.5 13h1" />
+                                <path d="M10.5 16.5h1" />
+                                <path d="M14 16.5h1" />
+                                <path d="M17.5 16.5h1" />
+                            </svg>
+                        </div>
+                        <span class="ml-4 text-lg font-bold text-gray-700 group-hover:text-indigo-700 tracking-wide">傳真排版</span>
                     </a>
                 </div>
             </div>
@@ -300,19 +327,38 @@
         <!-- Content (Scrollable) -->
         <div class="p-6 overflow-y-auto modal-scrollbar flex-1 space-y-8">
             
-            <!-- 2026/10/21 (最新) -->
+            <!-- 2026/11/20 (最新) -->
             <div class="relative pl-6 border-l-2 border-blue-400">
                 <div class="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 shadow-[0_0_0_4px_rgba(59,130,246,0.2)]"></div>
                 <h4 class="text-lg font-bold text-blue-600 mb-3 flex items-center gap-2">
-                    2026/10/21 更新
+                    2026/11/20 更新
                     <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">最新</span>
                 </h4>
                 <div class="space-y-4 text-sm text-gray-700 leading-relaxed">
                     <ul class="space-y-3 list-none">
-                        <li><strong class="text-gray-900">18.工業地查詢(新增)：</strong><span class="text-blue-600 font-medium">可查詢新北市、桃園市、台中市 編訂工業區內特定面積區間的工廠坐落土地面積及對應地號。或輸入廠商名稱(關鍵字)，查詢該廠商在上述三縣市的工廠土地面積，並支援查詢結果匯出CSV。(資料來源為工業區土地應用系統之公開資訊，請再自行查核廠商進駐或所有權人資訊。)</span></li>
-                        <li><strong class="text-gray-900">12.專案排程 (優化)：</strong><span class="text-blue-600 font-medium">甘特圖的顯示效果及錯誤修正。</span></li>
+                        <li><strong class="text-gray-900">19. 大樓實價(新增)：</strong><span class="text-blue-600 font-medium">從內政部不動產交易實價查詢服務網，下載商辦/廠辦大樓的XLS試算表，匯入本工具後，可產製成交單價的歷年走勢圖表。以及分層的均價統計。並支援未提供車位價格的建物單價修正計算，成果可下載圖片或直接複製貼到簡報中，並支援不同寬度的版面與三種風格色系。若多門牌也可分別從內政部下載後，連續匯入多個檔案合併。</span></li>
+                        <li><strong class="text-gray-900">20.傳真排版(新增)：</strong><span class="text-blue-600 font-medium">為E-FAX設計的黑白派報版面，輸入案件標題及基本資料即可快速產製純文字派報。可選擇四種產品的圖示，或選擇不放價格資訊。並支援出售、出租切換。完成編輯後請先儲存編輯檔，再將廣告版面送審。取得核准編號後，可直接使用系統有流水號版本，或選擇讀取編輯檔、填入編號，再輸出最終行銷版面。</span></li>
                     </ul>
                 </div>
+            </div>
+
+            <!-- 2026/10/21 -->
+            <div class="relative pl-6 border-l-2 border-gray-200">
+                <div class="absolute w-2.5 h-2.5 bg-gray-400 rounded-full -left-[6px] top-1.5"></div>
+                <details class="group history-detail" open>
+                    <summary class="text-md font-bold text-gray-600 mb-2 cursor-pointer hover:text-blue-600 outline-none transition-colors select-none flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            2026/10/21 更新
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="space-y-3 text-sm text-gray-600 leading-relaxed mt-3 pt-1 border-t border-gray-50">
+                        <ul class="space-y-2 list-none">
+                            <li><strong class="text-gray-700">18.工業地查詢(新增)：</strong>可查詢新北市、桃園市、台中市 編訂工業區內特定面積區間的工廠坐落土地面積及對應地號。或輸入廠商名稱(關鍵字)，查詢該廠商在上述三縣市的工廠土地面積，並支援查詢結果匯出CSV。(資料來源為工業區土地應用系統之公開資訊，請再自行查核廠商進駐或所有權人資訊。)</li>
+                            <li><strong class="text-gray-700">12.專案排程 (優化)：</strong>甘特圖的顯示效果及錯誤修正。</li>
+                        </ul>
+                    </div>
+                </details>
             </div>
 
             <!-- 2026/10/12 -->

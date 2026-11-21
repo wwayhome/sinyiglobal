@@ -394,6 +394,24 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
 .bubble-options label {display:inline-flex;align-items:center;gap:5px}
 .bubble-options select {padding:3px 5px;border:1px solid var(--border-color);border-radius:5px;background:var(--bg-card);color:var(--text-main)}
 .bubble-tip {max-width:100%;white-space:normal;text-align:center}
+.stack-controls {display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;color:var(--text-sub);font-size:14px}
+#stackNav {margin-inline-start:auto;color:var(--accent-text);border:1px solid var(--border-color);background:var(--bg-canvas);border-radius:6px;padding:4px 10px;font-weight:650}
+#stackingPlanContainer.floor-overview {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start;align-content:start}
+#module3 {--heat-low:#c5e1f3;--heat-mid:#83b6da;--heat-high:#3975a7;--heat-text-low:#15364f;--heat-text-mid:#15364f;--heat-text-high:#fff}
+#module3 [data-detail-floor] {scroll-margin-top:16px}
+.floor-back {width:82px;cursor:pointer}
+.floor-back:hover {box-shadow:inset 0 0 0 2px rgba(255,255,255,.8)}
+.floor-back:focus-visible {outline:2px solid var(--accent-text);outline-offset:2px}
+.stack-band {display:grid;gap:5px;min-width:0}
+.stack-band h3 {font-size:15px;font-weight:700;margin:0 0 3px;padding:4px 0;border-bottom:1px solid var(--border-color);color:var(--text-main)}
+.stack-band small {color:var(--text-sub)}
+.stack-band[data-band="樓層未明"] {grid-column:1/-1}
+.floor-tile {display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:8px 10px;border:1px solid var(--tile-heat);border-radius:6px;background:var(--tile-heat);text-align:start;line-height:1.25}
+.floor-tile span {font-size:15px;font-weight:650;color:inherit;overflow-wrap:anywhere}
+.floor-tile strong {font-size:20px;letter-spacing:-.025em;font-variant-numeric:tabular-nums;color:inherit}
+.floor-tile:hover {box-shadow:inset 0 0 0 2px rgba(255,255,255,.8)}
+#stackNav:hover {background:var(--accent-light)}
+.floor-tile:focus-visible,#stackNav:focus-visible {outline:2px solid var(--accent-text);outline-offset:2px}
 </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -508,12 +526,12 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                     <div class="flex items-center justify-between mb-1">
                         <h2 class="text-base font-extrabold tracking-tight flex items-center gap-2">
                             <i class="fa-solid fa-building text-blue-500"></i>
-                            <span>大樓垂直樓層行情剖面圖（依成交樓層排序）</span>
+                            <span id="stackTitle">樓層單價總覽</span>
                         </h2>
                         <div class="flex items-center gap-2 text-xs">
                             <span class="theme-text-sub font-medium">單價熱力：</span>
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-low); color: var(--text-main); border: 1px solid var(--border-color);">低</span>
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-mid); color: #fff;">中</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-low); color: var(--heat-text-low); border: 1px solid var(--border-color);">低</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-mid); color: var(--heat-text-mid);">中</span>
                             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background: var(--heat-high); color: var(--heat-text-high);">高</span>
                             <button onclick="exportElement('module3', '垂直樓層行情剖面圖')" title="匯出此圖表 PNG" class="export-btn px-2 py-0.5 rounded border theme-border">
                                 <i class="fa-solid fa-download"></i>
@@ -522,6 +540,10 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                     </div>
 
                     
+                    <div class="stack-controls">
+                        <span id="stackMeasure">平均單價（萬／坪）</span>
+                        <button type="button" id="stackNav" aria-controls="stackingPlanContainer">查看全部明細</button>
+                    </div>
                     <div id="stackingPlanContainer" class="flex-1 flex flex-col justify-center gap-2 my-1"></div>
                 </section>
             </div>
@@ -2128,7 +2150,8 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             const selectedUnit = document.getElementById('unitFilter').value;
             if (selectedUnit) processedRecords = processedRecords.filter(r => r.unit === selectedUnit);
             if (!processedRecords.length) {
-                for (const id of ['buildingProfileBadges','bubbleChartContainer','stackingPlanContainer','transactionTableBody']) document.getElementById(id).replaceChildren();
+                for (const id of ['buildingProfileBadges','bubbleChartContainer','transactionTableBody']) document.getElementById(id).replaceChildren();
+                renderStackingPlan();
                 document.getElementById('kpiGrid').textContent = '目前篩選條件下沒有成交紀錄';
                 return;
             }
@@ -2561,77 +2584,128 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 ? scope + ' · ' + (unitSelect.value || caption) : '';
         }
         document.getElementById('unitFilter').addEventListener('change', renderAll);
+        let stackDetail = null;
+        const stackContainer = document.getElementById('stackingPlanContainer');
+        const stackNav = document.getElementById('stackNav');
+
+        function showStackView(detail, floorLabel) {
+            const previous = stackDetail;
+            stackDetail = detail;
+            renderStackingPlan();
+            const row = detail !== null && floorLabel && Array.from(stackContainer.querySelectorAll('[data-detail-floor]'))
+                .find(el => el.dataset.detailFloor === floorLabel);
+            if (row) {
+                const more = row.querySelector('details');
+                if (more) more.open = true;
+                row.focus({preventScroll:true});
+                row.scrollIntoView({block:'start', inline:'nearest'});
+            } else {
+                const tiles = Array.from(stackContainer.querySelectorAll('.floor-tile'));
+                const origin = tiles.find(el => el.dataset.group === previous);
+                const tile = floorLabel && origin?.dataset.floor !== floorLabel
+                    ? tiles.find(el => el.dataset.floor === floorLabel) : origin;
+                const target = tile || stackNav;
+                target.focus({preventScroll:true});
+                target.scrollIntoView({block:'nearest', inline:'nearest'});
+            }
+        }
+        stackNav.addEventListener('click', () => showStackView(stackDetail === null ? 'all' : null));
+        stackContainer.addEventListener('click', event => {
+            const back = event.target.closest('button[data-return-floor]');
+            if (back) {
+                showStackView(null, back.dataset.returnFloor);
+                return;
+            }
+            const tile = event.target.closest('.floor-tile');
+            if (tile) showStackView(tile.dataset.group, tile.dataset.floor);
+        });
+
         function renderStackingPlan() {
-            const container = document.getElementById('stackingPlanContainer');
-            const records = processedRecords;
-            const streets = new Set(records.map(r => doorParts(r.address).street));
-            const short = d => streets.size === 1 ? d.short : d.key;
-            const groups = {};
-            records.forEach(r => {
-                const key = r.floorInfo.label;
-                if (!groups[key]) {
-                    groups[key] = {
-                        label: key,
-                        sortFloor: r.floorInfo.num,
-                        records: []
-                    };
+            const groups = new Map();
+            if (!processedRecords.length || (stackDetail && stackDetail !== 'all' &&
+                !processedRecords.some(r => floorBand(r) + '/' + r.floorInfo.label === stackDetail))) stackDetail = null;
+            const overview = stackDetail === null;
+            let min = Infinity, max = -Infinity;
+            for (const record of processedRecords) {
+                const {label, num} = record.floorInfo;
+                const band = floorBand(record);
+                const key = overview ? band + '/' + label : label;
+                if (!groups.has(key)) groups.set(key,{key, label, band, floor:num, records:[], total:0});
+                const group = groups.get(key);
+                group.records.push(record);
+                group.total += record.unitPriceWan;
+                min = Math.min(min,record.unitPriceWan);
+                max = Math.max(max,record.unitPriceWan);
+            }
+            document.getElementById('stackTitle').textContent = overview ? '樓層單價總覽' : '樓層成交明細';
+            document.getElementById('stackMeasure').hidden = !overview || !groups.size;
+            stackNav.hidden = !groups.size;
+            stackNav.textContent = overview ? '查看全部明細' : '返回總覽';
+            stackContainer.classList.toggle('floor-overview',overview && groups.size > 0);
+            if (!groups.size) {
+                stackContainer.textContent = '目前篩選條件下沒有成交紀錄';
+                return;
+            }
+            const visible = [...groups.values()].sort((a,b) => (b.floor ?? -Infinity) - (a.floor ?? -Infinity));
+            const singleStreet = new Set(processedRecords.map(r => doorParts(r.address).street)).size === 1;
+            const columns = new Map(['高樓層','中樓層','低樓層'].map(band => [band,[]]));
+            const details = [];
+            for (const group of visible) {
+                group.mean = group.total / group.records.length;
+                const ratio = (group.mean - min) / Math.max(1,max - min);
+                const heat = ratio > 0.65 ? 'high' : ratio > 0.25 ? 'mid' : 'low';
+                group.background = 'var(--heat-' + heat + ')';
+                group.ink = 'var(--heat-text-' + heat + ')';
+                if (!overview) {
+                    details.push(floorDetailHtml(group, singleStreet));
+                    continue;
                 }
-                groups[key].records.push(r);
-            });
+                if (!columns.has(group.band)) columns.set(group.band,[]);
+                const label = escapeText(group.label);
+                const price = group.mean.toFixed(2);
+                columns.get(group.band).push(`<button type="button" class="floor-tile" data-floor="${label}" data-group="${group.band}/${label}" style="--tile-heat:${group.background};color:${group.ink}"
+                            aria-label="${group.band} ${label}，平均單價 ${price} 萬／坪，查看 ${group.records.length} 筆成交明細">
+                            <span>${label}</span><strong>${price}</strong></button>`);
+            }
+            stackContainer.innerHTML = overview ? Array.from(columns, ([band,tiles]) =>
+                `<article class="stack-band" data-band="${band}" aria-label="${band}">
+                    <h3>${band}</h3>${tiles.join('') || '<small>無成交</small>'}</article>`
+            ).join('') : details.join('');
+        }
 
-            // 由高樓層往低樓層排列
-            const sortedFloors = Object.values(groups).sort((a, b) => b.sortFloor - a.sortFloor);
-
-            const allPrices = processedRecords.map(r => r.unitPriceWan);
-            const minP = Math.min(...allPrices);
-            const maxP = Math.max(...allPrices);
-
-            container.innerHTML = sortedFloors.map(g => {
-                const floorAvg = g.records.reduce((s, r) => s + r.unitPriceWan, 0) / g.records.length;
-                const ratio = (floorAvg - minP) / Math.max(1, maxP - minP);
-
-                let badgeBg = 'var(--heat-low)';
-                let badgeColor = 'var(--text-main)';
-                if (ratio > 0.65) {
-                    badgeBg = 'var(--heat-high)';
-                    badgeColor = 'var(--heat-text-high)';
-                } else if (ratio > 0.25) {
-                    badgeBg = 'var(--heat-mid)';
-                    badgeColor = '#ffffff';
-                }
-
-                const cardsHtml = g.records.map(r => {
-                    const door = escapeText(r.presale ? (r.unit || '戶別未列') : short(doorParts(r.address)));
-                    return `
-                        <div class="flex-1 min-w-[210px] rounded-lg px-3 py-2 border theme-border trade-card bg-white/75 dark:bg-slate-900/60 flex items-center justify-between gap-2 shadow-sm">
-                            <div class="trade-lines">
-                                <div class="trade-head">
-                                    <span class="text-xs theme-text-sub">#${r.seq}</span>
-                                    <span class="door-label">${door}</span>
-                                    ${r.cancellation ? `<small>${escapeText(r.cancellation)}</small>` : ''}
-                                    <strong style="color:var(--accent)">${r.unitPriceWan.toFixed(2)} <small>萬/坪</small></strong>
-                                    ${r.carCount > 0 ? `<span aria-label="車位 ${r.carCount} 個">🚗×${r.carCount}</span>` : ''}
-                                </div>
-                                <div class="trade-facts theme-text-sub">${r.dateInfo.display}｜建坪 ${r.totalAreaPing.toFixed(2)} 坪｜總價 ${r.totalPriceWan.toLocaleString('zh-TW')}萬</div>
-                            </div>
-                        </div>
-                    `;
-                });
-
+        function floorDetailHtml(group, singleStreet) {
+            const cardsHtml = group.records.map(r => {
+                const door = escapeText(r.presale ? (r.unit || '戶別未列') : (singleStreet ? doorParts(r.address).short : doorParts(r.address).key));
                 return `
-                    <div class="flex items-stretch gap-2.5 p-1.5 rounded-xl border theme-border">
-                        <div class="w-24 shrink-0 rounded-lg flex flex-col items-center justify-center py-2 px-1.5 text-center shadow-sm"
-                             style="background: ${badgeBg}; color: ${badgeColor};">
-                            <span style="font-size:22px" class="font-black leading-tight">${g.label}</span>
-                            <span class="floor-mean">${floorAvg.toFixed(2)}</span><small>萬／坪</small>
-                        </div>
-                        <div class="flex-1 flex flex-wrap items-center gap-2">
-                            ${cardsHtml.slice(0,2).join('')}
-                            ${cardsHtml.length > 2 ? `<details class="floor-more"><summary><span class="closed-label">展開其餘 ${cardsHtml.length-2} 筆</span><span class="open-label">收合交易</span></summary><div class="flex flex-wrap gap-2">${cardsHtml.slice(2).join('')}</div></details>` : ''}
+                    <div class="flex-1 min-w-[210px] rounded-lg px-3 py-2 border theme-border trade-card bg-white/75 dark:bg-slate-900/60 flex items-center justify-between gap-2 shadow-sm">
+                        <div class="trade-lines">
+                            <div class="trade-head">
+                                <span class="text-xs theme-text-sub">#${r.seq}</span>
+                                <span class="door-label">${door}</span>
+                                ${r.cancellation ? `<small>${escapeText(r.cancellation)}</small>` : ''}
+                                <strong style="color:var(--accent)">${r.unitPriceWan.toFixed(2)} <small>萬/坪</small></strong>
+                                ${r.carCount > 0 ? `<span aria-label="車位 ${r.carCount} 個">🚗×${r.carCount}</span>` : ''}
+                            </div>
+                            <div class="trade-facts theme-text-sub">${r.dateInfo.display}｜建坪 ${r.totalAreaPing.toFixed(2)} 坪｜總價 ${r.totalPriceWan.toLocaleString('zh-TW')}萬</div>
                         </div>
                     </div>
                 `;
-            }).join('');
+            });
+
+            return `
+                <div data-detail-floor="${escapeText(group.label)}" tabindex="-1" role="group" aria-label="${escapeText(group.label)} 成交明細" class="flex items-stretch gap-2.5 p-1.5 rounded-xl border theme-border">
+                    <button type="button" class="floor-back shrink-0 rounded-lg flex flex-col items-center justify-center py-2 px-1.5 text-center shadow-sm" data-return-floor="${escapeText(group.label)}"
+                         aria-label="返回 ${escapeText(group.label)} 樓層總覽" title="返回樓層總覽"
+                         style="background: ${group.background}; color: ${group.ink};">
+                        <span style="font-size:22px" class="font-black leading-tight">${escapeText(group.label)}</span>
+                        <span class="floor-mean">${group.mean.toFixed(2)}</span><small>萬／坪</small>
+                    </button>
+                    <div class="flex-1 flex flex-wrap items-center gap-2">
+                        ${cardsHtml.slice(0,2).join('')}
+                        ${cardsHtml.length > 2 ? `<details class="floor-more"><summary><span class="closed-label">展開其餘 ${cardsHtml.length-2} 筆</span><span class="open-label">收合交易</span></summary><div class="flex flex-wrap gap-2">${cardsHtml.slice(2).join('')}</div></details>` : ''}
+                    </div>
+                </div>
+            `;
         }
 
         // 模組 4：四分頁序號關聯明細表
@@ -2768,6 +2842,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
         }
 
         function applySources(preserve) {
+            if (!preserve) stackDetail = null;
             const bounds = [[fromYear, 0], [toYear, toYear.options.length - 1], [fromFloor, 0], [toFloor, 0]]
                 .map(([select, unrestricted]) => [select, select.selectedIndex === unrestricted ? '' : select.value]);
             const doors = [...selectedDoors];
@@ -3121,7 +3196,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 await document.fonts.ready;
                 return {
                     pixelRatio: 2,
-                    filter: node => !node.classList?.contains("export-btn") && !node.classList?.contains("bubble-tip"),
+                    filter: node => !node.classList?.contains("export-btn") && !node.classList?.contains("bubble-tip") && node.id !== "stackNav",
                     backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-canvas').trim()
                 };
         }

@@ -417,6 +417,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
         <div><label title="限車位價格未拆且車位面積大於零的案件"><input type="checkbox" id="deductCarToggle" checked> 推估車位價</label> <input aria-label="每個車位預設價" type="number" id="carPriceInput" min="0" step="1"> 萬／個</div>
         <label><input type="checkbox" id="excludeFirstFloor" checked> 排除一樓</label>
         <label title="依案件列表備註排除「親友、員工或其他特殊關係間之交易」，包含列有「共有人」的寫法"><input type="checkbox" id="excludeSpecial" checked> 排除特殊交易</label>
+        <label id="cancelControl" hidden><input id="excludeCancelled" type="checkbox" checked> 排除全部解約</label>
         <div><button id="toggleLabelsBtn"><i class="fa-solid fa-tag"></i> <span>數據標籤: 顯示</span></button></div>
         <div class="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700 text-xs">
                     <button data-ratio="16-9" class="ratio-btn px-2 py-1 rounded-md bg-blue-600 text-white font-medium">16:9</button>
@@ -433,6 +434,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
       <div class="control-row scope-row">
         <details id="sourcePanel"><summary id="sourceSummary">內建範例 · 中央商業</summary><ul id="sourceList"></ul></details>
         <div id="doorFilters" role="group" aria-label="全報表門牌篩選"></div>
+        <label hidden>戶別 <select id="unitFilter"></select></label>
         <span id="importStatus" role="status" aria-live="polite"></span>
       </div>
     </header>
@@ -558,13 +560,13 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                         <thead>
                             <tr class="border-b-2 theme-border text-[11px] font-bold uppercase tracking-wider theme-text-sub">
                                 <th class="py-2 px-2 text-center">序號</th>
-                                <th class="py-2 px-2">門牌地址</th>
+                                <th id="addressHeader" class="py-2 px-2">門牌地址</th>
                                 <th class="py-2 px-2">交易日期</th>
                                 <th class="py-2 px-2">成交樓層</th>
                                 <th class="py-2 px-2 text-right">單價 (萬/坪)</th>
                                 <th class="py-2 px-2 text-right">總價 (萬元)</th>
                                 <th class="py-2 px-2 text-right">建坪總計</th>
-                                <th class="building-detail py-2 px-2 text-right">建物明細（依主要用途加總）</th>
+                                <th id="buildingHeader" class="building-detail py-2 px-2 text-right">建物明細（依主要用途加總）</th>
                                 <th class="py-2 px-2 text-right">土地持分 (筆數)</th>
                                 <th class="py-2 px-2">車位明細 (數量 / 類型 / 車位價 / 面積)</th>
                             </tr>
@@ -1997,7 +1999,11 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 const carCount = cars.length;
                 const carType = cars.length > 0 ? cars[0].type : (item.carCountDesc && item.carCountDesc !== '0個' ? item.carCountDesc : '');
                 const carFloors = [...new Set(cars.map(c => c.floor).filter(Boolean))].join('、');
-                const recordedCarPriceWan = Number(item.carPriceWan || cars.reduce((s, c) => s + Number(c.priceWan || 0), 0));
+                const detailCarTotal = cars.reduce((sum, c) => sum + Number(c.priceWan || 0), 0);
+                const allCarsPriced = cars.length > 0 && cars.every(c => c.priceWan > 0);
+                const recordedCarPriceWan = item.presale && allCarsPriced ? detailCarTotal : Number(item.carPriceWan || detailCarTotal);
+                const completeNetArea = !item.presale || (totalAreaPing > carAreaPing && item.totalPriceWan > 0
+                    && (item.carAreaPing > 0 || cars.every(c => c.areaPing > 0)));
 
                 // 單價計算：預設採用表格內的單價 (萬/坪)
                 let finalUnitPriceWan = Number(item.unitPriceWan || 0);
@@ -2005,7 +2011,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 let effectiveCarPriceWan = recordedCarPriceWan;
 
                 // 若勾選「車位價格未拆且面積大於零時重算單價」，且該筆有車位但車位價為0
-                if (state.deductCarWhenZero && state.defaultCarPriceWan > 0 && carCount > 0 && carAreaPing > 0 && recordedCarPriceWan === 0) {
+                if (state.deductCarWhenZero && state.defaultCarPriceWan > 0 && carCount > 0 && carAreaPing > 0 && recordedCarPriceWan === 0 && completeNetArea) {
                     effectiveCarPriceWan = state.defaultCarPriceWan * carCount;
                     const netPriceWan = Math.max(0, Number(item.totalPriceWan) - effectiveCarPriceWan);
                     const netAreaPing = Math.max(1, totalAreaPing - carAreaPing);
@@ -2021,6 +2027,8 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                     seq,
                     sourceName: item.sourceName, originSeq: item.originSeq,
                     address: item.address,
+                    presale: item.presale, unit:item.unit, community:item.community,
+                    cancellation:item.cancellation, buildingRows:bldgs,
                     dateInfo,
                     completeDate: (item.completeDate && item.completeDate !== '-') ? item.completeDate : bldgs[0]?.buildDate,
                     areaByUse,
@@ -2039,13 +2047,14 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                     landZone,
                     bldgCount: item.buildingCount ?? bldgs.length,
                     bldgUse: item.primaryUse || '用途未提供',
-                    bldgMaterial: bldgs[0]?.material || '鋼骨鋼筋混凝土造',
+                    bldgMaterial: item.presale ? (item.material || '建材未列') : (bldgs[0]?.material || '鋼骨鋼筋混凝土造'),
                     carCount,
                     carType,
                     carFloors,
                     cars,
                     reportedParkingTotal: Number(item.carPriceWan || 0),
                     recordedCarPriceWan,
+                    partialCarTotal: item.presale && !allCarsPriced && !item.carPriceWan && detailCarTotal > 0,
                     effectiveCarPriceWan,
                     isCarAdjusted,
                     note: item.note || ''
@@ -2059,7 +2068,13 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
         const fromYear = document.getElementById('fromYear');
         const toYear = document.getElementById('toYear');
         const excludeSpecial = document.getElementById('excludeSpecial');
-        excludeSpecial.addEventListener('change', () => {
+        const excludeCancelled = document.getElementById('excludeCancelled');
+        function excludedByStatus(r) {
+            return (excludeSpecial.checked && isSpecialTransaction(r.note))
+                || (excludeCancelled.checked && r.presale && /^(?:[0-9./年月至日-]+)?全部解約$/.test(
+                    (r.cancellation || '').normalize('NFKC').replace(/\s+/g,'')));
+        }
+        for (const control of [excludeSpecial,excludeCancelled]) control.addEventListener('change', () => {
             if (!customCarPrice) updateParkingSuggestion(currentRawData);
             renderAll();
         });
@@ -2099,9 +2114,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
 
         function renderAll() {
             processedRecords = processAllData(currentRawData).filter(r => !fromYear.value || (r.dateInfo.year >= +fromYear.value && r.dateInfo.year <= +toYear.value));
-            if (excludeSpecial.checked) {
-                processedRecords = processedRecords.filter(r => !isSpecialTransaction(r.note));
-            }
+            processedRecords = processedRecords.filter(r => !excludedByStatus(r));
             if (excludeFirstFloor.checked) {
                 processedRecords = processedRecords.filter(r => !r.floorInfo.floors.includes(1));
             }
@@ -2111,7 +2124,9 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 processedRecords = processedRecords.filter(r => r.floorInfo.floors?.some(n => n >= low && n <= high));
             }
             renderDoorControls();
-            if (selectedDoors.size) processedRecords = processedRecords.filter(r => selectedDoors.has(doorParts(r.address).key));
+            if (selectedDoors.size) processedRecords = processedRecords.filter(r => selectedDoors.has(unitScope(r).key));
+            const selectedUnit = document.getElementById('unitFilter').value;
+            if (selectedUnit) processedRecords = processedRecords.filter(r => r.unit === selectedUnit);
             if (!processedRecords.length) {
                 for (const id of ['buildingProfileBadges','bubbleChartContainer','stackingPlanContainer','transactionTableBody']) document.getElementById(id).replaceChildren();
                 document.getElementById('kpiGrid').textContent = '目前篩選條件下沒有成交紀錄';
@@ -2123,6 +2138,10 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             renderBubbleChart();
             renderStackingPlan();
             renderTable();
+        }
+
+        function escapeText(value) {
+            return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
         function renderBuildingBadges() {
@@ -2139,12 +2158,13 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             container.innerHTML = `
                 <span class="px-2.5 py-1 rounded-full theme-accent-light"><i class="fa-solid fa-location-dot mr-1"></i>${r0.address.match(/^.*?(?:區|鄉|鎮)/)?.[0] || '行政區未提供'}</span>
                 <span class="px-2.5 py-1 rounded-full theme-card">總樓高 <span data-heights></span></span>
-                <span class="px-2.5 py-1 rounded-full theme-card">${ageStr}</span>
+                <span class="px-2.5 py-1 rounded-full theme-card">${r0.presale ? '預售屋' : ageStr}</span>
                 <span class="px-2.5 py-1 rounded-full theme-card">${r0.landZone}</span>
-                <span class="px-2.5 py-1 rounded-full theme-card">${r0.bldgMaterial}｜<span data-primary-use></span></span>
+                <span class="px-2.5 py-1 rounded-full theme-card">${escapeText(r0.bldgMaterial)}｜<span data-primary-use></span></span>
             `;
             container.querySelector('[data-heights]').textContent = [...new Set(processedRecords.map(r => r.totalFloors))].sort((a,b)=>Number(a)-Number(b)).map(h => h === '—' ? h : h + 'F').join('、');
-            container.querySelector('[data-primary-use]').textContent = r0.bldgUse;
+            container.querySelector('[data-primary-use]').textContent = processedRecords.some(r => r.presale)
+                ? [...new Set(processedRecords.map(r => r.bldgUse))].join('、') : r0.bldgUse;
         }
 
         function renderKPICards() {
@@ -2463,39 +2483,81 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             });
             return {key:canonicalStreet + match[2], street:canonicalStreet, short:match[2]};
         }
-        function renderDoorControls() {
+        function unitScope(row) {
+            if (!row.presale) return doorParts(row.address);
+            const unit = row.unit.normalize('NFKC').trim();
+            const floorSuffix = unit.match(/^(.+?)[-－](\d+)F號?$/i);
+            const floors = row.floorInfo?.floors ?? parseFloorInfo(row.floorStr).floors;
+            const confirmedFloor = floorSuffix && floors.length === 1 && Number(floorSuffix[2]) === floors[0];
+            const building = unit.match(/^([A-Za-z0-9]+棟).+/)?.[1];
+            const short = building || (confirmedFloor ? floorSuffix[1] : unit) || '戶別未列';
+            const project = row.community || row.sourceName || '建案未列';
+            return {key:JSON.stringify(['預售', project, short]), short, project, building};
+        }
 
+        function renderDoorControls() {
             const doors = new Map();
-            for (const r of currentRawData.main) {
-                const door = doorParts(r.address);
-                doors.set(door.key, door);
+            const projects = new Set();
+            const streets = new Set();
+            for (const row of currentRawData.main) {
+                const door = unitScope(row);
+                if (!doors.has(door.key)) doors.set(door.key, {...door, seq:row.seq, units:new Set()});
+                if (row.presale) {
+                    projects.add(door.project);
+                    if (door.building) doors.get(door.key).units.add(row.unit);
+                } else streets.add(door.street);
             }
+            const hasPresale = projects.size > 0;
+            const scope = hasPresale ? (streets.size ? '門牌／棟戶' : '棟戶') : '門牌';
             for (const key of selectedDoors) if (!doors.has(key)) selectedDoors.delete(key);
-            const streets = new Set([...doors.values()].map(d => d.street));
-            const short = d => streets.size === 1 ? d.short : d.key;
+            const chosen = [...doors.values()].filter(d => selectedDoors.has(d.key));
+            const unitSelect = document.getElementById('unitFilter');
+            const previousUnit = unitSelect.value;
+            const units = chosen.length === 1 ? [...chosen[0].units] : [];
+            const compare = (a,b) => a.localeCompare(b,'zh-TW',{numeric:true});
+            unitSelect.replaceChildren(new Option('全部戶別',''), ...units.sort(compare).map(u => new Option(u,u)));
+            if (units.includes(previousUnit)) unitSelect.value = previousUnit;
+            unitSelect.parentElement.hidden = !units.length;
+
+            document.getElementById('cancelControl').hidden = !hasPresale;
+            document.getElementById('addressHeader').textContent = hasPresale ? '坐落／棟及號' : '門牌地址';
+            document.getElementById('buildingHeader').textContent = hasPresale
+                ? (streets.size ? '建物明細' : '建物明細（分層／交易面積）') : '建物明細（依主要用途加總）';
+
+            function label(d) {
+                if (d.project) {
+                    const text = /\p{Co}/u.test(d.short) ? d.short + ' (#' + d.seq + ')' : d.short;
+                    return projects.size > 1 || streets.size ? d.project + ' · ' + text : text;
+                }
+                return streets.size === 1 ? d.short : d.key;
+            }
             const filters = document.getElementById('doorFilters');
-            filters.replaceChildren(document.createTextNode('報表門牌'));
-            function addButton(label, key) {
+            filters.setAttribute('aria-label','全報表' + scope + '篩選');
+            filters.replaceChildren(document.createTextNode('報表' + scope));
+            function addButton(text, key) {
                 const button = document.createElement('button');
-                button.textContent = label;
-                button.title = key || '顯示所有門牌';
+                button.type = 'button';
+                button.textContent = text;
+                button.title = key ? text : '顯示所有' + scope;
                 button.setAttribute('aria-pressed', key ? selectedDoors.has(key) : !selectedDoors.size);
                 button.onclick = () => {
+                    unitSelect.value = '';
                     if (!key) selectedDoors.clear();
                     else if (selectedDoors.has(key)) selectedDoors.delete(key);
                     else selectedDoors.add(key);
-                    if (selectedDoors.size === doors.size) selectedDoors.clear();
+                    if (selectedDoors.size === doors.size && doors.size > 1) selectedDoors.clear();
                     renderAll();
                 };
                 filters.append(button);
             }
-
-            addButton('全選', '');
-            for (const d of [...doors.values()].sort((a,b)=>a.key.localeCompare(b.key,'zh-TW',{numeric:true}))) addButton(short(d),d.key);
-            const chosen = [...doors.values()].filter(d => !selectedDoors.size || selectedDoors.has(d.key));
-            const label = chosen.length <= 4 ? chosen.map(short).join('、') : chosen.length + ' 個門牌';
-            document.getElementById('doorScope').textContent = doors.size > 1 ? '門牌 · ' + label : '';
+            addButton('全選','');
+            for (const d of [...doors.values()].sort((a,b) => compare(label(a),label(b)))) addButton(label(d),d.key);
+            const shown = chosen.length ? chosen : [...doors.values()];
+            const caption = shown.length <= 4 ? shown.map(label).join('、') : shown.length + ' 個' + scope;
+            document.getElementById('doorScope').textContent = doors.size > 1 || chosen.length
+                ? scope + ' · ' + (unitSelect.value || caption) : '';
         }
+        document.getElementById('unitFilter').addEventListener('change', renderAll);
         function renderStackingPlan() {
             const container = document.getElementById('stackingPlanContainer');
             const records = processedRecords;
@@ -2536,13 +2598,14 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 }
 
                 const cardsHtml = g.records.map(r => {
-                    const door = short(doorParts(r.address)).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                    const door = escapeText(r.presale ? (r.unit || '戶別未列') : short(doorParts(r.address)));
                     return `
                         <div class="flex-1 min-w-[210px] rounded-lg px-3 py-2 border theme-border trade-card bg-white/75 dark:bg-slate-900/60 flex items-center justify-between gap-2 shadow-sm">
                             <div class="trade-lines">
                                 <div class="trade-head">
                                     <span class="text-xs theme-text-sub">#${r.seq}</span>
                                     <span class="door-label">${door}</span>
+                                    ${r.cancellation ? `<small>${escapeText(r.cancellation)}</small>` : ''}
                                     <strong style="color:var(--accent)">${r.unitPriceWan.toFixed(2)} <small>萬/坪</small></strong>
                                     ${r.carCount > 0 ? `<span aria-label="車位 ${r.carCount} 個">🚗×${r.carCount}</span>` : ''}
                                 </div>
@@ -2587,18 +2650,22 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             tbody.innerHTML = sorted.map(r => {
                 const totalPriceFormatted = `${r.totalPriceWan.toLocaleString("zh-TW")} 萬元`;
 
+                const carPriceDifference = r.presale && r.reportedParkingTotal > 0
+                    && r.cars.length > 0 && r.cars.every(car => car.priceWan > 0)
+                    && Math.abs(r.reportedParkingTotal - r.recordedCarPriceWan) > 0.005;
                 let carBadgeHtml = `<span class="text-slate-400">無車位</span>`;
                 if (r.carCount > 0) {
                     const priceLabel = r.recordedCarPriceWan > 0
-                        ? `共 ${r.recordedCarPriceWan.toLocaleString()}萬`
+                        ? `${r.partialCarTotal ? '已列' : '共'} ${r.recordedCarPriceWan.toLocaleString()}萬`
                         : (r.isCarAdjusted ? `預設扣 ${r.effectiveCarPriceWan}萬` : `車位價內含(0萬)`);
-                    const areaLabel = r.carAreaPing > 0 ? `${r.carAreaPing.toFixed(2)}坪` : `面積內含(0坪)`;
+                    const areaLabel = r.carAreaPing > 0 ? `${r.carAreaPing.toFixed(2)}坪` : (r.presale ? '面積未列' : '面積內含(0坪)');
                     carBadgeHtml = `
                         <div class="flex flex-col gap-0.5">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold w-fit" style="background:var(--badge-car-bg); color:var(--badge-car-text);">
                                 <i class="fa-solid fa-car"></i> ${r.carType} × ${r.carCount}個 (${r.carFloors})
                             </span>
                             <span class="text-[11px] theme-text-sub">${priceLabel}｜${areaLabel}</span>
+                            ${carPriceDifference ? `<span>主表車位總價 ${r.reportedParkingTotal.toLocaleString()} 萬</span>` : ''}
                         </div>
                     `;
                 }
@@ -2608,8 +2675,10 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                         <td class="py-2.5 px-2 text-center">
                             <span class="inline-block w-6 h-6 leading-6 rounded-full font-black text-xs theme-accent-light">${r.seq}</span>
                         </td>
-                        <td class="py-2.5 px-2 font-bold">${r.address.replace('臺北市中正區', '')}</td>
-                        <td class="py-2.5 px-2 whitespace-nowrap">${r.dateInfo.display}</td>
+                        <td class="py-2.5 px-2 font-bold">${escapeText(r.presale ? r.address : r.address.replace('臺北市中正區', ''))}
+                            ${r.presale ? '<small class="door-label">' + escapeText(r.unit || '戶別未列') + '</small>' : ''}</td>
+                        <td class="py-2.5 px-2 whitespace-nowrap">${r.dateInfo.display}
+                            ${r.cancellation ? '<small class="block theme-text-sub">' + escapeText(r.cancellation) + '</small>' : ''}</td>
                         <td class="py-2.5 px-2">
                             <span class="px-2 py-0.5 rounded font-extrabold theme-card">${r.floorInfo.label}</span>
                             ${r.bldgCount > 1 ? `<span class="text-[10px] theme-text-sub ml-1">(${r.bldgCount}筆建號)</span>` : ''}
@@ -2621,7 +2690,9 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                         <td class="py-2.5 px-2 text-right whitespace-nowrap">${totalPriceFormatted}</td>
                         <td class="py-2.5 px-2 text-right font-extrabold whitespace-nowrap">${r.totalAreaPing.toFixed(2)} 坪</td>
                         <td class="building-detail py-2.5 px-2 text-right whitespace-nowrap text-[11px] theme-text-sub">
-                            ${Array.from(r.areaByUse, ([use, area]) => {
+                            ${r.presale ? (r.buildingRows.map(b =>
+                                `<div>${escapeText(b.floor || '分層未列')} <b>${b.areaPing.toFixed(2)}</b> 坪</div>`
+                            ).join('') || '無建物明細') : Array.from(r.areaByUse, ([use, area]) => {
                                 const characters = Array.from(use);
                                 const shortName = characters.length > 10 ? characters.slice(0,10).join('') + '...' : use;
                                 const name = shortName.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -2697,6 +2768,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             const bounds = [[fromYear, 0], [toYear, toYear.options.length - 1], [fromFloor, 0], [toFloor, 0]]
                 .map(([select, unrestricted]) => [select, select.selectedIndex === unrestricted ? '' : select.value]);
             const doors = [...selectedDoors];
+            if (!preserve) document.getElementById('unitFilter').value = '';
             currentRawData = sources.length
                 ? Object.fromEntries(sections.map(key => [key, sources.flatMap(s => s.raw[key])]))
                 : demoData;
@@ -2711,7 +2783,10 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             const title = document.getElementById('buildingTitleInput');
             const names = [...new Set(currentRawData.main.map(row => row.community).filter(Boolean))];
             const addresses = [...new Set(currentRawData.main.map(row => doorParts(row.address).key))];
-            const nextTitle = sources.length ? [...names, addresses.length === 1 ? addresses[0] : '', '實價登錄行情分析'].filter(Boolean).join('｜') : demoTitle;
+            const presaleReport = currentRawData.main.every(row => row.presale);
+            const location = !presaleReport && addresses.length === 1 ? addresses[0] : '';
+            const heading = presaleReport ? '預售屋實價登錄行情分析' : '實價登錄行情分析';
+            const nextTitle = sources.length ? [...names, location, heading].filter(Boolean).join('｜') : demoTitle;
             if (!preserve || title.value === automaticTitle) {
                 title.value = nextTitle;
                 document.getElementById('displayBuildingTitle').textContent = nextTitle;
@@ -2723,6 +2798,10 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
 
         function saleKey(row) {
             const clean = value => String(value || '').normalize('NFKC').replace(/\s/g,'').replace(/臺/g,'台');
+            if (row.presale && row.community && row.unit && row.date && row.totalPriceWan && row.totalAreaPing) {
+                return JSON.stringify(['預售', clean(row.community), clean(row.unit), parseFloorInfo(row.floorStr).label,
+                    parseRocDate(row.date).sortVal, row.totalPriceWan, row.totalAreaPing]);
+            }
             if (!row.address || !row.date || !row.totalPriceWan || !row.totalAreaPing) return '';
             return JSON.stringify([doorParts(row.address).key, clean(row.address).split('號').slice(1).join('號'),
                 parseRocDate(row.date).sortVal, parseFloorInfo(row.floorStr).label, row.totalPriceWan, row.totalAreaPing]);
@@ -2800,9 +2879,9 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 bySeq.get(car.seq).push(car);
             }
             for (const sale of raw.main) {
-                if (excludeSpecial.checked && isSpecialTransaction(sale.note)) continue;
+                if (excludedByStatus(sale)) continue;
                 const spaces = bySeq.get(sale.seq) || [];
-                if (sale.carPriceWan > 0 && spaces.length) {
+                if (sale.carPriceWan > 0 && spaces.length && (!sale.presale || spaces.some(c => !c.priceWan))) {
                     total += sale.carPriceWan;
                     count += spaces.length;
                 } else {
@@ -2883,17 +2962,21 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                     mainRows.forEach(r => {
                         const [floor, height] = String(r['樓別/樓高'] || '').split('/');
                         const count = String(r['交易筆棟數'] || '').match(/建物\s*[:：]\s*(\d+)/);
+                        const presale = '棟及號' in r && '建案名稱' in r;
                         result.main.push({
+                            presale, unit: String(r['棟及號'] || '').trim(),
+                            cancellation: String(r['解約情形'] || '').trim(),
+                            material: String(r['主要建材'] || '').trim(),
                             seq: r.seq,
                             primaryUse: String(r['主要用途'] || '').trim(),
-                            community: String(r['社區簡稱'] || '').trim(),
-                            address: String(r['土地區段位置或建物區門牌'] || r['建物區門牌'] || r['地段位置或門牌'] || ''),
+                            community: String((presale ? r['建案名稱'] : r['社區簡稱']) || '').trim(),
+                            address: String(r['建物坐落'] || r['土地區段位置或建物區門牌'] || r['建物區門牌'] || r['地段位置或門牌'] || ''),
                             date: String(r['交易年月日'] || r['交易日期'] || ''),
                             completeDate: String(r['建築完成年月'] || r['建築完成日期'] || '-'),
                             floorStr: String(r['移轉層次'] || floor || ''),
                             totalFloors: String(r['總樓層數'] || (height ? (parseFloorInfo(height).num ?? '') : '')),
                             buildingCount: count ? Number(count[1]) : null,
-                            mainAreaShare: r['主建物佔比'] === undefined ? undefined : String(r['主建物佔比']),
+                            mainAreaShare: r['主建物佔比'] ?? r['主建物佔比(%)'],
                             totalPriceWan: numberOf(r['總價(萬)'] || r['總價(萬元)'] || r['總價'] || 0),
                             unitPriceWan: numberOf(r['單價(萬/坪)'] || r['單價(萬元/坪)'] || r['單價'] || 0),
                             totalAreaPing: numberOf(r['建坪'] || r['總面積(坪)'] || r['建物移轉面積(坪)'] || r['建物移轉面積'] || 0),
@@ -2908,12 +2991,12 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 }
 
                 if (sheetName.includes('土地')) {
-                    const landRows = extractTableBySeq(rows, ['土地區段位置', '使用分區', '權利移轉']);
+                    const landRows = extractTableBySeq(rows, ['土地區段位置', '使用分區', '權利移轉', '土地交易面積']);
                     landRows.forEach(r => {
                         result.lands.push({
                             seq: r.seq,
                             parcel: String(r['土地區段位置'] || r['土地位置'] || ''),
-                            areaPing: numberOf(r['土地移轉面積(坪)'] || r['土地移轉面積'] || 0),
+                            areaPing: numberOf(r['土地移轉面積(坪)'] || r['土地移轉面積'] || r['土地交易面積(坪)'] || r['土地交易面積'] || 0),
                             ratio: String(r['權利移轉範圍'] || ''),
                             zone: String(r['使用分區或編定'] || '').replace(/^都市：(?:其他:)?/, '')
                         });
@@ -2921,12 +3004,12 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 }
 
                 if (sheetName.includes('建物')) {
-                    const bldgRows = extractTableBySeq(rows, ['主要用途', '主要建材', '附屬建物']);
+                    const bldgRows = extractTableBySeq(rows, ['主要用途', '主要建材', '附屬建物', '建物交易面積']);
                     bldgRows.forEach(r => {
                         result.buildings.push({
                             seq: r.seq,
                             age: r['屋齡'] || null,
-                            areaPing: numberOf(r['建物移轉面積(坪)'] || r['建物移轉面積'] || 0),
+                            areaPing: numberOf(r['建物移轉面積(坪)'] || r['建物移轉面積'] || r['建物交易面積(坪)'] || r['建物交易面積'] || 0),
                             use: String(r['主要用途'] || '').trim(),
                             material: String(r['主要建材'] || ''),
                             buildDate: String(r['建築完成年月'] || r['建築完成日期'] || ''),

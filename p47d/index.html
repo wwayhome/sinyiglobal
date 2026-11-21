@@ -2123,7 +2123,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 const high = toFloor.value ? Number(toFloor.value) : Infinity;
                 processedRecords = processedRecords.filter(r => r.floorInfo.floors?.some(n => n >= low && n <= high));
             }
-            renderDoorControls();
+            renderDoorControls(processedRecords);
             if (selectedDoors.size) processedRecords = processedRecords.filter(r => selectedDoors.has(unitScope(r).key));
             const selectedUnit = document.getElementById('unitFilter').value;
             if (selectedUnit) processedRecords = processedRecords.filter(r => r.unit === selectedUnit);
@@ -2486,29 +2486,32 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
         function unitScope(row) {
             if (!row.presale) return doorParts(row.address);
             const unit = row.unit.normalize('NFKC').trim();
-            const floorSuffix = unit.match(/^(.+?)[-－](\d+)F號?$/i);
+            const floorSuffix = unit.match(/^([A-Za-z0-9]+)-(\d+)F號?$/i);
             const floors = row.floorInfo?.floors ?? parseFloorInfo(row.floorStr).floors;
             const confirmedFloor = floorSuffix && floors.length === 1 && Number(floorSuffix[2]) === floors[0];
-            const building = unit.match(/^([A-Za-z0-9]+棟).+/)?.[1];
-            const short = building || (confirmedFloor ? floorSuffix[1] : unit) || '戶別未列';
+            const building = unit.match(/^([A-Za-z0-9]+棟)(?:[A-Za-z0-9]+號?)?$/)?.[1];
+            const simpleUnit = /^[A-Za-z0-9]+號?$/.test(unit) ? unit : '';
+            const short = building || (confirmedFloor ? floorSuffix[1] : simpleUnit);
             const project = row.community || row.sourceName || '建案未列';
+            if (!short) return {key:JSON.stringify(['預售','其他']), short:'其他', other:true, project};
             return {key:JSON.stringify(['預售', project, short]), short, project, building};
         }
 
-        function renderDoorControls() {
+        function renderDoorControls(eligibleRecords) {
             const doors = new Map();
             const projects = new Set();
             const streets = new Set();
-            for (const row of currentRawData.main) {
+            for (const row of eligibleRecords) {
                 const door = unitScope(row);
-                if (!doors.has(door.key)) doors.set(door.key, {...door, seq:row.seq, units:new Set()});
+                if (!doors.has(door.key)) doors.set(door.key, {...door, units:new Set()});
                 if (row.presale) {
                     projects.add(door.project);
                     if (door.building) doors.get(door.key).units.add(row.unit);
                 } else streets.add(door.street);
             }
-            const hasPresale = projects.size > 0;
-            const scope = hasPresale ? (streets.size ? '門牌／棟戶' : '棟戶') : '門牌';
+            const hasPresale = currentRawData.main.some(r => r.presale);
+            const hasResale = currentRawData.main.some(r => !r.presale);
+            const scope = hasPresale ? (hasResale ? '門牌／棟戶' : '棟戶') : '門牌';
             for (const key of selectedDoors) if (!doors.has(key)) selectedDoors.delete(key);
             const chosen = [...doors.values()].filter(d => selectedDoors.has(d.key));
             const unitSelect = document.getElementById('unitFilter');
@@ -2522,13 +2525,11 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
             document.getElementById('cancelControl').hidden = !hasPresale;
             document.getElementById('addressHeader').textContent = hasPresale ? '坐落／棟及號' : '門牌地址';
             document.getElementById('buildingHeader').textContent = hasPresale
-                ? (streets.size ? '建物明細' : '建物明細（分層／交易面積）') : '建物明細（依主要用途加總）';
+                ? (hasResale ? '建物明細' : '建物明細（分層／交易面積）') : '建物明細（依主要用途加總）';
 
             function label(d) {
-                if (d.project) {
-                    const text = /\p{Co}/u.test(d.short) ? d.short + ' (#' + d.seq + ')' : d.short;
-                    return projects.size > 1 || streets.size ? d.project + ' · ' + text : text;
-                }
+                if (d.other) return d.short;
+                if (d.project) return projects.size > 1 || streets.size ? d.project + ' · ' + d.short : d.short;
                 return streets.size === 1 ? d.short : d.key;
             }
             const filters = document.getElementById('doorFilters');
@@ -2538,7 +2539,7 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.textContent = text;
-                button.title = key ? text : '顯示所有' + scope;
+                button.title = key ? doors.get(key).short : '顯示所有' + scope;
                 button.setAttribute('aria-pressed', key ? selectedDoors.has(key) : !selectedDoors.size);
                 button.onclick = () => {
                     unitSelect.value = '';
@@ -2550,8 +2551,10 @@ main:has(#pptCanvas) {display:block;overflow-x:auto;padding:20px}
                 };
                 filters.append(button);
             }
-            addButton('全選','');
-            for (const d of [...doors.values()].sort((a,b) => compare(label(a),label(b)))) addButton(label(d),d.key);
+            if (doors.size) addButton('全選','');
+            else filters.append('（目前條件無成交）');
+            const ordered = [...doors.values()].sort((a,b) => Number(!!a.other) - Number(!!b.other) || compare(label(a),label(b)));
+            for (const d of ordered) addButton(label(d),d.key);
             const shown = chosen.length ? chosen : [...doors.values()];
             const caption = shown.length <= 4 ? shown.map(label).join('、') : shown.length + ' 個' + scope;
             document.getElementById('doorScope').textContent = doors.size > 1 || chosen.length

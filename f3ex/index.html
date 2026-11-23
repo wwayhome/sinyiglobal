@@ -1,11 +1,22 @@
 <!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-5YQY4RT9H2"></script>
+<!-- GA4：僅在正式站首頁載入 -->
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-5YQY4RT9H2');
+  (() => {
+    const productionOrigin = 'https://wwayhome.github.io';
+    const productionPaths = ['/sinyiglobal/f3ex/', '/sinyiglobal/f3ex/index.html'];
+    if (location.origin !== productionOrigin || !productionPaths.includes(location.pathname)) return;
+
+    const measurementId = 'G-5YQY4RT9H2';
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { window.dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', measurementId);
+
+    const tag = document.createElement('script');
+    tag.async = true;
+    tag.src = 'https://www.googletagmanager.com/gtag/js?id=' + measurementId;
+    document.head.appendChild(tag);
+  })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>物件傳真排版工具｜信義全球資產</title>
 <link rel="stylesheet" href="styles.css">

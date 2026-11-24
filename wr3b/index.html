@@ -67,6 +67,53 @@
 
         const makeId = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
+        const naturalNameCollator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
+
+        const sortPendingFiles = (items, mode) => {
+            const list = [...items];
+            list.sort((a, b) => {
+                const nameDiff = naturalNameCollator.compare(a.file.name, b.file.name);
+                const timeDiff = (a.file.lastModified || 0) - (b.file.lastModified || 0);
+
+                if (mode === 'name-asc') return nameDiff !== 0 ? nameDiff : timeDiff;
+                if (mode === 'name-desc') return nameDiff !== 0 ? -nameDiff : -timeDiff;
+                if (mode === 'time-asc') return timeDiff !== 0 ? timeDiff : nameDiff;
+                if (mode === 'time-desc') return timeDiff !== 0 ? -timeDiff : nameDiff;
+                return 0;
+            });
+            return list;
+        };
+
+        const reorderPendingFiles = (items, dragId, targetId, position) => {
+            if (!dragId || !targetId || dragId === targetId) return items;
+            const draggedItem = items.find(item => item.id === dragId);
+            if (!draggedItem) return items;
+
+            const remaining = items.filter(item => item.id !== dragId);
+            const targetIndex = remaining.findIndex(item => item.id === targetId);
+            if (targetIndex === -1) return items;
+
+            const insertIndex = position === 'bottom' ? targetIndex + 1 : targetIndex;
+            const result = [...remaining];
+            result.splice(insertIndex, 0, draggedItem);
+            return result;
+        };
+
+        const formatFileSize = (bytes) => {
+            if (!Number.isFinite(bytes) || bytes < 0) return '—';
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        };
+
+        const formatFileDate = (timestamp) => {
+            if (!timestamp) return '—';
+            const d = new Date(timestamp);
+            if (Number.isNaN(d.getTime())) return '—';
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+
         const toUint8ArrayCopy = (input) => {
             if (input instanceof Uint8Array) return new Uint8Array(input);
             if (input instanceof ArrayBuffer) return new Uint8Array(input.slice(0));
@@ -184,6 +231,12 @@
             const [selectionRangeEnd, setSelectionRangeEnd] = useState('');
             const [lastError, setLastError] = useState('');
             const [dialog, setDialog] = useState(null);
+
+            // 多檔匯入順序確認視窗相關狀態
+            const [pendingFiles, setPendingFiles] = useState([]);
+            const [pendingSortMode, setPendingSortMode] = useState('name-asc');
+            const [draggedPendingId, setDraggedPendingId] = useState(null);
+            const [pendingDropIndicator, setPendingDropIndicator] = useState(null);
             
             // 壓縮與進度相關狀態
             const [compressionLevel, setCompressionLevel] = useState('none');
@@ -205,9 +258,8 @@
             
             const fileInputRef = useRef(null);
 
-            const handleFileUpload = async (event) => {
-                const files = Array.from(event.target.files || []);
-                if (files.length === 0) return;
+            const loadPdfFiles = async (files) => {
+                if (!files || files.length === 0) return;
 
                 setIsLoading(true);
                 setLastError('');
@@ -286,6 +338,113 @@
                 }
             };
 
+            const handleFileUpload = async (event) => {
+                const files = Array.from(event.target.files || []);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                if (files.length === 0) return;
+
+                const invalidFile = files.find(
+                    file => file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')
+                );
+                if (invalidFile) {
+                    const message = `「${invalidFile.name}」不是 PDF 檔案。`;
+                    setLastError(message);
+                    setDialog({ type: 'alert', message });
+                    return;
+                }
+
+                // 單檔直接載入，不打擾日常操作
+                if (files.length === 1) {
+                    await loadPdfFiles(files);
+                    return;
+                }
+
+                // 多檔先以檔名自然排序，並彈出順序確認視窗
+                const wrapped = files.map(file => ({ id: makeId(), file }));
+                setPendingFiles(sortPendingFiles(wrapped, 'name-asc'));
+                setPendingSortMode('name-asc');
+                setDraggedPendingId(null);
+                setPendingDropIndicator(null);
+            };
+
+            const applyPendingSort = (mode) => {
+                setPendingFiles(prev => sortPendingFiles(prev, mode));
+                setPendingSortMode(mode);
+            };
+
+            const movePendingFile = (index, direction) => {
+                setPendingFiles(prev => {
+                    const targetIndex = index + direction;
+                    if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+                    const next = [...prev];
+                    const temp = next[index];
+                    next[index] = next[targetIndex];
+                    next[targetIndex] = temp;
+                    return next;
+                });
+                setPendingSortMode('custom');
+            };
+
+            const removePendingFile = (id) => {
+                setPendingFiles(prev => prev.filter(item => item.id !== id));
+            };
+
+            const handlePendingDragStart = (e, id) => {
+                setDraggedPendingId(id);
+                e.dataTransfer.setData('text/plain', id);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handlePendingDragOver = (e, targetId) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (!draggedPendingId || draggedPendingId === targetId) {
+                    setPendingDropIndicator(null);
+                    return;
+                }
+                const rect = e.currentTarget.getBoundingClientRect();
+                const y = e.clientY - rect.top;
+                const position = y < rect.height / 2 ? 'top' : 'bottom';
+                setPendingDropIndicator(prev => {
+                    if (prev?.targetId === targetId && prev?.position === position) return prev;
+                    return { targetId, position };
+                });
+            };
+
+            const handlePendingDrop = (e, targetId) => {
+                e.preventDefault();
+                if (!draggedPendingId || !pendingDropIndicator) {
+                    setDraggedPendingId(null);
+                    setPendingDropIndicator(null);
+                    return;
+                }
+                setPendingFiles(prev => reorderPendingFiles(prev, draggedPendingId, targetId, pendingDropIndicator.position));
+                setPendingSortMode('custom');
+                setDraggedPendingId(null);
+                setPendingDropIndicator(null);
+            };
+
+            const handlePendingDragEnd = () => {
+                setDraggedPendingId(null);
+                setPendingDropIndicator(null);
+            };
+
+            const cancelPendingImport = () => {
+                setPendingFiles([]);
+                setDraggedPendingId(null);
+                setPendingDropIndicator(null);
+            };
+
+            const confirmPendingImport = async () => {
+                const filesToLoad = pendingFiles.map(item => item.file);
+                setPendingFiles([]);
+                setDraggedPendingId(null);
+                setPendingDropIndicator(null);
+                if (filesToLoad.length > 0) {
+                    await loadPdfFiles(filesToLoad);
+                }
+            };
+
             // 即時產出該頁的高畫質大圖
             const openPreview = async (page) => {
                 setPreviewPage(page);
@@ -361,16 +520,20 @@
                 setIsDragging(false);
             };
 
-            // 按下 ESC 鍵時自動關閉放大預覽
+            // 按下 ESC 鍵時自動關閉放大預覽或匯入排序視窗
             useEffect(() => {
                 const handleKeyDown = (e) => {
-                    if (e.key === 'Escape' && previewPage) {
-                        closePreview();
+                    if (e.key === 'Escape') {
+                        if (previewPage) {
+                            closePreview();
+                        } else if (pendingFiles.length > 0) {
+                            cancelPendingImport();
+                        }
                     }
                 };
                 window.addEventListener('keydown', handleKeyDown);
                 return () => window.removeEventListener('keydown', handleKeyDown);
-            }, [previewPage, highResPreviewUrl]);
+            }, [previewPage, highResPreviewUrl, pendingFiles.length]);
 
             // 滑動/拖曳預覽大圖邏輯
             const handleMouseDown = (e) => {
@@ -840,7 +1003,6 @@
             return (
                 <div className="min-h-screen p-8 font-sans relative">
                     <div className="max-w-6xl mx-auto">
-                        {}
                         <header className="mb-8 text-center">
                             <h1 className="text-3xl font-bold text-gray-800 mb-2">📄 地端 PDF 處理工具</h1>
                             <p className="text-gray-500">所有的處理都在您的瀏覽器中進行，檔案不會上傳至任何伺服器，確保隱私。</p>
@@ -853,7 +1015,7 @@
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">1</span>
                                         <div>
                                             <h2 className="font-bold text-gray-800">檔案管理</h2>
-                                            <p className="text-xs text-gray-500">先載入或附加 PDF 檔案</p>
+                                            <p className="text-xs text-gray-500">先載入或附加 PDF 檔案（多檔可先調整順序）</p>
                                         </div>
                                     </div>
                                     <div className="flex flex-col sm:flex-row gap-3">
@@ -863,7 +1025,7 @@
                                             <input type="file" accept="application/pdf" multiple className="hidden" onChange={handleFileUpload} ref={fileInputRef}/>
                                         </label>
                                         {pages.length > 0 && (
-                                            <button onClick={clearAll} className="border border-red-200 bg-white hover:bg-red-50 text-red-600 px-4 py-2.5 rounded-lg transition font-medium">
+                                            <button type="button" onClick={clearAll} className="border border-red-200 bg-white hover:bg-red-50 text-red-600 px-4 py-2.5 rounded-lg transition font-medium">
                                                 清除全部
                                             </button>
                                         )}
@@ -882,7 +1044,6 @@
                                     </div>
                                 </section>
 
-                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-blue-100 bg-blue-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">2</span>
@@ -901,13 +1062,13 @@
                                         {pages.length > 0 && (
                                             <div className="mt-4 space-y-3">
                                                 <div className="flex flex-wrap gap-2">
-                                                    <button onClick={toggleMultiSelectMode} className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${isMultiSelectMode ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}>
+                                                    <button type="button" onClick={toggleMultiSelectMode} className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${isMultiSelectMode ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}>
                                                         {isMultiSelectMode ? '關閉多選' : '啟動多選'}
                                                     </button>
                                                     {isMultiSelectMode && (
                                                         <>
-                                                            <button onClick={selectAllPages} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">全選</button>
-                                                            <button onClick={clearPageSelection} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">取消選取</button>
+                                                            <button type="button" onClick={selectAllPages} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">全選</button>
+                                                            <button type="button" onClick={clearPageSelection} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">取消選取</button>
                                                         </>
                                                     )}
                                                 </div>
@@ -925,7 +1086,7 @@
                                                                 <input type="number" min="1" max={pages.length} value={selectionRangeEnd} onChange={e => setSelectionRangeEnd(e.target.value)} placeholder={pages.length} className="mt-1 w-full px-2 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white" />
                                                             </label>
                                                         </div>
-                                                        <button onClick={addRangeSelection} className="mt-2 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">加入選取範圍</button>
+                                                        <button type="button" onClick={addRangeSelection} className="mt-2 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">加入選取範圍</button>
                                                         <p className="mt-2 text-[11px] leading-relaxed text-blue-700">桌機也可先勾選一頁，再按住 Shift 勾選另一頁，自動選取中間範圍。</p>
                                                     </div>
                                                 )}
@@ -934,7 +1095,6 @@
                                     </div>
                                 </section>
 
-                                {}
                                 <section className={`rounded-xl border p-4 ${pages.length > 0 ? 'border-green-100 bg-green-50/60' : 'border-gray-100 bg-gray-50'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">3</span>
@@ -994,7 +1154,7 @@
 
                                         <div className="text-xs text-gray-600 bg-white border border-gray-100 rounded-lg px-3 py-2">{getExportSummary()}</div>
 
-                                        <button onClick={handleExport} disabled={isLoading || pages.length === 0} className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow-sm transition font-bold flex items-center disabled:opacity-50 w-full justify-center">
+                                        <button type="button" onClick={handleExport} disabled={isLoading || pages.length === 0} className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow-sm transition font-bold flex items-center disabled:opacity-50 w-full justify-center">
                                             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                             {isLoading ? '處理中...' : '匯出 PDF'}
                                         </button>
@@ -1003,7 +1163,6 @@
                             </div>
                         </div>
 
-                        {}
                         {lastError && (
                             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                                 <strong>錯誤：</strong>{lastError}
@@ -1020,7 +1179,6 @@
                             </div>
                         )}
 
-                        {}
                         {pages.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator(null); }}>
                                 {pages.map((page, index) => {
@@ -1098,10 +1256,190 @@
                             )
                         )}
 
-                        {}
+                        {/* 多檔匯入順序確認視窗 */}
+                        {pendingFiles.length > 0 && (
+                            <div
+                                className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm transition-opacity"
+                                onClick={(e) => { if (e.target === e.currentTarget) cancelPendingImport(); }}
+                            >
+                                <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-gray-100 flex flex-col max-h-[85vh] overflow-hidden">
+                                    {/* 視窗標題 */}
+                                    <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-gray-800">確認匯入檔案順序</h3>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                已選擇 {pendingFiles.length} 個 PDF 檔案，預設依檔名自然排序。可點選下方按鈕一鍵重排，或上下拖曳微調。
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={cancelPendingImport}
+                                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                                            title="取消 (ESC)"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    {/* 快速排序工具列 */}
+                                    <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-2">
+                                        <span className="text-xs font-semibold text-gray-500 mr-1">快速排序：</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPendingSort('name-asc')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${pendingSortMode === 'name-asc' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                                        >
+                                            檔名 A → Z
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPendingSort('name-desc')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${pendingSortMode === 'name-desc' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                                        >
+                                            檔名 Z → A
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPendingSort('time-asc')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${pendingSortMode === 'time-asc' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                                        >
+                                            修改時間 舊 → 新
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPendingSort('time-desc')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${pendingSortMode === 'time-desc' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                                        >
+                                            修改時間 新 → 舊
+                                        </button>
+                                        {pendingSortMode === 'custom' && (
+                                            <span className="ml-auto text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full">
+                                                手動調整中
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* 檔案排序清單 */}
+                                    <div
+                                        className="px-6 py-4 overflow-y-auto flex-1 space-y-2"
+                                        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setPendingDropIndicator(null); }}
+                                    >
+                                        {pendingFiles.map((item, index) => {
+                                            const isDragged = draggedPendingId === item.id;
+                                            const showTopLine = pendingDropIndicator?.targetId === item.id && pendingDropIndicator?.position === 'top';
+                                            const showBottomLine = pendingDropIndicator?.targetId === item.id && pendingDropIndicator?.position === 'bottom';
+
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    draggable="true"
+                                                    onDragStart={(e) => handlePendingDragStart(e, item.id)}
+                                                    onDragOver={(e) => handlePendingDragOver(e, item.id)}
+                                                    onDrop={(e) => handlePendingDrop(e, item.id)}
+                                                    onDragEnd={handlePendingDragEnd}
+                                                    className={`relative flex items-center gap-3 p-3 rounded-xl border bg-white cursor-move transition ${isDragged ? 'opacity-40 border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/20'}`}
+                                                >
+                                                    {showTopLine && (
+                                                        <div className="absolute -top-1.5 left-2 right-2 h-1 bg-blue-500 rounded-full z-10 pointer-events-none"></div>
+                                                    )}
+                                                    {showBottomLine && (
+                                                        <div className="absolute -bottom-1.5 left-2 right-2 h-1 bg-blue-500 rounded-full z-10 pointer-events-none"></div>
+                                                    )}
+
+                                                    {/* 拖曳握把圖示 */}
+                                                    <div className="text-gray-300 flex-shrink-0" title="上下拖曳排序">
+                                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M7 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm9-12a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                                                        </svg>
+                                                    </div>
+
+                                                    {/* 序號 */}
+                                                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
+                                                        {index + 1}
+                                                    </span>
+
+                                                    {/* 檔名與資訊 */}
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-sm font-semibold text-gray-800 truncate" title={item.file.name}>
+                                                            {item.file.name}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                                                            <span>大小：{formatFileSize(item.file.size)}</span>
+                                                            <span>修改時間：{formatFileDate(item.file.lastModified)}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 上移 / 下移 / 移除按鈕 */}
+                                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => movePendingFile(index, -1)}
+                                                            disabled={index === 0}
+                                                            className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                                                            title="上移"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => movePendingFile(index, 1)}
+                                                            disabled={index === pendingFiles.length - 1}
+                                                            className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                                                            title="下移"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removePendingFile(item.id)}
+                                                            className="p-1.5 rounded-lg border border-red-100 bg-red-50/60 text-red-500 hover:bg-red-500 hover:text-white transition ml-1"
+                                                            title="從此次匯入移除"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* 底部操作列 */}
+                                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <span className="text-xs text-gray-500">
+                                            {pages.length > 0 ? '確認後將依此順序附加在現有頁面後方' : '確認後將依此順序載入所有頁面'}
+                                        </span>
+                                        <div className="flex justify-end gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={cancelPendingImport}
+                                                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200/70 rounded-xl transition"
+                                            >
+                                                取消
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={confirmPendingImport}
+                                                className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition"
+                                            >
+                                                開始匯入（{pendingFiles.length} 個檔案）
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* 自訂對話框的 UI */}
                         {dialog && (
-                            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity">
+                            <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity">
                                 <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-100 transform transition-all">
                                     <h3 className="text-xl font-bold text-gray-800 mb-3">
                                         {dialog.type === 'confirm' ? '請確認' : '提示'}
@@ -1110,6 +1448,7 @@
                                     <div className="flex justify-end gap-3">
                                         {dialog.type === 'confirm' && (
                                             <button
+                                                type="button"
                                                 onClick={() => setDialog(null)}
                                                 className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                                             >
@@ -1117,6 +1456,7 @@
                                             </button>
                                         )}
                                         <button
+                                            type="button"
                                             onClick={() => {
                                                 if (dialog.onConfirm) dialog.onConfirm();
                                                 else setDialog(null);
@@ -1134,7 +1474,6 @@
                             </div>
                         )}
 
-                        {}
                         {/* 放大預覽 Modal */}
                         {previewPage && (
                             <div
@@ -1148,6 +1487,7 @@
                             >
                                 {/* 右上角獨立關閉按鈕 */}
                                 <button
+                                    type="button"
                                     onClick={closePreview}
                                     className="absolute top-6 right-6 bg-black/60 hover:bg-red-600 hover:scale-105 active:scale-95 text-white pl-5 pr-6 py-3.5 rounded-full shadow-2xl transition-all z-[110] border border-white/20 flex items-center gap-2 text-sm font-bold"
                                     title="關閉預覽 (ESC)"
@@ -1164,6 +1504,7 @@
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <button
+                                        type="button"
                                         onClick={closePreview}
                                         className="bg-red-600 hover:bg-red-500 active:scale-95 text-white px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-1.5 shadow-md"
                                         title="關閉預覽 (亦可點擊背景或按 ESC 鍵)"
@@ -1177,6 +1518,7 @@
                                     <div className="h-5 w-px bg-white/20"></div>
 
                                     <button
+                                        type="button"
                                         onClick={() => setPreviewScale(p => Math.max(p / 1.15, 0.5))}
                                         className="hover:bg-white/15 p-2 rounded-lg transition"
                                         title="縮小"
@@ -1187,6 +1529,7 @@
                                         {Math.round(previewScale * 100)}%
                                     </span>
                                     <button
+                                        type="button"
                                         onClick={() => setPreviewScale(p => Math.min(p * 1.15, 8.0))}
                                         className="hover:bg-white/15 p-2 rounded-lg transition"
                                         title="放大"
@@ -1197,6 +1540,7 @@
                                     <div className="h-5 w-px bg-white/20"></div>
                                     
                                     <button
+                                        type="button"
                                         onClick={() => { setPreviewScale(1); setPanOffset({ x: 0, y: 0 }); }}
                                         className="text-xs hover:bg-white/15 px-3 py-2 rounded-full transition font-semibold"
                                         title="還原原始大小並置中"
